@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, ArrowRight, Code2, LineChart, ShieldAlert, FileText, Zap } from 'lucide-react';
+import { Sparkles, ArrowRight } from 'lucide-react';
 import { StructuredLLMOutput } from '@/types/terminal';
 
 interface SmartSuggestionsProps {
@@ -14,18 +14,18 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ data, symbol
   if (!data) return null;
 
   const suggestions = [
-    { label: `Compare ${symbol} with ETH/USDT`, action: `Compare ${symbol} relative performance and correlation with ETH/USDT` },
-    { label: 'Export Pine Script Overlay', action: 'Generate Pine Script' },
-    { label: 'Explain RSI & MACD Divergence', action: `Explain RSI and MACD momentum divergence on ${symbol}` },
-    { label: 'Show Bull vs Bear Scenarios', action: `Detail the Bullish target and Bearish invalidation levels for ${symbol}` },
-    { label: 'Estimate 24h Price Probability', action: `Provide probability estimates for ${symbol} over the next 24h` },
+    { label: `Compare ${symbol} with ETH/USDT >`, action: `Compare ${symbol} relative performance and correlation with ETH/USDT` },
+    { label: 'Export Pine Script Overlay >', action: 'Generate Pine Script' },
+    { label: 'Explain RSI & MACD Divergence >', action: `Explain RSI and MACD momentum divergence on ${symbol}` },
+    { label: 'Show Bull vs Bear Scenarios >', action: `Detail the Bullish target and Bearish invalidation levels for ${symbol}` },
+    { label: 'Estimate 24h Price Probability >', action: `Provide probability estimates for ${symbol} over the next 24h` },
   ];
 
   return (
-    <div className="bg-[#18181b]/90 border border-[#27272a] backdrop-blur-xl rounded-[24px] p-5 text-[#f5f5f4] shadow-2xl space-y-3 hover:border-[#fbe1d1]/30 transition-all duration-300">
-      <div className="flex items-center gap-2 border-b border-[#27272a] pb-2.5">
-        <Sparkles className="w-4 h-4 text-[#fbe1d1]" />
-        <span className="text-xs text-[#71717a] font-normal tracking-wide uppercase">
+    <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-5 text-[#e2e3e9] space-y-3">
+      <div className="flex items-center gap-2 border-b border-[#1c1d22] pb-2.5">
+        <Sparkles className="w-4 h-4 text-[#cc9166]" />
+        <span className="eyebrow-copper uppercase">
           SMART AI FOLLOW-UP ACTIONS
         </span>
       </div>
@@ -35,10 +35,9 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ data, symbol
           <button
             key={idx}
             onClick={() => onSelectAction(item.action)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#121214] hover:bg-[#27272a] border border-[#27272a] text-xs text-[#fbe1d1] transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-none bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166] text-xs font-mono text-[#e2e3e9] hover:text-[#cc9166] transition-all cursor-pointer"
           >
             <span>{item.label}</span>
-            <ArrowRight className="w-3 h-3 text-[#fbe1d1]" />
           </button>
         ))}
       </div>

@@ -94,22 +94,25 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   };
 
   return (
-    <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-4 flex flex-col w-full space-y-3">
+    <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-4 flex flex-col w-full space-y-3">
       {/* TradingView Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2 border-b border-[#1c1d22]">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#cc9166] animate-pulse" />
-          <span className="text-xs font-sans font-medium text-[#ffffff]">
-            {formatTVSymbol(symbol, exchange)} ({timeframe}) • TradingView Terminal
+          <span className="w-2.5 h-2.5 rounded-none bg-emerald-400 animate-pulse" />
+          <span className="eyebrow-copper">
+            QUANT RECHARTS TARGET MAP
+          </span>
+          <span className="text-xs font-sans text-[#9194a1] hidden sm:inline">
+            • Pure Target Level Channels (Entry Zone, SL & Take Profit Targets)
           </span>
         </div>
 
         <button
           onClick={handleCopyPine}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-none text-xs font-mono transition-all cursor-pointer ${
             copied
-              ? 'bg-[#ffffff] text-[#08080a] font-medium'
-              : 'bg-[#121317] hover:bg-[#1c1d22] border border-[#777a88] text-[#ffffff]'
+              ? 'bg-emerald-400 text-[#08080a] font-bold'
+              : 'bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166] text-[#e2e3e9]'
           }`}
         >
           {copied ? <Check className="w-3.5 h-3.5 text-[#08080a]" /> : <Copy className="w-3.5 h-3.5 text-[#cc9166]" />}
@@ -117,28 +120,34 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         </button>
       </div>
 
-      {/* Floating Level Overlay Banner */}
+      {/* Floating Level Overlay Banner - ZERO BORDER RADIUS */}
       {setup && (
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-[10px] text-xs font-sans">
-          <div className="flex items-center gap-2 text-rose-400 font-medium bg-[#1c1d22] border border-rose-900/50 px-3 py-1 rounded-full">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-none text-xs font-mono">
+          <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-950/80 border border-emerald-500 px-3 py-1 rounded-none">
+            <span>{setup.position} ({setup.recommended_leverage})</span>
+            <span className="text-[#5e616e]">|</span>
+            <span>R:R {setup.risk_reward_ratio}R</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-rose-400 font-bold bg-rose-950/80 border border-rose-500 px-3 py-1 rounded-none">
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>SL: ${setup.stop_loss}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-[#ffffff] font-medium bg-[#1c1d22] border border-[#2e3038] px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 text-[#ffffff] font-medium bg-[#08080a] border border-[#1c1d22] px-3 py-1 rounded-none">
             <span>Entry: ${setup.entry_range?.[0]} - ${setup.entry_range?.[1]}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-[#cc9166] font-medium bg-[#1c1d22] border border-[#cc9166]/30 px-3 py-1 rounded-full">
-            <CheckCircle2 className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-900/60 px-3 py-1 rounded-none">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>TP1: ${setup.take_profit_1}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-[#cc9166] font-medium bg-[#1c1d22] border border-[#cc9166]/30 px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-900/60 px-3 py-1 rounded-none">
             <span>TP2: ${setup.take_profit_2}</span>
           </div>
 
-          <div className="flex items-center gap-2 text-[#cc9166] font-medium bg-[#1c1d22] border border-[#cc9166]/30 px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-900/60 px-3 py-1 rounded-none">
             <span>TP3: ${setup.take_profit_3}</span>
           </div>
         </div>
@@ -147,7 +156,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       {/* TradingView Widget Box */}
       <div
         ref={containerRef}
-        className="w-full h-[850px] rounded-[10px] overflow-hidden shrink-0 border border-[#1c1d22]"
+        className="w-full h-[850px] rounded-none overflow-hidden shrink-0 border border-[#1c1d22]"
         style={{ height: '850px', minHeight: '850px' }}
       />
     </div>
