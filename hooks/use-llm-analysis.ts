@@ -1,0 +1,258 @@
+'use client';
+
+import { useState, useCallback, useRef } from 'react';
+import { FullMarketContextPayload } from '@/types/analysis';
+import { LogStep } from '@/components/analysis/live-status-logger';
+import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
+import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
+
+export function useLLMAnalysis() {
+  const [analysisText, setAnalysisText] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [logSteps, setLogSteps] = useState<LogStep[]>([
+    {
+      id: 'step-1',
+      label: 'Initializing Exchange API & CCXT Data Engine',
+      status: 'pending',
+    },
+    {
+      id: 'step-2',
+      label: 'Fetching OHLCV Candlesticks, Order Book & Volume Delta (CVD)',
+      status: 'pending',
+    },
+    {
+      id: 'step-3',
+      label: 'Calculating Server-Side Technical Indicators (EMA 7/20/50, RSI, MACD, S&R)',
+      status: 'pending',
+    },
+    {
+      id: 'step-4',
+      label: 'Aggregating Fear & Greed Index and News Feeds',
+      status: 'pending',
+    },
+    {
+      id: 'step-5',
+      label: 'Connecting to Local LLM Engine (http://127.0.0.1:20128/v1)',
+      status: 'pending',
+    },
+    {
+      id: 'step-6',
+      label: 'Streaming AI Analysis & Trade Signal Payload',
+      status: 'pending',
+    },
+  ]);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const autoSaveToLocalStorage = useCallback((text: string, contextPayload: FullMarketContextPayload) => {
+    if (!text) return;
+    try {
+      let parsedJson = null;
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch && jsonMatch[1]) {
+        parsedJson = JSON.parse(jsonMatch[1]);
+      }
+      const sym = contextPayload.metadata?.symbol || 'BTC/USDT';
+      const pineCode = generateAdvancedPineScriptCode(parsedJson, sym);
+
+      const record: StoredAnalysisRecord = {
+        id: 'analysis_' + Date.now(),
+        symbol: sym,
+        exchange: contextPayload.metadata?.exchange || 'kucoin',
+        timeframe: contextPayload.metadata?.primaryTimeframe || '1h',
+        price: contextPayload.ticker?.price || 0,
+        signal: parsedJson?.signal || 'NEUTRAL',
+        confidence: parsedJson?.confidence || 75,
+        risk_level: parsedJson?.risk_level || 'MEDIUM',
+        json_output: parsedJson,
+        markdown_report: text,
+        pine_script: pineCode,
+        created_at: new Date().toISOString(),
+      };
+      AppStorageEngine.saveAnalysis(record);
+    } catch (e) {
+      console.warn('[useLLMAnalysis] Failed to auto-save analysis to local storage:', e);
+    }
+  }, []);
+
+  const triggerAnalysis = useCallback(async (contextPayload: FullMarketContextPayload) => {
+    if (!contextPayload) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    setIsLoading(true);
+    setIsStreaming(true);
+    setAnalysisText('');
+    setError(null);
+
+    setLogSteps([
+      {
+        id: 'step-1',
+        label: 'Initializing Exchange API & CCXT Data Engine',
+        status: 'completed',
+        detail: `Connected to ${contextPayload.metadata?.exchange?.toUpperCase() || 'EXCHANGE'} exchange`,
+      },
+      {
+        id: 'step-2',
+        label: 'Fetching OHLCV Candlesticks, Order Book & Volume Delta (CVD)',
+        status: 'completed',
+        detail: `Fetched price $${contextPayload.ticker?.price} across multi-timeframe candles`,
+      },
+      {
+        id: 'step-3',
+        label: 'Calculating Server-Side Technical Indicators (EMA 7/20/50, RSI, MACD, S&R)',
+        status: 'completed',
+        detail: 'Computed EMA 7/20/50/200, RSI 14, MACD, Bollinger Bands, ATR & S&R levels',
+      },
+      {
+        id: 'step-4',
+        label: 'Aggregating Fear & Greed Index and News Feeds',
+        status: 'completed',
+        detail: `Fear & Greed Index: ${contextPayload.macroSentiment?.fearAndGreed?.value ?? 50}`,
+      },
+      {
+        id: 'step-5',
+        label: 'Connecting to Local LLM Engine (http://127.0.0.1:20128/v1)',
+        status: 'in_progress',
+        detail: 'Sending quantitative payload to 9router Hermes LLM...',
+      },
+      {
+        id: 'step-6',
+        label: 'Streaming AI Analysis & Trade Signal Payload',
+        status: 'pending',
+      },
+    ]);
+
+    try {
+      const response = await fetch('/api/analysis/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contextPayload),
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`LLM Stream HTTP error ${response.status}`);
+      }
+
+      setLogSteps((prev) =>
+        prev.map((step) =>
+          step.id === 'step-5'
+            ? { ...step, status: 'completed', detail: 'Local LLM connected successfully.' }
+            : step.id === 'step-6'
+            ? { ...step, status: 'in_progress', detail: 'Streaming dual JSON & Markdown tokens...' }
+            : step
+        )
+      );
+
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!contentType.includes('text/event-stream')) {
+        const text = await response.text();
+        setAnalysisText(text);
+        setIsLoading(false);
+        setIsStreaming(false);
+        autoSaveToLocalStorage(text, contextPayload);
+        setLogSteps((prev) =>
+          prev.map((step) =>
+            step.id === 'step-6' ? { ...step, status: 'completed', detail: 'Standalone analysis loaded.' } : step
+          )
+        );
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body reader unavailable.');
+      }
+
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let accumulatedText = '';
+      setIsLoading(false);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
+
+          if (trimmed === 'data: [DONE]') {
+            setIsStreaming(false);
+            autoSaveToLocalStorage(accumulatedText, contextPayload);
+            setLogSteps((prev) =>
+              prev.map((step) =>
+                step.id === 'step-6'
+                  ? { ...step, status: 'completed', detail: 'Full analysis stream finished.' }
+                  : step
+              )
+            );
+            return;
+          }
+
+          if (trimmed.startsWith('data: ')) {
+            try {
+              const json = JSON.parse(trimmed.replace('data: ', ''));
+              const tokenContent = json.choices?.[0]?.delta?.content || json.content || '';
+              if (tokenContent) {
+                accumulatedText += tokenContent;
+                setAnalysisText((prev) => prev + tokenContent);
+              }
+              if (json.error) {
+                setError(json.error);
+                setLogSteps((prev) =>
+                  prev.map((step) =>
+                    step.id === 'step-6'
+                      ? { ...step, status: 'failed', detail: json.error }
+                      : step
+                  )
+                );
+              }
+            } catch {
+              // Ignore partial JSON chunks
+            }
+          }
+        }
+      }
+      setIsStreaming(false);
+      autoSaveToLocalStorage(accumulatedText, contextPayload);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('[useLLMAnalysis] Exception:', err);
+        setError(err.message || 'Error connecting to local LLM server');
+        setLogSteps((prev) =>
+          prev.map((step) =>
+            step.id === 'step-5' || step.id === 'step-6'
+              ? { ...step, status: 'failed', detail: err.message }
+              : step
+          )
+        );
+      }
+      setIsLoading(false);
+      setIsStreaming(false);
+    }
+  }, []);
+
+  return {
+    analysisText,
+    isStreaming,
+    isLoading,
+    error,
+    logSteps,
+    runAnalysis: triggerAnalysis,
+  };
+}
