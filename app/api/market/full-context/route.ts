@@ -1,0 +1,83 @@
+import { NextResponse } from 'next/server';
+import { CCXTMarketService } from '@/lib/market/ccxt-service';
+import { TechnicalIndicatorEngine } from '@/lib/market/indicators';
+import { MacroSentimentService } from '@/lib/market/macro-service';
+import { NewsService } from '@/lib/news/news-service';
+import { FullMarketContextPayload } from '@/types/analysis';
+import { ProcessedTimeframeData } from '@/types/market';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const symbol = searchParams.get('symbol') || 'BTC/USDT';
+  const exchange = searchParams.get('exchange') || 'kucoin';
+  const primaryTimeframe = searchParams.get('timeframe') || '1h';
+
+  try {
+    const timeframes = Array.from(new Set(['5m', '15m', '1h', '4h', '1d', primaryTimeframe]));
+
+    // 1. Fetch Ticker & Macro components first
+    const [ticker, macroSentiment, derivatives, microstructure, news] = await Promise.all([
+      CCXTMarketService.fetchTicker(symbol, exchange),
+      MacroSentimentService.fetchMacroSentiment(),
+      CCXTMarketService.fetchDerivativesMetrics(symbol, exchange),
+      CCXTMarketService.fetchMicrostructure(symbol, exchange),
+      NewsService.getNewsPayload(5),
+    ]);
+
+    // 2. Fetch Timeframe Candles using ticker price as fallback
+    const candlesResults = await Promise.all(
+      timeframes.map(async (tf) => {
+        const rawCandles = await CCXTMarketService.fetchOHLCV(symbol, tf, 60, exchange);
+        const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
+        const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
+        const latestClose =
+          processedCandles.length > 0
+            ? processedCandles[processedCandles.length - 1].close
+            : ticker.price || 0;
+        const latestIndicators =
+          processedCandles.length > 0
+            ? processedCandles[processedCandles.length - 1].indicators
+            : ({} as any);
+
+        const tfData: ProcessedTimeframeData = {
+          timeframe: tf,
+          candleCount: rawCandles.length,
+          latestClose,
+          indicators: latestIndicators,
+          keyLevels,
+          candles: processedCandles,
+        };
+        return [tf, tfData] as const;
+      })
+    );
+
+    const timeframesData: Record<string, ProcessedTimeframeData> = {};
+    for (const [tf, tfData] of candlesResults) {
+      timeframesData[tf] = tfData;
+    }
+
+    const payload: FullMarketContextPayload = {
+      metadata: {
+        symbol,
+        exchange,
+        primaryTimeframe,
+        timestampUtc: new Date().toISOString(),
+      },
+      ticker,
+      macroSentiment,
+      derivatives,
+      microstructure,
+      news,
+      timeframes: timeframesData,
+    };
+
+    return NextResponse.json(payload);
+  } catch (err) {
+    console.error('[API /market/full-context] Error:', err);
+    return NextResponse.json(
+      { error: 'Failed to aggregate market data context.' },
+      { status: 500 }
+    );
+  }
+}
+
