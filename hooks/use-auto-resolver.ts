@@ -22,15 +22,22 @@ export function useAutoResolver() {
 
       console.log(`[AutoResolver] Found ${pending.length} pending signals to resolve.`);
 
-      for (const rec of pending) {
+      // Process signals sequentially with a small delay to avoid memory pileup
+      for (let i = 0; i < pending.length; i++) {
+        const rec = pending[i];
         try {
+          // Small delay between signals to let GC breathe
+          if (i > 0) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+
           const since = new Date(rec.created_at).getTime();
           // We will fetch 1h or 15m candles from since timestamp to current time.
           // Let's use 15m timeframe to get enough price granularities
           const response = await fetch(
             `/api/market/history-ohlcv?symbol=${encodeURIComponent(
               rec.symbol
-            )}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=500`
+            )}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=100`
           );
 
           if (!response.ok) continue;
