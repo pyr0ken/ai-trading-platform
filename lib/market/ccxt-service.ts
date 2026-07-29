@@ -156,6 +156,40 @@ export class CCXTMarketService {
   /**
    * Fetch OHLCV candlesticks aligned to live price
    */
+  public static async fetchOHLCVWithSince(
+    symbol: string,
+    timeframe: string,
+    since: number,
+    limit = 100,
+    exchangeId = 'kucoin'
+  ): Promise<CandleData[]> {
+    try {
+      const exchange = this.getExchange(exchangeId);
+      const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
+      if (ohlcv && ohlcv.length > 0) {
+        return ohlcv.map((c) => {
+          const timestamp = Number(c[0]);
+          const dt = new Date(timestamp);
+          const priceVal = Number(c[4] || 0);
+          const decimalPlaces = priceVal < 1 ? 4 : 2;
+
+          return {
+            timestamp,
+            gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+            open: Number((c[1] || 0).toFixed(decimalPlaces)),
+            high: Number((c[2] || 0).toFixed(decimalPlaces)),
+            low: Number((c[3] || 0).toFixed(decimalPlaces)),
+            close: Number(priceVal.toFixed(decimalPlaces)),
+            volume: Number((c[5] || 0).toFixed(2)),
+          };
+        });
+      }
+    } catch (e) {
+      console.error('[CCXT fetchOHLCVWithSince] Error:', e);
+    }
+    return [];
+  }
+
   public static async fetchOHLCV(
     symbol: string,
     timeframe: string,

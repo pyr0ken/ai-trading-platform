@@ -179,14 +179,41 @@ export class AppStorageEngine {
     }
   }
 
+  public static saveAnalyses(list: StoredAnalysisRecord[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(list));
+    } catch (e) {
+      console.warn('LocalStorage saveAnalyses error:', e);
+    }
+  }
+
   public static saveAnalysis(record: StoredAnalysisRecord): void {
     if (typeof window === 'undefined') return;
     try {
       const list = this.getAnalyses();
       const updated = [record, ...list.filter((a) => a.id !== record.id)].slice(0, 100);
-      localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(updated));
+      this.saveAnalyses(updated);
     } catch (e) {
       console.warn('LocalStorage saveAnalysis error:', e);
+    }
+  }
+
+  public static updateAnalysisRecordStatus(
+    id: string,
+    status: 'WIN' | 'LOSS' | 'INVALIDATED',
+    currentPrice: number,
+    pnl: number
+  ): void {
+    const list = this.getAnalyses();
+    const index = list.findIndex((rec) => rec.id === id);
+    if (index !== -1) {
+      list[index].accuracy_evaluation = {
+        status,
+        current_price: currentPrice,
+        pnl_percentage: pnl,
+      };
+      this.saveAnalyses(list);
     }
   }
 
