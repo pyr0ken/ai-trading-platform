@@ -23,7 +23,12 @@ import {
   CartesianGrid,
 } from 'recharts';
 
-export const PaperPortfolio: React.FC = () => {
+interface PaperPortfolioProps {
+  currentPrice?: number;
+  symbol?: string;
+}
+
+export const PaperPortfolio: React.FC<PaperPortfolioProps> = ({ currentPrice, symbol }) => {
   const {
     positions,
     account,
@@ -43,6 +48,7 @@ export const PaperPortfolio: React.FC = () => {
   });
 
   const [selectedSymbol, setSelectedSymbol] = useState<string>(() => {
+    if (symbol) return symbol;
     if (typeof window === 'undefined') return 'BTC/USDT';
     try {
       const list = AppStorageEngine.getWatchlist();
@@ -58,11 +64,29 @@ export const PaperPortfolio: React.FC = () => {
   const [entryPrice, setEntryPrice] = useState<number>(0);
   const [stopLoss, setStopLoss] = useState<number>(0);
   const [takeProfit, setTakeProfit] = useState<number>(0);
+  
+  const [orderExecuted, setOrderExecuted] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'open' | 'closed' | 'performance'>('open');
 
-  // Fetch price client-side to initialize the form defaults
+  // Load parent prices first if available, otherwise fetch from Binance
   useEffect(() => {
+    if (currentPrice && symbol) {
+      setTimeout(() => {
+        setSelectedSymbol(symbol);
+        setEntryPrice(currentPrice);
+        if (side === 'LONG') {
+          setStopLoss(Number((currentPrice * 0.98).toFixed(2)));
+          setTakeProfit(Number((currentPrice * 1.05).toFixed(2)));
+        } else {
+          setStopLoss(Number((currentPrice * 1.02).toFixed(2)));
+          setTakeProfit(Number((currentPrice * 0.95).toFixed(2)));
+        }
+      }, 0);
+      return;
+    }
+
     const initPrices = async () => {
       try {
         const cleanPair = selectedSymbol.replace('/', '').toUpperCase();
@@ -85,11 +109,24 @@ export const PaperPortfolio: React.FC = () => {
     };
 
     initPrices();
-  }, [selectedSymbol, side]);
+  }, [selectedSymbol, side, currentPrice, symbol]);
 
   const handleOpenOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!entryPrice || !stopLoss || !takeProfit) return;
+    if (!entryPrice || entryPrice <= 0) {
+      setValidationError('Please specify a valid Entry Price.');
+      return;
+    }
+    if (!stopLoss || stopLoss <= 0) {
+      setValidationError('Please specify a valid Stop Loss Price.');
+      return;
+    }
+    if (!takeProfit || takeProfit <= 0) {
+      setValidationError('Please specify a valid Take Profit Price.');
+      return;
+    }
+
+    setValidationError(null);
 
     const quantity = (margin * leverage) / entryPrice;
 
@@ -104,6 +141,9 @@ export const PaperPortfolio: React.FC = () => {
       takeProfit,
       margin,
     });
+
+    setOrderExecuted(true);
+    setTimeout(() => setOrderExecuted(false), 3000);
   };
 
   const openPositions = positions.filter((p) => p.status === 'OPEN');
@@ -215,6 +255,17 @@ export const PaperPortfolio: React.FC = () => {
               </div>
             </div>
 
+            <div>
+              <label className="block text-[#5e616e] text-[9px] uppercase mb-1">Entry Price ($)</label>
+              <input
+                type="number"
+                step="any"
+                value={entryPrice}
+                onChange={(e) => setEntryPrice(Number(e.target.value))}
+                className="w-full bg-[#121317] border border-[#1c1d22] px-3 py-2 text-[#ffffff] font-bold outline-none font-mono"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[#5e616e] text-[9px] uppercase mb-1">Margin ($)</label>
@@ -261,11 +312,21 @@ export const PaperPortfolio: React.FC = () => {
               </div>
             </div>
 
+            {validationError && (
+              <div className="bg-rose-950/20 border border-rose-500/20 text-rose-400 p-2.5 text-center font-bold">
+                {validationError}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full py-3 bg-[#cc9166] text-[#08080a] font-bold font-sans hover:bg-[#d6a27e] transition-all cursor-pointer uppercase text-xs tracking-wider"
+              className={`w-full py-3 font-bold font-sans transition-all cursor-pointer uppercase text-xs tracking-wider ${
+                orderExecuted
+                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-500'
+                  : 'bg-[#cc9166] text-[#08080a] hover:bg-[#d6a27e]'
+              }`}
             >
-              Open Active Position
+              {orderExecuted ? '✓ Position Opened' : 'Open Active Position'}
             </button>
           </form>
         </div>

@@ -1,9 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 import { CandleData } from '@/types/market';
 
 export function useAutoResolver() {
+  const [hasResolved, setHasResolved] = useState(false);
+
   useEffect(() => {
+    // Only run once on mount to avoid repeated API calls
+    if (hasResolved) return;
+    setHasResolved(true);
+
     const resolvePendingSignals = async () => {
       const analyses = AppStorageEngine.getAnalyses();
       const pending = analyses.filter(

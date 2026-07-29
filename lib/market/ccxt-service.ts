@@ -163,30 +163,58 @@ export class CCXTMarketService {
     limit = 100,
     exchangeId = 'kucoin'
   ): Promise<CandleData[]> {
-    try {
-      const exchange = this.getExchange(exchangeId);
-      const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
-      if (ohlcv && ohlcv.length > 0) {
-        return ohlcv.map((c) => {
-          const timestamp = Number(c[0]);
-          const dt = new Date(timestamp);
-          const priceVal = Number(c[4] || 0);
-          const decimalPlaces = priceVal < 1 ? 4 : 2;
+    const exchangesToTry = [exchangeId, 'binance', 'bybit'];
+    const errors: string[] = [];
 
-          return {
-            timestamp,
-            gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-            open: Number((c[1] || 0).toFixed(decimalPlaces)),
-            high: Number((c[2] || 0).toFixed(decimalPlaces)),
-            low: Number((c[3] || 0).toFixed(decimalPlaces)),
-            close: Number(priceVal.toFixed(decimalPlaces)),
-            volume: Number((c[5] || 0).toFixed(2)),
-          };
-        });
+    for (const exId of exchangesToTry) {
+      try {
+        const exchange = this.getExchange(exId);
+        
+        // Add timeout wrapper
+        const timeoutMs = 5000;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        
+        try {
+          const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
+          clearTimeout(timeoutId);
+          
+          if (ohlcv && ohlcv.length > 0) {
+            return ohlcv.map((c) => {
+              const timestamp = Number(c[0]);
+              const dt = new Date(timestamp);
+              const priceVal = Number(c[4] || 0);
+              const decimalPlaces = priceVal < 1 ? 4 : 2;
+
+              return {
+                timestamp,
+                gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+                open: Number((c[1] || 0).toFixed(decimalPlaces)),
+                high: Number((c[2] || 0).toFixed(decimalPlaces)),
+                low: Number((c[3] || 0).toFixed(decimalPlaces)),
+                close: Number(priceVal.toFixed(decimalPlaces)),
+                volume: Number((c[5] || 0).toFixed(2)),
+              };
+            });
+          }
+        } catch (innerErr) {
+          clearTimeout(timeoutId);
+          const msg = innerErr instanceof Error ? innerErr.message : String(innerErr);
+          errors.push(`${exId}: ${msg}`);
+          
+          // If it's an abort error (timeout), don't try other exchanges - they might also timeout
+          if (msg.includes('abort') || msg.includes('AbortError')) {
+            console.warn(`[CCXT] ${exId} fetchOHLCV timed out, trying next exchange...`);
+            continue;
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(`${exId}: ${msg}`);
       }
-    } catch (e) {
-      console.error('[CCXT fetchOHLCVWithSince] Error:', e);
     }
+
+    console.error('[CCXT fetchOHLCVWithSince] All exchanges failed:', errors);
     return [];
   }
 
