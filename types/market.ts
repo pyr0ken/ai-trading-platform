@@ -49,6 +49,7 @@ export interface CalculatedIndicators {
   bb_bandwidth: number;
   atr_14: number;
   vwap?: number;
+  adx_14?: number;
 }
 
 export interface SupportResistanceLevels {
@@ -118,6 +119,12 @@ export interface MarketTechnicalFacts {
   atrVolatility: number;
   rsiCondition: 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL';
   macdCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE';
+  adxValue?: number;
+  adxTrend?: 'STRONG' | 'WEAK' | 'RANGING';
+  atrSuggestedStopLossLong?: number;
+  atrSuggestedTakeProfitLong?: number;
+  atrSuggestedStopLossShort?: number;
+  atrSuggestedTakeProfitShort?: number;
 }
 
 export interface MarketContextPayload {

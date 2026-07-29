@@ -4,6 +4,15 @@ import { NewsPayload } from './news';
 /**
  * Full Structured Market Context Payload sent to LLM
  */
+export interface HistoricalSignalFeedback {
+  signal: string;
+  confidence: number;
+  price: number;
+  created_at: string;
+  status: string;
+  pnl_percentage: number;
+}
+
 export interface FullMarketContextPayload {
   metadata: {
     symbol: string;
@@ -19,6 +28,7 @@ export interface FullMarketContextPayload {
   timeframes: Record<string, ProcessedTimeframeData>;
   technicalFacts?: MarketTechnicalFacts;
   mode?: 'scalp' | 'swing';
+  recentHistoricalSignals?: HistoricalSignalFeedback[];
 }
 
 export interface AnalysisRequestOptions {

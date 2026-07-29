@@ -130,12 +130,31 @@ export function useLLMAnalysis() {
     ]);
 
     try {
+      const currentSymbol = contextPayload.metadata?.symbol || 'BTC/USDT';
+      const allAnalyses = AppStorageEngine.getAnalyses();
+      const symbolAnalyses = allAnalyses
+        .filter((rec) => rec.symbol.toUpperCase() === currentSymbol.toUpperCase())
+        .slice(0, 5)
+        .map((rec) => ({
+          signal: rec.signal,
+          confidence: rec.confidence,
+          price: rec.price,
+          created_at: rec.created_at,
+          status: rec.accuracy_evaluation?.status || 'PENDING',
+          pnl_percentage: rec.accuracy_evaluation?.pnl_percentage ?? 0,
+        }));
+
+      const enrichedPayload = {
+        ...contextPayload,
+        recentHistoricalSignals: symbolAnalyses,
+      };
+
       const response = await fetch('/api/analysis/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(contextPayload),
+        body: JSON.stringify(enrichedPayload),
         signal: abortControllerRef.current.signal,
       });
 

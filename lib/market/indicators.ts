@@ -156,6 +156,120 @@ export class TechnicalIndicatorEngine {
   }
 
   /**
+   * Calculate Average Directional Index (ADX 14)
+   */
+  public static calculateADX(candles: CandleData[], period = 14): number[] {
+    const adx: number[] = [];
+    if (candles.length < period * 2) {
+      return Array(candles.length).fill(20);
+    }
+
+    const tr: number[] = [];
+    const plusDM: number[] = [];
+    const minusDM: number[] = [];
+
+    // 1. Calculate TR, +DM, -DM
+    for (let i = 0; i < candles.length; i++) {
+      if (i === 0) {
+        tr.push(candles[0].high - candles[0].low);
+        plusDM.push(0);
+        minusDM.push(0);
+      } else {
+        const hDiff = candles[i].high - candles[i - 1].high;
+        const lDiff = candles[i - 1].low - candles[i].low;
+
+        const currentTR = Math.max(
+          candles[i].high - candles[i].low,
+          Math.abs(candles[i].high - candles[i - 1].close),
+          Math.abs(candles[i].low - candles[i - 1].close)
+        );
+        tr.push(currentTR);
+
+        let pDM = 0;
+        let mDM = 0;
+
+        if (hDiff > lDiff && hDiff > 0) {
+          pDM = hDiff;
+        }
+        if (lDiff > hDiff && lDiff > 0) {
+          mDM = lDiff;
+        }
+
+        plusDM.push(pDM);
+        minusDM.push(mDM);
+      }
+    }
+
+    // 2. Wilder's Smoothing
+    const smoothedTR: number[] = [];
+    const smoothedPlusDM: number[] = [];
+    const smoothedMinusDM: number[] = [];
+
+    let sumTR = 0;
+    let sumPlusDM = 0;
+    let sumMinusDM = 0;
+
+    for (let i = 0; i < candles.length; i++) {
+      if (i < period) {
+        sumTR += tr[i];
+        sumPlusDM += plusDM[i];
+        sumMinusDM += minusDM[i];
+        smoothedTR.push(sumTR);
+        smoothedPlusDM.push(sumPlusDM);
+        smoothedMinusDM.push(sumMinusDM);
+      } else if (i === period) {
+        smoothedTR.push(sumTR);
+        smoothedPlusDM.push(sumPlusDM);
+        smoothedMinusDM.push(sumMinusDM);
+      } else {
+        const prevTR = smoothedTR[i - 1];
+        const prevPlus = smoothedPlusDM[i - 1];
+        const prevMinus = smoothedMinusDM[i - 1];
+
+        smoothedTR.push(prevTR - prevTR / period + tr[i]);
+        smoothedPlusDM.push(prevPlus - prevPlus / period + plusDM[i]);
+        smoothedMinusDM.push(prevMinus - prevMinus / period + minusDM[i]);
+      }
+    }
+
+    // 3. Calculate +DI, -DI, DX
+    const dx: number[] = [];
+    for (let i = 0; i < candles.length; i++) {
+      const trVal = smoothedTR[i];
+      if (trVal === 0) {
+        dx.push(0);
+        continue;
+      }
+      const plusDI = (smoothedPlusDM[i] / trVal) * 100;
+      const minusDI = (smoothedMinusDM[i] / trVal) * 100;
+      const diDiff = Math.abs(plusDI - minusDI);
+      const diSum = plusDI + minusDI;
+      const dxVal = diSum === 0 ? 0 : (diDiff / diSum) * 100;
+      dx.push(dxVal);
+    }
+
+    // 4. Smooth DX to get ADX
+    let sumDX = 0;
+    for (let i = 0; i < candles.length; i++) {
+      if (i < period * 2 - 1) {
+        if (i >= period && i < period * 2 - 1) {
+          sumDX += dx[i];
+        }
+        adx.push(20);
+      } else if (i === period * 2 - 1) {
+        sumDX += dx[i];
+        adx.push(Number((sumDX / period).toFixed(2)));
+      } else {
+        const prevADX = adx[i - 1];
+        const currentADX = (prevADX * (period - 1) + dx[i]) / period;
+        adx.push(Number(currentADX.toFixed(2)));
+      }
+    }
+
+    return adx;
+  }
+
+  /**
    * Calculate Volume Weighted Average Price (VWAP)
    */
   public static calculateVWAP(candles: CandleData[]): number[] {
@@ -175,7 +289,7 @@ export class TechnicalIndicatorEngine {
   }
 
   /**
-   * Auto-extract Support and Resistance Levels from swing highs and lows
+   * Auto-extract Support and Resistance Levels from swing highs and lows using dynamic clustering
    */
   public static extractSupportResistance(
     candles: CandleData[],
@@ -185,9 +299,11 @@ export class TechnicalIndicatorEngine {
       return { resistanceLevels: [], supportLevels: [] };
     }
 
-    const resistances: number[] = [];
-    const supports: number[] = [];
+    const currentPrice = candles[candles.length - 1].close;
+    const rawResistances: number[] = [];
+    const rawSupports: number[] = [];
 
+    // 1. Identify raw swing highs and lows
     for (let i = window; i < candles.length - window; i++) {
       const currentHigh = candles[i].high;
       const currentLow = candles[i].low;
@@ -204,16 +320,53 @@ export class TechnicalIndicatorEngine {
         }
       }
 
-      if (isHigh) resistances.push(Number(currentHigh.toFixed(2)));
-      if (isLow) supports.push(Number(currentLow.toFixed(2)));
+      if (isHigh) rawResistances.push(currentHigh);
+      if (isLow) rawSupports.push(currentLow);
     }
 
-    const uniqueResistances = Array.from(new Set(resistances)).sort((a, b) => a - b).slice(-3);
-    const uniqueSupports = Array.from(new Set(supports)).sort((a, b) => a - b).slice(0, 3);
+    // 2. Clustering Helper Function (grouping levels within a threshold, e.g. 1.5%)
+    const averagePrice = currentPrice;
+    const threshold = averagePrice * 0.015;
+
+    const clusterLevels = (levels: number[], isSupport: boolean): number[] => {
+      if (levels.length === 0) return [];
+      
+      const sorted = [...levels].sort((a, b) => isSupport ? b - a : a - b);
+      const clusters: { sum: number; count: number; values: number[] }[] = [];
+
+      for (const val of sorted) {
+        let placed = false;
+        for (const cluster of clusters) {
+          const clusterAvg = cluster.sum / cluster.count;
+          if (Math.abs(val - clusterAvg) <= threshold) {
+            cluster.values.push(val);
+            cluster.sum += val;
+            cluster.count += 1;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          clusters.push({ sum: val, count: 1, values: [val] });
+        }
+      }
+
+      // Prioritize clusters by touch count (strength)
+      const topClusters = clusters
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+
+      return topClusters
+        .map((c) => Number((c.sum / c.count).toFixed(2)))
+        .sort((a, b) => a - b);
+    };
+
+    const clusteredResistances = clusterLevels(rawResistances, false);
+    const clusteredSupports = clusterLevels(rawSupports, true);
 
     return {
-      resistanceLevels: uniqueResistances,
-      supportLevels: uniqueSupports,
+      resistanceLevels: clusteredResistances,
+      supportLevels: clusteredSupports,
     };
   }
 
@@ -240,6 +393,7 @@ export class TechnicalIndicatorEngine {
     const bb = this.calculateBollingerBands(closes);
     const atr14 = this.calculateATR(candles, 14);
     const vwap = this.calculateVWAP(candles);
+    const adx14 = this.calculateADX(candles, 14);
 
     return candles.map((candle, idx) => {
       const rsiVal = rsi14[idx];
@@ -276,6 +430,7 @@ export class TechnicalIndicatorEngine {
         bb_bandwidth: bb.bandwidth[idx],
         atr_14: atr14[idx],
         vwap: vwap[idx],
+        adx_14: adx14[idx],
       };
 
       return {
@@ -301,6 +456,7 @@ export class TechnicalIndicatorEngine {
     }
 
     const closes = candles.map((c) => c.close);
+    const currentPrice = closes[closes.length - 1];
     const ema20 = this.calculateEMA(closes, 20);
     const ema50 = this.calculateEMA(closes, 50);
 
@@ -323,17 +479,35 @@ export class TechnicalIndicatorEngine {
     }
 
     const atr = this.calculateATR(candles, 14);
+    const latestAtr = atr[atr.length - 1];
 
-    // Extract support & resistance
+    // Extract support & resistance using dynamic clustering
     const sr = this.extractSupportResistance(candles, 5);
+
+    // Calculate ADX
+    const adx = this.calculateADX(candles, 14);
+    const latestAdx = adx[adx.length - 1];
+    const adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
+
+    // Calculate ATR-Based Stop Loss and Take Profit targets
+    const atrSuggestedStopLossLong = Number((currentPrice - 2.0 * latestAtr).toFixed(2));
+    const atrSuggestedTakeProfitLong = Number((currentPrice + 2.0 * latestAtr).toFixed(2));
+    const atrSuggestedStopLossShort = Number((currentPrice + 2.0 * latestAtr).toFixed(2));
+    const atrSuggestedTakeProfitShort = Number((currentPrice - 2.0 * latestAtr).toFixed(2));
 
     return {
       trend,
       supportLevels: sr.supportLevels,
       resistanceLevels: sr.resistanceLevels,
-      atrVolatility: atr[atr.length - 1],
+      atrVolatility: latestAtr,
       rsiCondition,
       macdCrossover,
+      adxValue: latestAdx,
+      adxTrend,
+      atrSuggestedStopLossLong,
+      atrSuggestedTakeProfitLong,
+      atrSuggestedStopLossShort,
+      atrSuggestedTakeProfitShort,
     };
   }
 }

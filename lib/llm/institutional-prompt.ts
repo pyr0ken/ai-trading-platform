@@ -1,4 +1,4 @@
-import { FullMarketContextPayload } from '@/types/analysis';
+import { FullMarketContextPayload, HistoricalSignalFeedback } from '@/types/analysis';
 
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
@@ -12,7 +12,9 @@ Your task is to analyze the provided cryptocurrency market payload (OHLCV candle
 CRITICAL DISCIPLINE & RULES:
 1. NEVER invent or hallucinate price levels, data, or indicators. Rely strictly on the quantitative payload provided.
 2. DO NOT output generic chatbot conversational filler. Start directly with Section 1.
-3. Structure your response into EXACTLY TWO SECTIONS:
+3. CRITICAL RISK RULE: You must respect the deterministic ATR-based trade thresholds provided in the user prompt. Do not set stop losses that violate the risk buffers unless you provide a clear, detailed technical justification (such as structure break or key order block invalidation).
+4. CLOSED-LOOP LEARNING: Review any provided historical performance logs of your recent predictions for the target asset. If recent predictions resulted in losses or invalidations, identify what went wrong (e.g., trading against trend, entering inside ranges) and adjust your strategy to maximize win rate.
+5. Structure your response into EXACTLY TWO SECTIONS:
 
 SECTION 1: Structured JSON Code Block
 Must begin with \`\`\`json and end with \`\`\`.
@@ -98,11 +100,28 @@ export function buildInstitutionalUserPrompt(
   const technicalFactsText = marketContext.technicalFacts ? `
 DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
 - Trend Phase: ${marketContext.technicalFacts.trend}
-- Immediate Support Levels: ${marketContext.technicalFacts.supportLevels.join(', ')}
-- Immediate Resistance Levels: ${marketContext.technicalFacts.resistanceLevels.join(', ')}
-- Volatility (ATR): ${marketContext.technicalFacts.atrVolatility}
+- Market Consolidation State (ADX 14): Value = ${marketContext.technicalFacts.adxValue ?? 'N/A'} (Trend Strength: ${marketContext.technicalFacts.adxTrend ?? 'N/A'})
+- Immediate Clustered Support Levels (S&R Zones): ${marketContext.technicalFacts.supportLevels.join(', ')}
+- Immediate Clustered Resistance Levels (S&R Zones): ${marketContext.technicalFacts.resistanceLevels.join(', ')}
+- Volatility (ATR 14): ${marketContext.technicalFacts.atrVolatility}
 - RSI State: ${marketContext.technicalFacts.rsiCondition}
 - MACD Cross: ${marketContext.technicalFacts.macdCrossover}
+
+DETERMINISTIC ATR-BASED TRADE THRESHOLDS (GUIDELINE LIMITS):
+* Long Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossLong} (Risk Buffer)
+* Long Position Target Limit: Take Profit should target around $${marketContext.technicalFacts.atrSuggestedTakeProfitLong} (2x ATR Move)
+* Short Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossShort} (Risk Buffer)
+* Short Position Target Limit: Take Profit should target around $${marketContext.technicalFacts.atrSuggestedTakeProfitShort} (2x ATR Move)
+` : '';
+
+  const recentSignals = marketContext.recentHistoricalSignals || [];
+  const recentSignalsText = recentSignals.length > 0
+    ? `
+HISTORICAL PERFORMANCE & RECENT SIGNALS FOR ${symbol} (CLOSED-LOOP FEEDBACK):
+${recentSignals.map((s: HistoricalSignalFeedback, idx: number) => {
+      return `${idx + 1}. Signal: ${s.signal} at Entry $${s.price} (Created: ${new Date(s.created_at).toLocaleDateString()}) -> Result: ${s.status}${s.status !== 'PENDING' ? ` (PnL: ${s.pnl_percentage}%)` : ''}`;
+    }).join('\n')}
+Use this historical performance data to refine your accuracy and prevent repeating previous trading mistakes.
 ` : '';
 
   const modeInstruction = mode === 'scalp'
@@ -113,6 +132,7 @@ DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
 ${technicalFactsText}
+${recentSignalsText}
 ${modeInstruction}
 
 RAW QUANTITATIVE MARKET DATA PAYLOAD:
