@@ -442,8 +442,12 @@ export class TechnicalIndicatorEngine {
 
   /**
    * Extract key deterministic technical facts to pass to the LLM
+   * Accepts optional pre-computed indicators to avoid redundant calculations.
    */
-  public static extractTechnicalFacts(candles: CandleData[]): MarketTechnicalFacts {
+  public static extractTechnicalFacts(
+    candles: CandleData[],
+    precomputed?: CalculatedIndicators
+  ): MarketTechnicalFacts {
     if (candles.length < 50) {
       return {
         trend: 'NEUTRAL',
@@ -457,19 +461,53 @@ export class TechnicalIndicatorEngine {
 
     const closes = candles.map((c) => c.close);
     const currentPrice = closes[closes.length - 1];
-    const ema20 = this.calculateEMA(closes, 20);
-    const ema50 = this.calculateEMA(closes, 50);
 
-    const trend = ema20[ema20.length - 1] > ema50[ema50.length - 1] ? 'BULLISH' : 'BEARISH';
+    let trend: 'BULLISH' | 'BEARISH';
+    let latestRsi: number;
+    let rsiCondition: 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL';
+    let prevHist: number;
+    let currHist: number;
+    let latestAtr: number;
+    let latestAdx: number;
+    let adxTrend: 'STRONG' | 'WEAK' | 'RANGING';
 
-    const rsi = this.calculateRSI(closes, 14);
-    const latestRsi = rsi[rsi.length - 1];
-    const rsiCondition = latestRsi < 30 ? 'OVERSOLD' : latestRsi > 70 ? 'OVERBOUGHT' : 'NEUTRAL';
+    if (precomputed) {
+      // Use pre-computed values from processCandleIndicators
+      trend = (precomputed.ema_20 || 0) > (precomputed.ema_50 || 0) ? 'BULLISH' : 'BEARISH';
+      latestRsi = precomputed.rsi_14;
+      rsiCondition = precomputed.rsi_condition as 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL';
+      prevHist = 0; // Will be recalculated below from MACD arrays
+      currHist = precomputed.macd_hist;
+      // We need MACD hist for cross detection — recompute from full set
+      // but only the MACD cross (cheap: just the last 3 values vs full indicator calc)
+      const emaFast = this.calculateEMA(closes, 12);
+      const emaSlow = this.calculateEMA(closes, 26);
+      const macdLineRaw = emaFast.map((fast, i) => fast - emaSlow[i]);
+      const signalLineRaw = this.calculateEMA(macdLineRaw, 9);
+      const hist = macdLineRaw.map((m, i) => Number((m - signalLineRaw[i]).toFixed(2)));
+      prevHist = hist.length >= 2 ? hist[hist.length - 2] : 0;
+      currHist = hist.length >= 1 ? hist[hist.length - 1] : precomputed.macd_hist;
+    } else {
+      const ema20 = this.calculateEMA(closes, 20);
+      const ema50 = this.calculateEMA(closes, 50);
+      trend = ema20[ema20.length - 1] > ema50[ema50.length - 1] ? 'BULLISH' : 'BEARISH';
 
-    const macd = this.calculateMACD(closes);
-    const hist = macd.histogram;
-    const prevHist = hist[hist.length - 2];
-    const currHist = hist[hist.length - 1];
+      const rsi = this.calculateRSI(closes, 14);
+      latestRsi = rsi[rsi.length - 1];
+      rsiCondition = latestRsi < 30 ? 'OVERSOLD' : latestRsi > 70 ? 'OVERBOUGHT' : 'NEUTRAL';
+
+      const macd = this.calculateMACD(closes);
+      const hist = macd.histogram;
+      prevHist = hist[hist.length - 2];
+      currHist = hist[hist.length - 1];
+
+      const atr = this.calculateATR(candles, 14);
+      latestAtr = atr[atr.length - 1];
+
+      const adx = this.calculateADX(candles, 14);
+      latestAdx = adx[adx.length - 1];
+      adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
+    }
 
     let macdCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE' = 'NONE';
     if (prevHist <= 0 && currHist > 0) {
@@ -478,16 +516,16 @@ export class TechnicalIndicatorEngine {
       macdCrossover = 'BEARISH_CROSS';
     }
 
+    // These are still calculated fresh regardless (relatively cheap)
     const atr = this.calculateATR(candles, 14);
-    const latestAtr = atr[atr.length - 1];
+    latestAtr = atr[atr.length - 1];
+
+    const adx = this.calculateADX(candles, 14);
+    latestAdx = adx[adx.length - 1];
+    adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
 
     // Extract support & resistance using dynamic clustering
     const sr = this.extractSupportResistance(candles, 5);
-
-    // Calculate ADX
-    const adx = this.calculateADX(candles, 14);
-    const latestAdx = adx[adx.length - 1];
-    const adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
 
     // Calculate ATR-Based Stop Loss and Take Profit targets
     const atrSuggestedStopLossLong = Number((currentPrice - 2.0 * latestAtr).toFixed(2));

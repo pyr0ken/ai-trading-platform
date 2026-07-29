@@ -7,6 +7,23 @@ import { EconomicCalendar } from '@/lib/market/economic-calendar';
 import { FullMarketContextPayload } from '@/types/analysis';
 import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
 
+/**
+ * Process up to N items at a time to avoid memory spikes from concurrent CCXT fetches.
+ */
+async function runLimitedConcurrency(
+  items: string[],
+  fn: (tf: string) => Promise<[string, ProcessedTimeframeData]>,
+  concurrency = 2
+): Promise<[string, ProcessedTimeframeData][]> {
+  const results: [string, ProcessedTimeframeData][] = [];
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || 'BTC/USDT';
@@ -16,7 +33,7 @@ export async function GET(request: Request) {
   try {
     const timeframes = Array.from(new Set(['5m', '15m', '1h', '4h', '1d', primaryTimeframe]));
 
-    // 1. Fetch Ticker & Macro components first
+    // 1. Fetch Ticker & Macro components first (these are lightweight)
     const [ticker, macroSentiment, derivatives, microstructure, news] = await Promise.all([
       CCXTMarketService.fetchTicker(symbol, exchange),
       MacroSentimentService.fetchMacroSentiment(),
@@ -25,10 +42,13 @@ export async function GET(request: Request) {
       NewsService.getNewsPayload(5),
     ]);
 
-    // 2. Fetch Timeframe Candles using ticker price as fallback
-    const candlesResults = await Promise.all(
-      timeframes.map(async (tf) => {
-        const rawCandles = await CCXTMarketService.fetchOHLCV(symbol, tf, 60, exchange);
+    // 2. Fetch Timeframe Candles — limit concurrency to avoid memory pileup,
+    //    reduce candles from 60→40 (enough for EMA50/SMA50) to cut computation
+    const CANDLE_LIMIT = 40;
+    const candlesResults = await runLimitedConcurrency(
+      timeframes,
+      async (tf) => {
+        const rawCandles = await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange);
         const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
         const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
         const latestClose =
@@ -49,7 +69,8 @@ export async function GET(request: Request) {
           candles: processedCandles,
         };
         return [tf, tfData] as const;
-      })
+      },
+      2
     );
 
     const timeframesData: Record<string, ProcessedTimeframeData> = {};
@@ -58,8 +79,10 @@ export async function GET(request: Request) {
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];
-    const technicalFacts = primaryTfData 
-      ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles) 
+    // extractTechnicalFacts recalculates all indicators — pass pre-computed data so
+    // it doesn't redo EMA/RSI/MACD/ATR/ADX from scratch on the raw candle array
+    const technicalFacts = primaryTfData?.candles?.length
+      ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles, primaryTfData.indicators)
       : undefined;
 
     let btcCorrelation = 1.0;
