@@ -21,7 +21,7 @@ export class CCXTMarketService {
       }
       this.instances[id] = new exchangeClass({
         enableRateLimit: true,
-        timeout: 4000,
+        timeout: 2000,
       });
     }
     return this.instances[id];
@@ -168,45 +168,34 @@ export class CCXTMarketService {
 
     for (const exId of exchangesToTry) {
       try {
-        const exchange = this.getExchange(exId);
-        
-        // Add timeout wrapper
-        const timeoutMs = 5000;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        
-        try {
-          const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
-          clearTimeout(timeoutId);
-          
-          if (ohlcv && ohlcv.length > 0) {
-            return ohlcv.map((c) => {
-              const timestamp = Number(c[0]);
-              const dt = new Date(timestamp);
-              const priceVal = Number(c[4] || 0);
-              const decimalPlaces = priceVal < 1 ? 4 : 2;
+        // Each exchange attempt gets its own short-lived instance with aggressive timeout
+        const exchangeClass = (ccxt as unknown as Record<string, typeof Exchange>)[exId];
+        if (!exchangeClass) continue;
 
-              return {
-                timestamp,
-                gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-                open: Number((c[1] || 0).toFixed(decimalPlaces)),
-                high: Number((c[2] || 0).toFixed(decimalPlaces)),
-                low: Number((c[3] || 0).toFixed(decimalPlaces)),
-                close: Number(priceVal.toFixed(decimalPlaces)),
-                volume: Number((c[5] || 0).toFixed(2)),
-              };
-            });
-          }
-        } catch (innerErr) {
-          clearTimeout(timeoutId);
-          const msg = innerErr instanceof Error ? innerErr.message : String(innerErr);
-          errors.push(`${exId}: ${msg}`);
-          
-          // If it's an abort error (timeout), don't try other exchanges - they might also timeout
-          if (msg.includes('abort') || msg.includes('AbortError')) {
-            console.warn(`[CCXT] ${exId} fetchOHLCV timed out, trying next exchange...`);
-            continue;
-          }
+        const exchange = new exchangeClass({
+          enableRateLimit: true,
+          timeout: 1500,
+        });
+
+        const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
+
+        if (ohlcv && ohlcv.length > 0) {
+          return ohlcv.map((c) => {
+            const timestamp = Number(c[0]);
+            const dt = new Date(timestamp);
+            const priceVal = Number(c[4] || 0);
+            const decimalPlaces = priceVal < 1 ? 4 : 2;
+
+            return {
+              timestamp,
+              gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+              open: Number((c[1] || 0).toFixed(decimalPlaces)),
+              high: Number((c[2] || 0).toFixed(decimalPlaces)),
+              low: Number((c[3] || 0).toFixed(decimalPlaces)),
+              close: Number(priceVal.toFixed(decimalPlaces)),
+              volume: Number((c[5] || 0).toFixed(2)),
+            };
+          });
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -214,7 +203,7 @@ export class CCXTMarketService {
       }
     }
 
-    console.error('[CCXT fetchOHLCVWithSince] All exchanges failed:', errors);
+    console.error('[CCXT fetchOHLCVWithSince] All exchanges failed (likely network issue), returning empty:', errors);
     return [];
   }
 
@@ -228,7 +217,14 @@ export class CCXTMarketService {
 
     for (const exId of exchangesToTry) {
       try {
-        const exchange = this.getExchange(exId);
+        const exchangeClass = (ccxt as unknown as Record<string, typeof Exchange>)[exId];
+        if (!exchangeClass) continue;
+
+        const exchange = new exchangeClass({
+          enableRateLimit: true,
+          timeout: 1500,
+        });
+
         const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit);
         if (ohlcv && ohlcv.length > 0) {
           return ohlcv.map((c) => {

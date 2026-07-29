@@ -17,7 +17,11 @@ export async function GET(request: Request) {
   const limit = parseInt(limitStr, 10);
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
     const rawCandles = await CCXTMarketService.fetchOHLCVWithSince(symbol, timeframe, since, limit, exchange);
+    clearTimeout(timeout);
     return NextResponse.json({ candles: rawCandles });
   } catch (err) {
     console.error('[API /market/history-ohlcv] Error:', err);
