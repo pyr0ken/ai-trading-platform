@@ -70,6 +70,7 @@ export default function DashboardPage() {
     data: marketContext,
     isLoading: isMarketLoading,
     isFetching: isMarketFetching,
+    error: marketError,
     refetch: refetchMarketData,
   } = useMarketData(selectedSymbol, selectedExchange, selectedTimeframe, hasRun);
 
@@ -147,6 +148,28 @@ export default function DashboardPage() {
                   onReplayAnalysis={handleReplayAnalysis}
                 />
 
+                {marketError && (
+                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-none text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
+                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-xs">
+                      <span className="text-xl">⚠️</span> Data Engine Failure
+                    </div>
+                    <div className="leading-relaxed">
+                      {marketError instanceof Error ? marketError.message : String(marketError)}
+                    </div>
+                  </div>
+                )}
+
+                {analysisError && (
+                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-none text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
+                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-xs">
+                      <span className="text-xl">⚠️</span> Analysis System Failure
+                    </div>
+                    <div className="leading-relaxed">
+                      {analysisError}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" suppressHydrationWarning>
                 <div className="lg:col-span-8 space-y-4">
                   <PreflightFactsPanel
@@ -158,7 +181,18 @@ export default function DashboardPage() {
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
                     timeframe={selectedTimeframe}
-                    setup={parsedJson?.trade_setup}
+                    setup={parsedJson?.trade_setup || (marketContext?.ticker?.price ? {
+                      position: 'NEUTRAL',
+                      entry_range: [marketContext.ticker.price, marketContext.ticker.price],
+                      stop_loss: marketContext.ticker.price,
+                      take_profit_1: marketContext.ticker.price,
+                      take_profit_2: marketContext.ticker.price,
+                      take_profit_3: marketContext.ticker.price,
+                      risk_reward_ratio: 0,
+                      recommended_leverage: '1x',
+                      invalidation_point: 0,
+                      strategy_name: 'Analyzing...'
+                    } : null)}
                   />
 
                   <MultiTimeframeMatrix
@@ -171,14 +205,14 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-5">
                       <BuySellMeter
-                        buyPct={parsedJson?.probabilities?.bullish ?? 74}
-                        sellPct={parsedJson?.probabilities?.bearish ?? 26}
+                        buyPct={parsedJson?.probabilities?.bullish ?? 50}
+                        sellPct={parsedJson?.probabilities?.bearish ?? 50}
                         microstructure={marketContext?.microstructure}
-                        isLoading={isMarketLoading}
+                        isLoading={isMarketLoading || isStreaming}
                       />
                     </div>
                     <div className="md:col-span-7">
-                      <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading} />
+                      <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading || isStreaming} />
                     </div>
                   </div>
 

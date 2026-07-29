@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   try {
     const timeframes = Array.from(new Set(['5m', '15m', '1h', '4h', '1d', primaryTimeframe]));
 
-    // 1. Fetch Ticker & Macro components first (these are lightweight)
+    // 1. Fetch Ticker & Macro components first
     const [ticker, macroSentiment, derivatives, microstructure, news] = await Promise.all([
       CCXTMarketService.fetchTicker(symbol, exchange),
       MacroSentimentService.fetchMacroSentiment(),
@@ -41,34 +41,45 @@ export async function GET(request: Request) {
       CCXTMarketService.fetchMicrostructure(symbol, exchange),
       NewsService.getNewsPayload(5),
     ]);
+    
+    // Check if we got a valid ticker (if ticker.price is 0 or synthetic, we might have network issues)
+    if (!ticker || ticker.price === 100.0 /* synthetic fallback check */) {
+       console.warn(`[API /market/full-context] Ticker fetch resulted in fallback data for ${symbol}. Network might be down.`);
+    }
 
-    // 2. Fetch Timeframe Candles — limit concurrency to avoid memory pileup,
-    //    reduce candles from 60→40 (enough for EMA50/SMA50) to cut computation
     const CANDLE_LIMIT = 40;
+    const errors: string[] = [];
+
     const candlesResults = await runLimitedConcurrency(
       timeframes,
       async (tf) => {
-        const rawCandles = await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange);
-        const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
-        const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
-        const latestClose =
-          processedCandles.length > 0
-            ? processedCandles[processedCandles.length - 1].close
-            : ticker.price || 0;
-        const latestIndicators =
-          processedCandles.length > 0
-            ? processedCandles[processedCandles.length - 1].indicators
-            : ({} as CalculatedIndicators);
+        try {
+          const rawCandles = await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange);
+          const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
+          const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
+          const latestClose =
+            processedCandles.length > 0
+              ? processedCandles[processedCandles.length - 1].close
+              : ticker.price || 0;
+          const latestIndicators =
+            processedCandles.length > 0
+              ? processedCandles[processedCandles.length - 1].indicators
+              : ({} as CalculatedIndicators);
 
-        const tfData: ProcessedTimeframeData = {
-          timeframe: tf,
-          candleCount: rawCandles.length,
-          latestClose,
-          indicators: latestIndicators,
-          keyLevels,
-          candles: processedCandles,
-        };
-        return [tf, tfData] as const;
+          const tfData: ProcessedTimeframeData = {
+            timeframe: tf,
+            candleCount: rawCandles.length,
+            latestClose,
+            indicators: latestIndicators,
+            keyLevels,
+            candles: processedCandles,
+          };
+          return [tf, tfData] as const;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          errors.push(`Timeframe ${tf}: ${msg}`);
+          throw e; // will be caught by the outer try-catch
+        }
       },
       2
     );
@@ -76,6 +87,13 @@ export async function GET(request: Request) {
     const timeframesData: Record<string, ProcessedTimeframeData> = {};
     for (const [tf, tfData] of candlesResults) {
       timeframesData[tf] = tfData;
+    }
+
+    if (errors.length > 0) {
+      return NextResponse.json(
+        { error: 'Failed to fetch market data from exchange. Check network or API rate limits.', details: errors },
+        { status: 502 }
+      );
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FullMarketContextPayload } from '@/types/analysis';
 
 export function useMarketData(symbol: string, exchange: string, timeframe: string, enabled = false) {
-  return useQuery<FullMarketContextPayload>({
+  return useQuery<FullMarketContextPayload, Error>({
     queryKey: ['market-data', symbol, exchange, timeframe],
     queryFn: async () => {
       const res = await fetch(
@@ -12,12 +12,38 @@ export function useMarketData(symbol: string, exchange: string, timeframe: strin
           exchange
         )}&timeframe=${encodeURIComponent(timeframe)}`
       );
+      
       if (!res.ok) {
-        throw new Error(`Market data API error: ${res.status}`);
+        let errMsg = `Market data API error: ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData.error) {
+            errMsg = errData.error;
+          }
+          if (errData.details) {
+            errMsg += ` | Details: ${Array.isArray(errData.details) ? errData.details.join('; ') : errData.details}`;
+          }
+        } catch {
+          // ignore JSON parse error on generic HTML error pages
+        }
+        throw new Error(errMsg);
       }
-      return res.json();
+      
+      const data = await res.json();
+      
+      // If the backend returns empty candles due to network issues
+      if (data.timeframes && Object.keys(data.timeframes).length > 0) {
+        const primaryTf = data.metadata?.primaryTimeframe || '1h';
+        const tfData = data.timeframes[primaryTf];
+        if (!tfData?.candles || tfData.candles.length === 0) {
+          throw new Error('Exchange API failed to return market data (Network timeout or Rate Limit). Please try again or switch exchanges.');
+        }
+      }
+      
+      return data;
     },
     enabled, // Only execute when user explicitly clicks Run Analysis button
     staleTime: 30000,
+    retry: 0, // Do not auto-retry on UI, let the user decide
   });
 }

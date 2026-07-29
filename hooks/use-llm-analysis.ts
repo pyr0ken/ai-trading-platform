@@ -159,7 +159,13 @@ export function useLLMAnalysis() {
       });
 
       if (!response.ok) {
-        throw new Error(`LLM Stream HTTP error ${response.status}`);
+        let errMsg = `LLM Stream HTTP error ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData.error) errMsg = errData.error;
+          if (errData.details) errMsg += ` \nDetails: ${Array.isArray(errData.details) ? errData.details.join('\n') : errData.details}`;
+        } catch {}
+        throw new Error(errMsg);
       }
 
       setLogSteps((prev) =>
