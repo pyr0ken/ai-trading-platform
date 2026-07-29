@@ -3,12 +3,14 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Gauge } from 'lucide-react';
+import { MicrostructureMetrics } from '@/types/market';
 
 interface BuySellMeterProps {
   buyPct?: number;
   sellPct?: number;
   neutralPct?: number;
   isLoading?: boolean;
+  microstructure?: MicrostructureMetrics | null;
 }
 
 export const BuySellMeter: React.FC<BuySellMeterProps> = ({
@@ -16,7 +18,19 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
   sellPct = 26,
   neutralPct = 0,
   isLoading,
+  microstructure,
 }) => {
+  // Derive buy/sell pressure from real microstructure data when available
+  let displayBuy = buyPct;
+  let displaySell = sellPct;
+
+  if (microstructure?.orderBookDepth?.imbalanceRatio) {
+    const ratio = microstructure.orderBookDepth.imbalanceRatio;
+    // ratio > 1 means buy pressure, < 1 means sell pressure
+    const total = ratio + (1 / ratio);
+    displayBuy = Math.round((ratio / total) * 100);
+    displaySell = 100 - displayBuy;
+  }
   if (isLoading) {
     return (
       <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] animate-pulse min-h-[200px]">
@@ -27,8 +41,8 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
   }
 
   const data = [
-    { name: 'Buy Pressure', value: buyPct, color: '#ffffff' },
-    { name: 'Sell Pressure', value: sellPct, color: '#f43f5e' },
+    { name: 'Buy Pressure', value: displayBuy, color: '#ffffff' },
+    { name: 'Sell Pressure', value: displaySell, color: '#f43f5e' },
     { name: 'Neutral', value: neutralPct, color: '#5e616e' },
   ].filter((d) => d.value > 0);
 
@@ -41,7 +55,11 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
             BUY VS SELL PRESSURE METER
           </span>
         </div>
-        <span className="text-xs text-[#9194a1] font-mono">Market Balance</span>
+        <span className="text-xs text-[#9194a1] font-mono">
+          {microstructure?.orderBookDepth?.imbalanceRatio
+            ? `Orderbook Pressure: ${microstructure.orderBookDepth.orderBookPressure}`
+            : 'Market Balance (from AI)'}
+        </span>
       </div>
 
       <div className="flex items-center justify-between gap-4">
@@ -66,7 +84,7 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex items-center justify-center flex-col text-center">
-            <span className="text-sm font-bold font-mono text-[#ffffff]">{buyPct}%</span>
+            <span className="text-sm font-bold font-mono text-[#ffffff]">{displayBuy}%</span>
             <span className="text-[9px] text-[#9194a1]">BUY</span>
           </div>
         </div>
@@ -78,7 +96,7 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
               <span className="w-2.5 h-2.5 rounded-[9999px] bg-[#ffffff]" />
               <span className="text-[#9194a1]">Buy Force</span>
             </div>
-            <span className="font-mono font-semibold text-[#ffffff]">{buyPct}%</span>
+            <span className="font-mono font-semibold text-[#ffffff]">{displayBuy}%</span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -86,7 +104,7 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
               <span className="w-2.5 h-2.5 rounded-[9999px] bg-rose-500" />
               <span className="text-[#9194a1]">Sell Force</span>
             </div>
-            <span className="font-mono font-semibold text-rose-400">{sellPct}%</span>
+            <span className="font-mono font-semibold text-rose-400">{displaySell}%</span>
           </div>
 
           {neutralPct > 0 && (

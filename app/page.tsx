@@ -161,7 +161,10 @@ export default function DashboardPage() {
                     setup={parsedJson?.trade_setup}
                   />
 
-                  <MultiTimeframeMatrix isLoading={isMarketLoading} />
+                  <MultiTimeframeMatrix
+                    marketContext={marketContext}
+                    isLoading={isMarketLoading}
+                  />
 
                   <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isMarketLoading} />
 
@@ -170,6 +173,7 @@ export default function DashboardPage() {
                       <BuySellMeter
                         buyPct={parsedJson?.probabilities?.bullish ?? 74}
                         sellPct={parsedJson?.probabilities?.bearish ?? 26}
+                        microstructure={marketContext?.microstructure}
                         isLoading={isMarketLoading}
                       />
                     </div>
