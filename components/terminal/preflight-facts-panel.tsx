@@ -19,9 +19,20 @@ export const PreflightFactsPanel: React.FC<PreflightFactsPanelProps> = ({
 
   const facts = marketContext.technicalFacts;
   const isBullish = facts.trend === 'BULLISH';
+  const warnings = marketContext.economicWarnings || [];
 
   return (
     <div className="bg-[#040406] border border-[#1c1d22] p-4 rounded-none space-y-3 font-mono text-xs text-[#e2e3e9]">
+      {warnings.length > 0 && (
+        <div className="bg-amber-950/30 border border-amber-500/30 p-3 text-amber-400 space-y-1 rounded-none">
+          <div className="font-bold flex items-center gap-1.5 uppercase text-[10px] text-amber-500">
+            ⚠️ Macroeconomic Event Alert
+          </div>
+          {warnings.map((w, idx) => (
+            <p key={idx} className="text-[11px] leading-snug font-sans text-amber-200/90">{w}</p>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between border-b border-[#1c1d22] pb-2">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-[#cc9166]" />
@@ -30,7 +41,7 @@ export const PreflightFactsPanel: React.FC<PreflightFactsPanelProps> = ({
         <span className="text-[10px] text-[#5e616e] uppercase">Deterministic Engine</span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-1">
         {/* Trend Indicator */}
         <div className="flex flex-col justify-center">
           <span className="text-[#5e616e] text-[9px] uppercase">Trend (EMA 20/50)</span>
@@ -99,6 +110,26 @@ export const PreflightFactsPanel: React.FC<PreflightFactsPanelProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Breakout state (BOS) */}
+        <div className="flex flex-col justify-center">
+          <span className="text-[#5e616e] text-[9px] uppercase">Breakout (BOS)</span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span
+              className={`font-bold ${
+                facts.breakoutType === 'BOS_BULLISH'
+                  ? 'text-emerald-400'
+                  : facts.breakoutType === 'BOS_BEARISH'
+                  ? 'text-rose-400'
+                  : 'text-[#5e616e] italic'
+              }`}
+            >
+              {facts.breakoutType && facts.breakoutType !== 'NONE'
+                ? `${facts.breakoutType.replace('BOS_', '')} ($${facts.breakoutLevel})`
+                : 'NONE'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Support & Resistance Levels */}
@@ -139,6 +170,33 @@ export const PreflightFactsPanel: React.FC<PreflightFactsPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Divergences Factcheck Row */}
+      {(facts.rsiDivergence !== 'NONE' || facts.macdDivergence !== 'NONE') && (
+        <div className="pt-2 border-t border-[#1c1d22] flex flex-wrap gap-4 items-center">
+          <span className="text-[#5e616e] text-[9px] uppercase">Active Divergences</span>
+          <div className="flex flex-wrap gap-2 text-[10px]">
+            {facts.rsiDivergence && facts.rsiDivergence !== 'NONE' && (
+              <span className={`px-2 py-0.5 font-bold border rounded-none ${
+                facts.rsiDivergence === 'BULLISH_DIV' 
+                  ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/40' 
+                  : 'bg-rose-950/40 text-rose-400 border-rose-500/40'
+              }`}>
+                RSI: {facts.rsiDivergence.replace('_DIV', ' DIV')}
+              </span>
+            )}
+            {facts.macdDivergence && facts.macdDivergence !== 'NONE' && (
+              <span className={`px-2 py-0.5 font-bold border rounded-none ${
+                facts.macdDivergence === 'BULLISH_DIV' 
+                  ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/40' 
+                  : 'bg-rose-950/40 text-rose-400 border-rose-500/40'
+              }`}>
+                MACD: {facts.macdDivergence.replace('_DIV', ' DIV')}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ATR Suggested Targets */}
       {(facts.atrSuggestedStopLossLong || facts.atrSuggestedTakeProfitLong) && (

@@ -29,6 +29,7 @@ export interface FullMarketContextPayload {
   technicalFacts?: MarketTechnicalFacts;
   mode?: 'scalp' | 'swing';
   recentHistoricalSignals?: HistoricalSignalFeedback[];
+  economicWarnings?: string[];
 }
 
 export interface AnalysisRequestOptions {

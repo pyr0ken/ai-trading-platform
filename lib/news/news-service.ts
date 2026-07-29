@@ -14,6 +14,32 @@ export class NewsService {
     timeout: 3000,
   });
 
+  private static positiveKeywords = [
+    'bullish', 'surge', 'institutional', 'approved', 'buying', 'adoption', 'upgrade',
+    'growth', 'inflow', 'gain', 'breakout', 'support', 'highest', 'profit', 'positive',
+    'invest', 'rally', 'record high', 'green', 'skyrocket', 'momentum', 'win'
+  ];
+
+  private static negativeKeywords = [
+    'bearish', 'hack', 'ban', 'lawsuit', 'dump', 'liquidation', 'regulatory', 'scam',
+    'loss', 'outflow', 'drop', 'crash', 'red', 'selling', 'panic', 'deficit', 'fears',
+    'sec', 'probe', 'subpoena', 'downward', 'danger', 'correction', 'slippage'
+  ];
+
+  public static scoreArticle(title: string, summary: string): number {
+    let score = 0;
+    const content = (title + ' ' + summary).toLowerCase();
+    
+    this.positiveKeywords.forEach(w => {
+      if (content.includes(w)) score += 0.25;
+    });
+    this.negativeKeywords.forEach(w => {
+      if (content.includes(w)) score -= 0.25;
+    });
+
+    return Number(Math.max(-1.0, Math.min(1.0, score)).toFixed(2));
+  }
+
   private static sanitizeText(raw: string): string {
     if (!raw) return '';
     return raw
@@ -44,12 +70,15 @@ export class NewsService {
               ? sanitizedSnippet.substring(0, 277) + '...'
               : sanitizedSnippet;
 
+          const sentimentScore = this.scoreArticle(sanitizedTitle, truncatedSnippet);
+
           articles.push({
             title: sanitizedTitle,
             summary: truncatedSnippet,
             source: sourceName,
             url: item.link || '',
             published_at: item.isoDate || item.pubDate || new Date().toISOString(),
+            sentimentScore,
           });
         }
       } catch {
@@ -68,6 +97,7 @@ export class NewsService {
           source: 'Market Feed',
           url: 'https://cointelegraph.com',
           published_at: new Date().toISOString(),
+          sentimentScore: 0.0,
         },
         {
           title: 'Bitcoin Institutional Inflows Reach Monthly High Across Major ETFS',
@@ -75,6 +105,7 @@ export class NewsService {
           source: 'Crypto Market',
           url: 'https://coindesk.com',
           published_at: new Date().toISOString(),
+          sentimentScore: 0.5,
         }
       );
     }
@@ -92,13 +123,18 @@ export class NewsService {
     const summaryForPrompt = sliced
       .map(
         (a, i) =>
-          `[News ${i + 1}] (${a.source}): ${a.title} - ${a.summary || 'No summary available.'}`
+          `[News ${i + 1}] (${a.source}): ${a.title} - ${a.summary || 'No summary available.'} (Sentiment: ${a.sentimentScore})`
       )
       .join('\n');
+
+    const newsSentimentIndex = sliced.length > 0
+      ? Number((sliced.reduce((sum, a) => sum + (a.sentimentScore || 0), 0) / sliced.length).toFixed(2))
+      : 0.0;
 
     return {
       articles: sliced,
       summaryForPrompt: summaryForPrompt || 'No recent market news available.',
+      newsSentimentIndex,
     };
   }
 }

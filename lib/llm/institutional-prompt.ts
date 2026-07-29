@@ -106,6 +106,9 @@ DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
 - Volatility (ATR 14): ${marketContext.technicalFacts.atrVolatility}
 - RSI State: ${marketContext.technicalFacts.rsiCondition}
 - MACD Cross: ${marketContext.technicalFacts.macdCrossover}
+- Breakout State (BOS): Type = ${marketContext.technicalFacts.breakoutType ?? 'NONE'}${marketContext.technicalFacts.breakoutType && marketContext.technicalFacts.breakoutType !== 'NONE' ? ` (Broken Level = $${marketContext.technicalFacts.breakoutLevel}, Volume Ratio = ${marketContext.technicalFacts.breakoutVolumeRatio}x)` : ''}
+- RSI Divergence: ${marketContext.technicalFacts.rsiDivergence ?? 'NONE'}
+- MACD Divergence: ${marketContext.technicalFacts.macdDivergence ?? 'NONE'}
 
 DETERMINISTIC ATR-BASED TRADE THRESHOLDS (GUIDELINE LIMITS):
 * Long Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossLong} (Risk Buffer)
@@ -124,6 +127,16 @@ ${recentSignals.map((s: HistoricalSignalFeedback, idx: number) => {
 Use this historical performance data to refine your accuracy and prevent repeating previous trading mistakes.
 ` : '';
 
+  const warnings = marketContext.economicWarnings || [];
+  const economicWarningsText = warnings.length > 0
+    ? `
+CRITICAL MACROECONOMIC WARNING ALERTS:
+${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
+` : '';
+
+  const newsSentimentIndex = marketContext.news?.newsSentimentIndex ?? 0.0;
+  const newsSentimentLabel = newsSentimentIndex > 0.3 ? 'BULLISH' : newsSentimentIndex < -0.3 ? 'BEARISH' : 'NEUTRAL';
+
   const modeInstruction = mode === 'scalp'
     ? 'CRITICAL MODE CONSTRAINT: You are in SCALP MODE. Output ONLY Section 1 (the JSON block starting with ```json and ending with ```). DO NOT write any report or markdown text after the JSON block.'
     : 'You are in SWING MODE. Output Section 1 (JSON block) first, followed by Section 2 (Exhaustive Institutional Markdown Report).';
@@ -132,6 +145,8 @@ Use this historical performance data to refine your accuracy and prevent repeati
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
 ${technicalFactsText}
+${economicWarningsText}
+- Aggregate News Sentiment Index: ${newsSentimentIndex} (${newsSentimentLabel})
 ${recentSignalsText}
 ${modeInstruction}
 

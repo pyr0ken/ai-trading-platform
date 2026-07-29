@@ -3,6 +3,7 @@ import { CCXTMarketService } from '@/lib/market/ccxt-service';
 import { TechnicalIndicatorEngine } from '@/lib/market/indicators';
 import { MacroSentimentService } from '@/lib/market/macro-service';
 import { NewsService } from '@/lib/news/news-service';
+import { EconomicCalendar } from '@/lib/market/economic-calendar';
 import { FullMarketContextPayload } from '@/types/analysis';
 import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
 
@@ -61,6 +62,8 @@ export async function GET(request: Request) {
       ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles) 
       : undefined;
 
+    const economicWarnings = EconomicCalendar.getEconomicWarnings();
+
     const payload: FullMarketContextPayload = {
       metadata: {
         symbol,
@@ -75,6 +78,7 @@ export async function GET(request: Request) {
       news,
       timeframes: timeframesData,
       technicalFacts,
+      economicWarnings,
     };
 
     return NextResponse.json(payload);

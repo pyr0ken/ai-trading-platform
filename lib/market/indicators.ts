@@ -495,6 +495,12 @@ export class TechnicalIndicatorEngine {
     const atrSuggestedStopLossShort = Number((currentPrice + 2.0 * latestAtr).toFixed(2));
     const atrSuggestedTakeProfitShort = Number((currentPrice - 2.0 * latestAtr).toFixed(2));
 
+    // Detect Break of Structure / Breakout
+    const breakout = this.detectBreakout(candles, sr);
+
+    // Detect Divergences
+    const divs = this.detectDivergences(candles);
+
     return {
       trend,
       supportLevels: sr.supportLevels,
@@ -508,6 +514,129 @@ export class TechnicalIndicatorEngine {
       atrSuggestedTakeProfitLong,
       atrSuggestedStopLossShort,
       atrSuggestedTakeProfitShort,
+      breakoutType: breakout.type,
+      breakoutLevel: breakout.brokenLevel,
+      breakoutVolumeRatio: breakout.volumeRatio,
+      rsiDivergence: divs.rsiDivergence,
+      macdDivergence: divs.macdDivergence,
     };
+  }
+
+  /**
+   * Detect Break of Structure (BOS) or Breakout over S&R Levels
+   */
+  public static detectBreakout(
+    candles: CandleData[],
+    srLevels: SupportResistanceLevels
+  ): { type: 'BOS_BULLISH' | 'BOS_BEARISH' | 'NONE'; brokenLevel: number; volumeRatio: number } {
+    if (candles.length < 2) return { type: 'NONE', brokenLevel: 0, volumeRatio: 1 };
+    
+    const lastCandle = candles[candles.length - 1];
+    const prevCandle = candles[candles.length - 2];
+
+    // Average volume of last 10 candles
+    const sliceCount = Math.min(candles.length, 10);
+    const avgVol = candles.slice(-sliceCount).reduce((acc, c) => acc + c.volume, 0) / sliceCount;
+    const volumeRatio = avgVol > 0 ? Number((lastCandle.volume / avgVol).toFixed(2)) : 1;
+
+    // Detect bullish breakout (close above resistances)
+    for (const res of srLevels.resistanceLevels) {
+      if (prevCandle.close <= res && lastCandle.close > res) {
+        return { type: 'BOS_BULLISH', brokenLevel: res, volumeRatio };
+      }
+    }
+
+    // Detect bearish breakout (close below supports)
+    for (const sup of srLevels.supportLevels) {
+      if (prevCandle.close >= sup && lastCandle.close < sup) {
+        return { type: 'BOS_BEARISH', brokenLevel: sup, volumeRatio };
+      }
+    }
+
+    return { type: 'NONE', brokenLevel: 0, volumeRatio };
+  }
+
+  /**
+   * Programmatic RSI & MACD Divergence Detection Engine
+   */
+  public static detectDivergences(
+    candles: CandleData[]
+  ): { rsiDivergence: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE'; macdDivergence: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE' } {
+    const result: {
+      rsiDivergence: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
+      macdDivergence: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
+    } = { rsiDivergence: 'NONE', macdDivergence: 'NONE' };
+    if (candles.length < 35) return result;
+
+    const closes = candles.map((c) => c.close);
+    const rsi = this.calculateRSI(closes, 14);
+    const macd = this.calculateMACD(closes);
+    const macdHist = macd.histogram;
+
+    const peaks: { index: number; price: number; rsiVal: number; macdHistVal: number }[] = [];
+    const troughs: { index: number; price: number; rsiVal: number; macdHistVal: number }[] = [];
+
+    // Identify local peaks and troughs in the last 40 candles (leaving room at the end)
+    const startIdx = Math.max(2, candles.length - 40);
+    const endIdx = candles.length - 2;
+
+    for (let i = startIdx; i <= endIdx; i++) {
+      const isPeak =
+        candles[i].high >= candles[i - 1].high &&
+        candles[i].high >= candles[i + 1].high &&
+        candles[i].high >= candles[i - 2].high &&
+        candles[i].high >= candles[i + 2].high;
+
+      const isTrough =
+        candles[i].low <= candles[i - 1].low &&
+        candles[i].low <= candles[i + 1].low &&
+        candles[i].low <= candles[i - 2].low &&
+        candles[i].low <= candles[i + 2].low;
+
+      if (isPeak) {
+        peaks.push({
+          index: i,
+          price: candles[i].high,
+          rsiVal: rsi[i],
+          macdHistVal: macdHist[i],
+        });
+      }
+      if (isTrough) {
+        troughs.push({
+          index: i,
+          price: candles[i].low,
+          rsiVal: rsi[i],
+          macdHistVal: macdHist[i],
+        });
+      }
+    }
+
+    // Compare the last two peaks for Bearish Divergence
+    if (peaks.length >= 2) {
+      const p1 = peaks[peaks.length - 2];
+      const p2 = peaks[peaks.length - 1];
+      
+      if (p2.price > p1.price && p2.rsiVal < p1.rsiVal) {
+        result.rsiDivergence = 'BEARISH_DIV';
+      }
+      if (p2.price > p1.price && p2.macdHistVal < p1.macdHistVal) {
+        result.macdDivergence = 'BEARISH_DIV';
+      }
+    }
+
+    // Compare the last two troughs for Bullish Divergence
+    if (troughs.length >= 2) {
+      const t1 = troughs[troughs.length - 2];
+      const t2 = troughs[troughs.length - 1];
+
+      if (t2.price < t1.price && t2.rsiVal > t1.rsiVal) {
+        result.rsiDivergence = 'BULLISH_DIV';
+      }
+      if (t2.price < t1.price && t2.macdHistVal > t1.macdHistVal) {
+        result.macdDivergence = 'BULLISH_DIV';
+      }
+    }
+
+    return result;
   }
 }

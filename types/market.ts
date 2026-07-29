@@ -125,6 +125,11 @@ export interface MarketTechnicalFacts {
   atrSuggestedTakeProfitLong?: number;
   atrSuggestedStopLossShort?: number;
   atrSuggestedTakeProfitShort?: number;
+  breakoutType?: 'BOS_BULLISH' | 'BOS_BEARISH' | 'NONE';
+  breakoutLevel?: number;
+  breakoutVolumeRatio?: number;
+  rsiDivergence?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
+  macdDivergence?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
 }
 
 export interface MarketContextPayload {
