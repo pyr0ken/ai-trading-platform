@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
 
     const symbol = rawPayload.symbol || rawPayload.metadata?.symbol;
     const exchange = rawPayload.exchange || rawPayload.metadata?.exchange || 'kucoin';
-    const timeframe = rawPayload.timeframe || rawPayload.metadata?.timeframe || '1h';
+    const timeframe = rawPayload.timeframe || rawPayload.metadata?.primaryTimeframe || rawPayload.metadata?.timeframe || '1h';
+    const mode = rawPayload.mode || 'swing';
 
     if (!rawPayload || !symbol) {
       return NextResponse.json(
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       symbol,
       exchange,
       timeframe,
+      mode,
     };
 
     // Get stream from LLM Client

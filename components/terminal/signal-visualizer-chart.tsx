@@ -127,7 +127,10 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
                 fontSize: '12px',
                 padding: '12px',
               }}
-              formatter={(val: number | string) => [`$${Number(val).toLocaleString()}`, 'Price Level']}
+              formatter={(val) => {
+                if (val === undefined || val === null) return ['', 'Price Level'];
+                return [`$${Number(val).toLocaleString()}`, 'Price Level'];
+              }}
             />
             <Bar dataKey="price" radius={[0, 10, 10, 0]} barSize={28}>
               {chartRows.map((entry, index) => (
@@ -136,7 +139,10 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
               <LabelList
                 dataKey="price"
                 position="right"
-                formatter={(val: number | string) => `$${Number(val).toLocaleString()}`}
+                formatter={(val) => {
+                  if (val === undefined || val === null) return '';
+                  return `$${Number(val).toLocaleString()}`;
+                }}
                 style={{ fill: '#f5f5f4', fontSize: '11px', fontWeight: 'bold' }}
               />
             </Bar>

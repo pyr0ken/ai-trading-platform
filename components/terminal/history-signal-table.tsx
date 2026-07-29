@@ -30,6 +30,12 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
     );
   }
 
+  const total = historyRecords.length;
+  const wins = historyRecords.filter(r => r.accuracy_evaluation?.status === 'WIN').length;
+  const losses = historyRecords.filter(r => r.accuracy_evaluation?.status === 'LOSS').length;
+  const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
+  const netPnL = historyRecords.reduce((sum, r) => sum + (r.accuracy_evaluation?.pnl_percentage || 0), 0);
+
   return (
     <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] space-y-4">
       <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3">
@@ -40,11 +46,30 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
           </span>
         </div>
         <span className="text-xs text-[#9194a1] font-sans">
-          {historyRecords.length} Stored Signals
+          {total} Stored Signals
         </span>
       </div>
 
-      {historyRecords.length === 0 ? (
+      {total > 0 && (
+        <div className="grid grid-cols-3 gap-4 border border-[#1c1d22] p-3 text-center font-mono">
+          <div className="border-r border-[#1c1d22] py-1">
+            <div className="text-[#5e616e] text-[9px] uppercase">Win Rate</div>
+            <div className="text-[15px] font-bold text-emerald-400">{winRate.toFixed(1)}%</div>
+          </div>
+          <div className="border-r border-[#1c1d22] py-1">
+            <div className="text-[#5e616e] text-[9px] uppercase">Audited Trades</div>
+            <div className="text-[15px] font-bold text-[#e2e3e9]">{wins + losses} / {total}</div>
+          </div>
+          <div className="py-1">
+            <div className="text-[#5e616e] text-[9px] uppercase">Net returns</div>
+            <div className={`text-[15px] font-bold ${netPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {netPnL >= 0 ? '+' : ''}{netPnL.toFixed(2)}%
+            </div>
+          </div>
+        </div>
+      )}
+
+      {total === 0 ? (
         <div className="py-8 text-center text-xs text-[#5e616e] font-sans italic">
           No historical analysis records found. Run an AI Signal Analysis to populate audit logs!
         </div>
@@ -58,6 +83,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                 <th className="py-2.5 px-3">DIRECTION</th>
                 <th className="py-2.5 px-3">CONFIDENCE</th>
                 <th className="py-2.5 px-3">ENTRY PRICE</th>
+                <th className="py-2.5 px-3">RESULT</th>
                 <th className="py-2.5 px-3 text-right">ACTION</th>
               </tr>
             </thead>
@@ -98,6 +124,40 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                     </td>
                     <td className="py-3 px-3 font-mono text-[#e2e3e9]">
                       ${record.price}
+                    </td>
+                    <td className="py-3 px-3">
+                      {(() => {
+                        const evalData = record.accuracy_evaluation;
+                        if (!evalData) return <span className="text-[#5e616e] italic">Not Evaluated</span>;
+                        const status = evalData.status;
+                        const pnl = evalData.pnl_percentage ?? 0;
+                        if (status === 'PENDING') {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] font-bold bg-amber-950/60 text-amber-400 border border-amber-500 animate-pulse font-mono">
+                              PENDING
+                            </span>
+                          );
+                        }
+                        if (status === 'WIN') {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-500 font-mono">
+                              WIN (+{pnl}%)
+                            </span>
+                          );
+                        }
+                        if (status === 'LOSS') {
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] font-bold bg-rose-950/80 text-rose-400 border border-rose-500 font-mono">
+                              LOSS ({pnl}%)
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] font-bold bg-zinc-950 text-zinc-500 border border-zinc-800 font-mono">
+                            INVALIDATED
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3 px-3 text-right">
                       <button

@@ -22,6 +22,7 @@ interface AnalysisCardProps {
   symbol: string;
   exchange: string;
   timeframe: string;
+  analysisMode?: 'scalp' | 'swing';
   error?: string | null;
   logSteps?: LogStep[];
   hasRun: boolean;
@@ -36,6 +37,7 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
   symbol,
   exchange,
   timeframe,
+  analysisMode = 'swing',
   logSteps,
   hasRun,
   onRunAnalysis,
@@ -119,29 +121,35 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
 
       <AIChatWidget symbol={symbol} analysisSummary={parsedJson} />
 
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-4">
-        <div
-          onClick={() => setShowMarkdown(!showMarkdown)}
-          className="flex items-center justify-between cursor-pointer border-b border-[#1c1d22] pb-3"
-        >
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-[#cc9166]" />
-            <span className="text-[13px] text-[#e2e3e9] font-sans font-medium">
-              Full Report
-            </span>
+      {analysisMode !== 'scalp' ? (
+        <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-4">
+          <div
+            onClick={() => setShowMarkdown(!showMarkdown)}
+            className="flex items-center justify-between cursor-pointer border-b border-[#1c1d22] pb-3"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-[#cc9166]" />
+              <span className="text-[13px] text-[#e2e3e9] font-sans font-medium">
+                Full Report
+              </span>
+            </div>
+            <button className="flex items-center gap-1 text-[13px] text-[#5e616e] hover:text-[#e2e3e9] transition-colors">
+              <span>{showMarkdown ? 'Hide' : 'Expand'}</span>
+              {showMarkdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
           </div>
-          <button className="flex items-center gap-1 text-[13px] text-[#5e616e] hover:text-[#e2e3e9] transition-colors">
-            <span>{showMarkdown ? 'Hide' : 'Expand'}</span>
-            {showMarkdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
 
-        {showMarkdown && (
-          <div className="pt-2 max-h-[600px] overflow-y-auto pr-2 prose prose-invert max-w-none prose-headings:font-ivy-presto prose-headings:font-normal prose-headings:text-[#ffffff] prose-h2:text-base prose-h2:border-b prose-h2:border-[#1c1d22] prose-h2:pb-1.5 prose-h3:text-xs prose-p:text-[#e2e3e9] prose-p:text-xs prose-p:leading-relaxed prose-li:text-xs prose-li:text-[#e2e3e9] prose-strong:text-[#cc9166]">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownText}</ReactMarkdown>
-          </div>
-        )}
-      </div>
+          {showMarkdown && (
+            <div className="pt-2 max-h-[600px] overflow-y-auto pr-2 prose prose-invert max-w-none prose-headings:font-ivy-presto prose-headings:font-normal prose-headings:text-[#ffffff] prose-h2:text-base prose-h2:border-b prose-h2:border-[#1c1d22] prose-h2:pb-1.5 prose-h3:text-xs prose-p:text-[#e2e3e9] prose-p:text-xs prose-p:leading-relaxed prose-li:text-xs prose-li:text-[#e2e3e9] prose-strong:text-[#cc9166]">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownText}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-[#040406] border border-rose-950/60 rounded-[10px] p-6 text-center text-rose-400 font-sans text-xs">
+          <span>Scalp Mode Active: Report generation skipped for latency optimization.</span>
+        </div>
+      )}
     </div>
   );
 };

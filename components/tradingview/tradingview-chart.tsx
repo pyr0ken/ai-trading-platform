@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { TradeSetup } from '@/types/terminal';
+import { TradeSetup, StructuredLLMOutput } from '@/types/terminal';
 import { ShieldAlert, CheckCircle2, Copy, Check } from 'lucide-react';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
 

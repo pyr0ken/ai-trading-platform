@@ -8,15 +8,16 @@ const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:20128/v1';
 const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
 
 export async function createLLMAnalysisStream(
-  marketContext: FullMarketContextPayload & { symbol?: string; exchange?: string; timeframe?: string },
+  marketContext: FullMarketContextPayload & { symbol?: string; exchange?: string; timeframe?: string; mode?: 'scalp' | 'swing' },
   signal?: AbortSignal
 ): Promise<ReadableStream<Uint8Array>> {
   const symbol = marketContext.symbol || marketContext.metadata?.symbol || 'BTC/USDT';
   const exchange = marketContext.exchange || marketContext.metadata?.exchange || 'kucoin';
-  const timeframe = marketContext.timeframe || marketContext.metadata?.timeframe || '1h';
+  const timeframe = marketContext.timeframe || marketContext.metadata?.primaryTimeframe || '1h';
+  const mode = marketContext.mode || 'swing';
 
   const systemPrompt = buildInstitutionalSystemPrompt();
-  const userPrompt = buildInstitutionalUserPrompt(symbol, exchange, timeframe, marketContext);
+  const userPrompt = buildInstitutionalUserPrompt(symbol, exchange, timeframe, marketContext, mode);
 
   try {
     const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {
@@ -44,7 +45,8 @@ export async function createLLMAnalysisStream(
     return response.body;
   } catch (err) {
     const errorObject = err as Record<string, unknown>;
-    if (errorObject?.code === 'ECONNREFUSED' || errorObject?.message?.includes('fetch failed')) {
+    const hasFetchFailed = typeof errorObject?.message === 'string' && errorObject.message.includes('fetch failed');
+    if (errorObject?.code === 'ECONNREFUSED' || hasFetchFailed) {
       throw new Error(
         `Local LLM server at ${LLM_BASE_URL} is unreachable (ECONNREFUSED). Please verify 9router/Hermes LLM is running.`
       );

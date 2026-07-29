@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { TradeSetup } from '@/types/terminal';
 import { Target, ArrowUpRight, ArrowDownRight, ShieldCheck, Gauge } from 'lucide-react';
 
@@ -10,6 +10,9 @@ interface TradeSetupCardProps {
 }
 
 export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading }) => {
+  const [balance, setBalance] = useState(1000);
+  const [riskPct, setRiskPct] = useState(1);
+
   if (isLoading || !setup) {
     return (
       <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] animate-pulse space-y-4">
@@ -74,6 +77,67 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
             ${setup.entry_range?.[0] ?? 0} <span className="text-[#5e616e]">-</span> ${setup.entry_range?.[1] ?? 0}
           </div>
         </div>
+      </div>
+
+      {/* Position Sizing Calculator */}
+      <div className="bg-[#121317] border border-[#1c1d22] p-4 rounded-none space-y-3 font-sans text-xs">
+        <div className="flex items-center justify-between gap-4">
+          <span className="font-bold text-[#cc9166] uppercase tracking-wide">Risk & Position Calculator</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[#5e616e]">Balance ($):</span>
+              <input
+                type="number"
+                value={balance}
+                onChange={(e) => setBalance(Number(e.target.value))}
+                className="w-16 bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] px-1.5 py-0.5 font-mono text-[11px] text-center"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[#5e616e]">Risk (%):</span>
+              <input
+                type="number"
+                value={riskPct}
+                onChange={(e) => setRiskPct(Number(e.target.value))}
+                className="w-12 bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] px-1.5 py-0.5 font-mono text-[11px] text-center"
+              />
+            </div>
+          </div>
+        </div>
+
+        {(() => {
+          const entryPrice = ((setup.entry_range?.[0] ?? 0) + (setup.entry_range?.[1] ?? 0)) / 2;
+          const stopLoss = setup.stop_loss;
+          
+          const riskAmount = balance * (riskPct / 100);
+          const priceDiff = Math.abs(entryPrice - stopLoss);
+          const positionSize = priceDiff > 0 ? riskAmount / priceDiff : 0;
+          
+          const leverage = parseInt(setup.recommended_leverage) || 10;
+          const notionalValue = positionSize * entryPrice;
+          const marginRequired = notionalValue / leverage;
+
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-[#1c1d22] font-mono text-[11px]">
+              <div>
+                <span className="text-[#5e616e] block uppercase text-[9px]">Max Risk</span>
+                <span className="text-rose-400 font-bold">${riskAmount.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-[#5e616e] block uppercase text-[9px]">Position Size</span>
+                <span className="text-[#ffffff] font-bold">{positionSize.toFixed(4)} Units</span>
+              </div>
+              <div>
+                <span className="text-[#5e616e] block uppercase text-[9px]">Notional Val</span>
+                <span className="text-[#ffffff] font-bold">${notionalValue.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-[#5e616e] block uppercase text-[9px]">Req Margin ({leverage}x)</span>
+                <span className="text-[#cc9166] font-bold">${marginRequired.toFixed(2)}</span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Take Profit & Stop Loss Grid - ZERO BORDER RADIUS & GREEN/RED COLORS */}

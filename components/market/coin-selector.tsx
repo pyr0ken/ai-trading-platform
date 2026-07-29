@@ -11,6 +11,8 @@ interface CoinSelectorProps {
   selectedSymbol: string;
   selectedExchange: string;
   selectedTimeframe: string;
+  analysisMode: 'scalp' | 'swing';
+  onModeChange: (mode: 'scalp' | 'swing') => void;
   onSymbolChange: (symbol: string) => void;
   onExchangeChange: (exchange: string) => void;
   onTimeframeChange: (timeframe: string) => void;
@@ -23,6 +25,8 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   selectedSymbol,
   selectedExchange,
   selectedTimeframe,
+  analysisMode,
+  onModeChange,
   onSymbolChange,
   onExchangeChange,
   onTimeframeChange,
@@ -107,6 +111,36 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Mode Selector */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 text-[#9194a1]">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Mode:</span>
+            </div>
+            <div className="flex items-center gap-1 bg-[#121317] border border-[#1c1d22] p-1 rounded-[9999px]">
+              <button
+                onClick={() => onModeChange('scalp')}
+                className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
+                  analysisMode === 'scalp'
+                    ? 'bg-[#1c1d22] text-rose-400 border border-rose-500'
+                    : 'text-[#5e616e] hover:text-[#e2e3e9]'
+                }`}
+              >
+                Scalp
+              </button>
+              <button
+                onClick={() => onModeChange('swing')}
+                className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
+                  analysisMode === 'swing'
+                    ? 'bg-[#1c1d22] text-emerald-400 border border-emerald-500'
+                    : 'text-[#5e616e] hover:text-[#e2e3e9]'
+                }`}
+              >
+                Swing
+              </button>
             </div>
           </div>
         </div>
