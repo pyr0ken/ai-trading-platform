@@ -1,4 +1,5 @@
 import { StructuredLLMOutput } from '@/types/terminal';
+import { PaperPosition, PaperAccount } from '@/types/paper-trading';
 
 /**
  * Browser Storage Engine for Local Persistence (IndexedDB + LocalStorage Wrapper)
@@ -60,6 +61,8 @@ const STORAGE_KEYS = {
   CHATS: 'steep_quant_chats_v2',
   SETTINGS: 'steep_quant_settings_v2',
   PINE_SCRIPTS: 'steep_quant_pinescripts_v2',
+  PAPER_POSITIONS: 'steep_quant_paper_positions_v2',
+  PAPER_ACCOUNT: 'steep_quant_paper_account_v2',
 };
 
 const DEFAULT_SESSION: SessionState = {
@@ -261,6 +264,123 @@ export class AppStorageEngine {
       } else {
         localStorage.removeItem(STORAGE_KEYS.CHATS);
       }
+    } catch {}
+  }
+
+  // --- Paper Trading Storage & Operations ---
+  
+  public static getPaperAccount(): PaperAccount {
+    const defaultAccount: PaperAccount = {
+      balance: 10000,
+      equity: 10000,
+      totalTrades: 0,
+      wins: 0,
+      losses: 0,
+      balanceHistory: [{ timestamp: new Date().toISOString(), balance: 10000 }],
+    };
+
+    if (typeof window === 'undefined') return defaultAccount;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PAPER_ACCOUNT);
+      return data ? { ...defaultAccount, ...JSON.parse(data) } : defaultAccount;
+    } catch {
+      return defaultAccount;
+    }
+  }
+
+  public static savePaperAccount(account: PaperAccount): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.PAPER_ACCOUNT, JSON.stringify(account));
+    } catch (e) {
+      console.warn('LocalStorage savePaperAccount error:', e);
+    }
+  }
+
+  public static getPaperPositions(): PaperPosition[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PAPER_POSITIONS);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public static savePaperPositions(list: PaperPosition[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.PAPER_POSITIONS, JSON.stringify(list));
+    } catch (e) {
+      console.warn('LocalStorage savePaperPositions error:', e);
+    }
+  }
+
+  public static openPaperPosition(
+    pos: Omit<PaperPosition, 'id' | 'pnl' | 'pnlPct' | 'status' | 'openedAt' | 'currentPrice'>
+  ): void {
+    const list = this.getPaperPositions();
+    const newPosition: PaperPosition = {
+      ...pos,
+      id: 'paper_' + Date.now(),
+      currentPrice: pos.entryPrice,
+      openedAt: new Date().toISOString(),
+      pnl: 0,
+      pnlPct: 0,
+      status: 'OPEN',
+    };
+
+    const updatedList = [newPosition, ...list];
+    this.savePaperPositions(updatedList);
+
+    const account = this.getPaperAccount();
+    account.equity = account.balance;
+    this.savePaperAccount(account);
+  }
+
+  public static closePaperPosition(id: string, exitPrice: number): void {
+    const list = this.getPaperPositions();
+    const index = list.findIndex((p) => p.id === id);
+    if (index !== -1 && list[index].status === 'OPEN') {
+      const pos = list[index];
+      pos.status = 'CLOSED';
+      pos.closedAt = new Date().toISOString();
+      pos.currentPrice = exitPrice;
+
+      // Calculate final PnL
+      const isLong = pos.side === 'LONG';
+      const priceDiff = isLong ? exitPrice - pos.entryPrice : pos.entryPrice - exitPrice;
+      const pnlPct = (priceDiff / pos.entryPrice) * pos.leverage;
+      const pnl = pos.margin * pnlPct;
+
+      pos.pnl = Number(pnl.toFixed(2));
+      pos.pnlPct = Number((pnlPct * 100).toFixed(2));
+
+      // Update account metrics
+      const account = this.getPaperAccount();
+      account.balance = Number((account.balance + pnl).toFixed(2));
+      account.equity = account.balance;
+      account.totalTrades += 1;
+      if (pnl > 0) {
+        account.wins += 1;
+      } else {
+        account.losses += 1;
+      }
+      account.balanceHistory.push({
+        timestamp: new Date().toISOString(),
+        balance: account.balance,
+      });
+
+      this.savePaperAccount(account);
+      this.savePaperPositions(list);
+    }
+  }
+
+  public static resetPaperTrading(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PAPER_POSITIONS);
+      localStorage.removeItem(STORAGE_KEYS.PAPER_ACCOUNT);
     } catch {}
   }
 }

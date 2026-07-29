@@ -16,10 +16,11 @@ import {
   TrendingUp,
   Flame,
   BarChart2,
+  Briefcase,
 } from 'lucide-react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 
-export type NavTab = 'dashboard' | 'ai_assistant' | 'pine_studio' | 'watchlist' | 'history' | 'settings' | 'backtest';
+export type NavTab = 'dashboard' | 'ai_assistant' | 'pine_studio' | 'watchlist' | 'history' | 'settings' | 'backtest' | 'paper_portfolio';
 
 interface AppSidebarProps {
   activeTab: NavTab;
@@ -87,6 +88,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     { id: 'ai_assistant', label: 'AI Intelligence', icon: Bot },
     { id: 'pine_studio', label: 'Pine Script Studio', icon: Code2 },
     { id: 'backtest', label: 'Strategy Backtester', icon: BarChart2 },
+    { id: 'paper_portfolio', label: 'Paper Portfolio', icon: Briefcase },
     { id: 'watchlist', label: 'Watchlist', icon: Star },
     { id: 'history', label: 'Analysis History', icon: History },
     { id: 'settings', label: 'Settings', icon: Settings },

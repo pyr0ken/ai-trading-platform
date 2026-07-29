@@ -41,7 +41,7 @@ export const PreflightFactsPanel: React.FC<PreflightFactsPanelProps> = ({
         <span className="text-[10px] text-[#5e616e] uppercase">Deterministic Engine</span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-1">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pt-1">
         {/* Trend Indicator */}
         <div className="flex flex-col justify-center">
           <span className="text-[#5e616e] text-[9px] uppercase">Trend (EMA 20/50)</span>
@@ -127,6 +127,24 @@ export const PreflightFactsPanel: React.FC<PreflightFactsPanelProps> = ({
               {facts.breakoutType && facts.breakoutType !== 'NONE'
                 ? `${facts.breakoutType.replace('BOS_', '')} ($${facts.breakoutLevel})`
                 : 'NONE'}
+            </span>
+          </div>
+        </div>
+
+        {/* BTC Correlation */}
+        <div className="flex flex-col justify-center">
+          <span className="text-[#5e616e] text-[9px] uppercase">BTC Correlation (30d)</span>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span
+              className={`font-bold ${
+                facts.btcCorrelation !== undefined && facts.btcCorrelation > 0.7
+                  ? 'text-emerald-400'
+                  : facts.btcCorrelation !== undefined && facts.btcCorrelation < -0.3
+                  ? 'text-rose-400'
+                  : 'text-[#e2e3e9]'
+              }`}
+            >
+              {facts.btcCorrelation !== undefined ? `${facts.btcCorrelation}` : '1.0'}
             </span>
           </div>
         </div>

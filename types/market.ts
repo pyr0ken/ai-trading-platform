@@ -130,6 +130,7 @@ export interface MarketTechnicalFacts {
   breakoutVolumeRatio?: number;
   rsiDivergence?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
   macdDivergence?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
+  btcCorrelation?: number;
 }
 
 export interface MarketContextPayload {

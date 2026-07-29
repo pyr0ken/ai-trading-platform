@@ -109,6 +109,7 @@ DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
 - Breakout State (BOS): Type = ${marketContext.technicalFacts.breakoutType ?? 'NONE'}${marketContext.technicalFacts.breakoutType && marketContext.technicalFacts.breakoutType !== 'NONE' ? ` (Broken Level = $${marketContext.technicalFacts.breakoutLevel}, Volume Ratio = ${marketContext.technicalFacts.breakoutVolumeRatio}x)` : ''}
 - RSI Divergence: ${marketContext.technicalFacts.rsiDivergence ?? 'NONE'}
 - MACD Divergence: ${marketContext.technicalFacts.macdDivergence ?? 'NONE'}
+- BTC Correlation Index (30d): ${marketContext.technicalFacts.btcCorrelation ?? 1.0}
 
 DETERMINISTIC ATR-BASED TRADE THRESHOLDS (GUIDELINE LIMITS):
 * Long Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossLong} (Risk Buffer)

@@ -16,6 +16,7 @@ import {
 import { AppStorageEngine, WatchlistItem } from '@/lib/storage/app-db';
 import { TOP_300_COINS } from '@/lib/constants/top-coins';
 import { CoinIcon } from '@/components/common/coin-icon';
+import { MarketHeatmap } from './market-heatmap';
 
 interface StandaloneWatchlistPageProps {
   onSelectCoin: (symbol: string) => void;
@@ -33,6 +34,7 @@ export const StandaloneWatchlistPage: React.FC<StandaloneWatchlistPageProps> = (
   const [customCoinInput, setCustomCoinInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filterTab, setFilterTab] = useState<'all' | 'favorites' | 'pinned'>('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'heatmap'>('cards');
 
   const handleAddDirectSymbol = (symbolToAdd: string) => {
     const updated = AppStorageEngine.addCoinToWatchlist(symbolToAdd);
@@ -246,11 +248,38 @@ export const StandaloneWatchlistPage: React.FC<StandaloneWatchlistPageProps> = (
               <span>Import</span>
               <input type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
             </label>
+
+            {/* View Mode Toggle */}
+            <div className="flex bg-[#121317] border border-[#1c1d22] rounded-[9999px] p-0.5 ml-2">
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className={`px-3 py-1 rounded-[9999px] text-[10px] uppercase font-bold cursor-pointer transition-all ${
+                  viewMode === 'cards' ? 'bg-[#cc9166] text-[#08080a]' : 'text-[#9194a1] hover:text-[#e2e3e9]'
+                }`}
+              >
+                Cards
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('heatmap')}
+                className={`px-3 py-1 rounded-[9999px] text-[10px] uppercase font-bold cursor-pointer transition-all ${
+                  viewMode === 'heatmap' ? 'bg-[#cc9166] text-[#08080a]' : 'text-[#9194a1] hover:text-[#e2e3e9]'
+                }`}
+              >
+                Heatmap
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Portfolio Watchlist Cards Grid - Clicking anywhere on the card selects the coin! */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-mono text-xs">
+        {/* Portfolio Watchlist Cards Grid / Heatmap View */}
+        {viewMode === 'heatmap' ? (
+          <div className="p-4 bg-[#08080a] border border-[#1c1d22] rounded-[10px]">
+            <MarketHeatmap watchlist={filteredList} onSelectCoin={onSelectCoin} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-mono text-xs">
           {filteredList.length === 0 ? (
             <div className="col-span-full text-center text-[#777a88] py-12">
               No cryptocurrency assets found in this view.
@@ -331,6 +360,7 @@ export const StandaloneWatchlistPage: React.FC<StandaloneWatchlistPageProps> = (
             })
           )}
         </div>
+        )}
       </div>
     </div>
   );

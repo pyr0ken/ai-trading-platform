@@ -109,7 +109,7 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
     <div className="bg-[#08080a] space-y-6 min-h-[760px]">
       <ExecutiveSignalCard data={parsedJson} isLoading={isStreaming && !parsedJson} />
 
-      <TradeSetupCard setup={parsedJson?.trade_setup} isLoading={isStreaming && !parsedJson} />
+      <TradeSetupCard setup={parsedJson?.trade_setup} isLoading={isStreaming && !parsedJson} symbol={symbol} />
 
       <SignalVisualizerChart data={parsedJson} />
 

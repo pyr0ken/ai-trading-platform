@@ -2,16 +2,19 @@
 
 import React, { useState } from 'react';
 import { TradeSetup } from '@/types/terminal';
-import { Target, ArrowUpRight, ArrowDownRight, ShieldCheck, Gauge } from 'lucide-react';
+import { Target, ArrowUpRight, ArrowDownRight, ShieldCheck, Gauge, Check } from 'lucide-react';
+import { AppStorageEngine } from '@/lib/storage/app-db';
 
 interface TradeSetupCardProps {
   setup?: TradeSetup | null;
   isLoading?: boolean;
+  symbol?: string;
 }
 
-export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading }) => {
+export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading, symbol }) => {
   const [balance, setBalance] = useState(1000);
   const [riskPct, setRiskPct] = useState(1);
+  const [executed, setExecuted] = useState(false);
 
   if (isLoading || !setup) {
     return (
@@ -28,6 +31,37 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
   }
 
   const isLong = setup.position === 'LONG';
+
+  const handleExecutePaper = () => {
+    if (!setup) return;
+    const isLong = setup.position === 'LONG';
+    const entryVal = ((setup.entry_range?.[0] ?? 0) + (setup.entry_range?.[1] ?? 0)) / 2;
+    const slVal = setup.stop_loss;
+    const tpVal = setup.take_profit_1;
+    const levVal = parseInt(setup.recommended_leverage) || 10;
+
+    const riskAmount = balance * (riskPct / 100);
+    const priceDiff = Math.abs(entryVal - slVal);
+    const positionSize = priceDiff > 0 ? riskAmount / priceDiff : 0;
+    const notionalValue = positionSize * entryVal;
+    const marginRequired = notionalValue / levVal;
+    const quantity = notionalValue / entryVal;
+
+    AppStorageEngine.openPaperPosition({
+      symbol: symbol || 'BTC/USDT',
+      exchange: 'binance',
+      side: isLong ? 'LONG' : 'SHORT',
+      entryPrice: entryVal,
+      quantity,
+      leverage: levVal,
+      stopLoss: slVal,
+      takeProfit: tpVal,
+      margin: marginRequired,
+    });
+
+    setExecuted(true);
+    setTimeout(() => setExecuted(false), 3000);
+  };
 
   return (
     <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] space-y-5">
@@ -106,16 +140,16 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
         </div>
 
         {(() => {
-          const entryPrice = ((setup.entry_range?.[0] ?? 0) + (setup.entry_range?.[1] ?? 0)) / 2;
-          const stopLoss = setup.stop_loss;
+          const entryPriceVal = ((setup.entry_range?.[0] ?? 0) + (setup.entry_range?.[1] ?? 0)) / 2;
+          const stopLossVal = setup.stop_loss;
           
           const riskAmount = balance * (riskPct / 100);
-          const priceDiff = Math.abs(entryPrice - stopLoss);
+          const priceDiff = Math.abs(entryPriceVal - stopLossVal);
           const positionSize = priceDiff > 0 ? riskAmount / priceDiff : 0;
           
-          const leverage = parseInt(setup.recommended_leverage) || 10;
-          const notionalValue = positionSize * entryPrice;
-          const marginRequired = notionalValue / leverage;
+          const leverageVal = parseInt(setup.recommended_leverage) || 10;
+          const notionalValue = positionSize * entryPriceVal;
+          const marginRequired = notionalValue / leverageVal;
 
           return (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-[#1c1d22] font-mono text-[11px]">
@@ -132,7 +166,7 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
                 <span className="text-[#ffffff] font-bold">${notionalValue.toFixed(2)}</span>
               </div>
               <div>
-                <span className="text-[#5e616e] block uppercase text-[9px]">Req Margin ({leverage}x)</span>
+                <span className="text-[#5e616e] block uppercase text-[9px]">Req Margin ({leverageVal}x)</span>
                 <span className="text-[#cc9166] font-bold">${marginRequired.toFixed(2)}</span>
               </div>
             </div>
@@ -182,6 +216,28 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
           <ShieldCheck className="w-4 h-4 text-rose-400" />
           <span>Invalidation: <strong className="text-rose-400 font-bold">${setup.invalidation_point}</strong></span>
         </div>
+      </div>
+
+      {/* Execute Paper Trade Action */}
+      <div className="pt-1 flex justify-end">
+        <button
+          onClick={handleExecutePaper}
+          disabled={executed}
+          className={`px-4 py-2 border font-sans font-bold text-[11px] tracking-wider uppercase transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+            executed
+              ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/40'
+              : 'bg-[#cc9166] text-[#08080a] border-[#cc9166] hover:bg-[#d6a27e]'
+          }`}
+        >
+          {executed ? (
+            <>
+              <Check className="w-3.5 h-3.5" />
+              Order Placed
+            </>
+          ) : (
+            'Copy to Paper Portfolio'
+          )}
+        </button>
       </div>
     </div>
   );

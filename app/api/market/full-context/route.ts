@@ -62,6 +62,36 @@ export async function GET(request: Request) {
       ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles) 
       : undefined;
 
+    let btcCorrelation = 1.0;
+    const cleanSym = symbol.toUpperCase().replace('-', '/');
+    if (cleanSym !== 'BTC/USDT') {
+      try {
+        const btcCandles = await CCXTMarketService.fetchOHLCV('BTC/USDT', '1d', 40, exchange);
+        const symbolCandles = timeframesData['1d']?.candles || [];
+        
+        const btcPrices: number[] = [];
+        const symbolPrices: number[] = [];
+        
+        for (const sc of symbolCandles) {
+          const matchingBtc = btcCandles.find(bc => bc.timestamp === sc.timestamp);
+          if (matchingBtc) {
+            symbolPrices.push(sc.close);
+            btcPrices.push(matchingBtc.close);
+          }
+        }
+        
+        if (symbolPrices.length > 5) {
+          btcCorrelation = TechnicalIndicatorEngine.calculatePearsonCorrelation(symbolPrices, btcPrices);
+        }
+      } catch (e) {
+        console.warn('Failed to calculate BTC correlation:', e);
+      }
+    }
+
+    if (technicalFacts) {
+      technicalFacts.btcCorrelation = btcCorrelation;
+    }
+
     const economicWarnings = EconomicCalendar.getEconomicWarnings();
 
     const payload: FullMarketContextPayload = {

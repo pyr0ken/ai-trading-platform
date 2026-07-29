@@ -6,9 +6,30 @@ import { StructuredLLMOutput } from '@/types/terminal';
  * Swing Highs/Lows, Trend Clouds, Entry/SL/TP1-3 Boxes, R:R Visualizer, Buy/Sell Signals,
  * Breakout Detection, Volume Confirmation, Session Highlighting, and Alerts.
  */
+
+export interface PineCustomizationOptions {
+  version: 'v4' | 'v5';
+  useAdxFilter: boolean;
+  fastEma: number;
+  slowEma: number;
+  useTrailingStop: boolean;
+}
+
+const defaultOptions: PineCustomizationOptions = {
+  version: 'v5',
+  useAdxFilter: false,
+  fastEma: 20,
+  slowEma: 50,
+  useTrailingStop: false,
+};
+
+/**
+ * Advanced TradingView Pine Script Generator Engine with Custom Options
+ */
 export function generateAdvancedPineScriptCode(
   data: StructuredLLMOutput | null,
-  symbol = 'BTC/USDT'
+  symbol = 'BTC/USDT',
+  options: PineCustomizationOptions = defaultOptions
 ): string {
   const cleanSymbol = symbol.replace('/', '').toUpperCase();
   const signal = data?.signal || 'BUY';
@@ -23,30 +44,61 @@ export function generateAdvancedPineScriptCode(
   const leverage = data?.trade_setup?.recommended_leverage || '10x';
   const rrRatio = data?.trade_setup?.risk_reward_ratio || 2.25;
 
-  return `//@version=5
+  const versionHeader = options.version === 'v4' ? '//@version=4' : '//@version=5';
+  const taPrefix = options.version === 'v4' ? '' : 'ta.';
+  const secName = options.version === 'v4' ? 'study' : 'indicator';
+
+  // Build ADX code if enabled
+  const adxCode = options.useAdxFilter
+    ? `
+// ADX Trend Strength Filter (Strong trend > 20)
+[diplus, diminus, adxVal] = ${taPrefix}dmi(14, 14)
+adxFiltered = adxVal > 20
+`
+    : `
+adxFiltered = true
+`;
+
+  // Build Trailing Stop code if enabled
+  const trailingStopCode = options.useTrailingStop
+    ? `
+// Trailing Stop calculations
+var float trailPrice = na
+if bullishBreakout
+    trailPrice := low
+else if bearishBreakout
+    trailPrice := high
+else if not na(trailPrice)
+    trailPrice := ${position === 'LONG' ? 'math.max(trailPrice, low)' : 'math.min(trailPrice, high)'}
+plot(trailPrice, "Trailing Stop", color=color.orange, style=plot.style_cross)
+`
+    : '';
+
+  return `${versionHeader}
 // +--------------------------------------------------------------------------+
-// |  STEEP QUANT TERMINAL - INSTITUTIONAL PINE SCRIPT V5 OVERLAY            |
+// |  STEEP QUANT TERMINAL - INSTITUTIONAL PINE SCRIPT OVERLAY               |
 // |  Asset: ${symbol} | Signal: ${signal} (${confidence}%) | Leverage: ${leverage}               |
 // +--------------------------------------------------------------------------+
-indicator("Steep AI Institutional Overlay - ${cleanSymbol}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+${secName}("Steep AI Institutional Overlay - ${cleanSymbol}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
 
 // --- Inputs & Settings ---
-showEMAs       = input.bool(true, "Show EMA 20/50/200", group="Indicators")
+showEMAs       = input.bool(true, "Show EMA Fast/Slow/200", group="Indicators")
 showVWAP       = input.bool(true, "Show Anchored VWAP", group="Indicators")
 showATRBands   = input.bool(true, "Show ATR Volatility Bands", group="Indicators")
 showZones      = input.bool(true, "Show Supply & Demand Zones", group="Market Structure")
 showSignals    = input.bool(true, "Show Buy/Sell Breakout Signals", group="Trade Execution")
 
 // --- Technical Indicators ---
-ema20  = ta.ema(close, 20)
-ema50  = ta.ema(close, 50)
-ema200 = ta.ema(close, 200)
-vwapVal = ta.vwap(close)
-atrVal = ta.atr(14)
+emaFast = ${taPrefix}ema(close, ${options.fastEma})
+emaSlow = ${taPrefix}ema(close, ${options.slowEma})
+ema200  = ${taPrefix}ema(close, 200)
+vwapVal = ${taPrefix}vwap(close)
+atrVal  = ${taPrefix}atr(14)
+${adxCode}
 
 // EMA Lines & Trend Cloud
-plot(showEMAs ? ema20 : na, "EMA 20", color=color.rgb(59, 130, 246), width=1)
-plot(showEMAs ? ema50 : na, "EMA 50", color=color.rgb(245, 158, 11), width=1)
+plot(showEMAs ? emaFast : na, "EMA Fast", color=color.rgb(59, 130, 246), width=1)
+plot(showEMAs ? emaSlow : na, "EMA Slow", color=color.rgb(245, 158, 11), width=1)
 plot(showEMAs ? ema200 : na, "EMA 200", color=color.rgb(239, 68, 68), width=2)
 plot(showVWAP ? vwapVal : na, "VWAP", color=color.rgb(168, 85, 247), width=2, style=plot.style_linebr)
 
@@ -56,18 +108,19 @@ plotLowerATR = plot(showATRBands ? close - (atrVal * 2.0) : na, "ATR Lower", col
 fill(plotUpperATR, plotLowerATR, color=color.new(color.blue, 95), title="ATR Volatility Cloud")
 
 // --- Market Structure: Swing Highs & Swing Lows ---
-swingHigh = ta.pivothigh(high, 5, 5)
-swingLow  = ta.pivotlow(low, 5, 5)
+swingHigh = ${taPrefix}pivothigh(high, 5, 5)
+swingLow  = ${taPrefix}pivotlow(low, 5, 5)
 plotshape(swingHigh, title="Swing High", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 30), text="SH", textcolor=color.white, size=size.tiny)
 plotshape(swingLow, title="Swing Low", style=shape.labelup, location=location.belowbar, color=color.new(color.green, 30), text="SL", textcolor=color.white, size=size.tiny)
 
 // --- Breakout & Volume Confirmation Signals ---
-volConfirmed = volume > ta.sma(volume, 20) * 1.25
-bullishBreakout = ta.crossover(close, ema20) and volConfirmed
-bearishBreakout = ta.crossunder(close, ema20) and volConfirmed
+volConfirmed = volume > ${taPrefix}sma(volume, 20) * 1.25
+bullishBreakout = ${taPrefix}crossover(close, emaFast) and volConfirmed and adxFiltered
+bearishBreakout = ${taPrefix}crossunder(close, emaFast) and volConfirmed and adxFiltered
 
 plotshape(showSignals and bullishBreakout, title="Buy Signal", style=shape.triangleup, location=location.belowbar, color=color.emerald, size=size.small, text="BUY")
 plotshape(showSignals and bearishBreakout, title="Sell Signal", style=shape.triangledown, location=location.abovebar, color=color.rose, size=size.small, text="SELL")
+${trailingStopCode}
 
 // --- Steep AI Signal Overlay Boxes & Targets ---
 signalType  = "${signal}"

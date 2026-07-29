@@ -19,6 +19,7 @@ import { AIChatWidget } from '@/components/terminal/ai-chat-widget';
 import { StandaloneWatchlistPage } from '@/components/market/standalone-watchlist-page';
 import { TerminalSettingsPage } from '@/components/settings/terminal-settings-page';
 import { BacktestSimulator } from '@/components/terminal/backtest-simulator';
+import { PaperPortfolio } from '@/components/terminal/paper-portfolio';
 
 import { useMarketData } from '@/hooks/use-market-data';
 import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
@@ -297,6 +298,23 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <BacktestSimulator marketContext={marketContext} latestTradeSetup={parsedJson?.trade_setup} />
+              </div>
+            )}
+
+            {activeTab === 'paper_portfolio' && (
+              <div className="max-w-5xl mx-auto space-y-6">
+                <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-8 text-center space-y-3">
+                  <span className="text-[13px] font-sans font-semibold text-[#cc9166] uppercase tracking-wider block">
+                    Paper Portfolio
+                  </span>
+                  <h2 className="font-ivy-presto text-[32px] font-normal text-[#ffffff]">
+                    AI & Manual Paper Trading Account
+                  </h2>
+                  <p className="text-[14px] text-[#9194a1] max-w-2xl mx-auto leading-relaxed font-sans">
+                    Monitor live active paper positions, execute copy trade suggestions from AI, manage leverage/margins, and track mock account growth.
+                  </p>
+                </div>
+                <PaperPortfolio />
               </div>
             )}
 

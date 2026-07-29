@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Code2, Copy, Check, Download, RefreshCw, Terminal, Edit3, Eye } from 'lucide-react';
+import { Code2, Copy, Check, Download, RefreshCw, Terminal, Edit3, Eye, Sliders } from 'lucide-react';
 import { StructuredLLMOutput } from '@/types/terminal';
-import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
+import { generateAdvancedPineScriptCode, PineCustomizationOptions } from '@/lib/tradingview/pine-generator';
 
 interface PineScriptEditorProps {
   data?: StructuredLLMOutput | null;
@@ -14,7 +14,15 @@ interface PineScriptEditorProps {
 export const PineScriptEditor: React.FC<PineScriptEditorProps> = ({ data, symbol, isLoading }) => {
   const [copied, setCopied] = useState(false);
   const [scriptVersion, setScriptVersion] = useState(1);
-  const generatedCode = generateAdvancedPineScriptCode(data ?? null, symbol);
+  const [options, setOptions] = useState<PineCustomizationOptions>({
+    version: 'v5',
+    useAdxFilter: false,
+    fastEma: 20,
+    slowEma: 50,
+    useTrailingStop: false,
+  });
+
+  const generatedCode = generateAdvancedPineScriptCode(data ?? null, symbol, options);
   const [editableCode, setEditableCode] = useState(generatedCode);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -54,7 +62,7 @@ export const PineScriptEditor: React.FC<PineScriptEditorProps> = ({ data, symbol
   };
 
   const handleRegenerate = () => {
-    const fresh = generateAdvancedPineScriptCode(data ?? null, symbol);
+    const fresh = generateAdvancedPineScriptCode(data ?? null, symbol, options);
     setEditableCode(fresh);
     setScriptVersion((v) => v + 1);
   };
@@ -122,8 +130,96 @@ export const PineScriptEditor: React.FC<PineScriptEditorProps> = ({ data, symbol
       </div>
 
       <p className="text-xs text-[#9194a1] leading-relaxed">
-        Interactive Pine Script v5 Editor with syntax color highlighting. Customize indicators, EMA levels, VWAP bands, and alert conditions.
+        Interactive Pine Script Editor with syntax color highlighting. Customize indicators, EMA levels, VWAP bands, and alert conditions.
       </p>
+
+      {/* Pine Script Settings Panel */}
+      <div className="bg-[#121317] border border-[#1c1d22] p-4 rounded-none space-y-3 font-sans text-xs">
+        <div className="flex items-center gap-1.5 font-bold text-[#cc9166] uppercase text-[10px] tracking-wider mb-1">
+          <Sliders className="w-3.5 h-3.5 text-[#cc9166]" />
+          <span>Interactive Script Customization</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Version and EMAs input */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-[#5e616e] text-[9px] uppercase mb-1">Pine Script Version</label>
+              <select
+                value={options.version}
+                onChange={(e) => setOptions(prev => ({ ...prev, version: e.target.value as 'v4' | 'v5' }))}
+                className="w-full bg-[#08080a] border border-[#1c1d22] px-2.5 py-1.5 text-white font-mono outline-none"
+              >
+                <option value="v5">Version 5 (v5 - Modern)</option>
+                <option value="v4">Version 4 (v4 - Legacy)</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[#5e616e] text-[9px] uppercase mb-1">Fast EMA</label>
+                <input
+                  type="number"
+                  value={options.fastEma}
+                  onChange={(e) => setOptions(prev => ({ ...prev, fastEma: parseInt(e.target.value) || 20 }))}
+                  className="w-full bg-[#08080a] border border-[#1c1d22] px-2 py-1 text-white font-mono text-center"
+                />
+              </div>
+              <div>
+                <label className="block text-[#5e616e] text-[9px] uppercase mb-1">Slow EMA</label>
+                <input
+                  type="number"
+                  value={options.slowEma}
+                  onChange={(e) => setOptions(prev => ({ ...prev, slowEma: parseInt(e.target.value) || 50 }))}
+                  className="w-full bg-[#08080a] border border-[#1c1d22] px-2 py-1 text-white font-mono text-center"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ADX Filter */}
+          <div className="flex flex-col justify-between">
+            <div>
+              <label className="block text-[#5e616e] text-[9px] uppercase mb-1">ADX Trend Filter</label>
+              <p className="text-[10px] text-[#5e616e] leading-snug mb-2">
+                Only trigger breakout shapes when ADX value is above 20 (reduces fakeouts).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOptions(prev => ({ ...prev, useAdxFilter: !prev.useAdxFilter }))}
+              className={`w-full py-2 px-3 border text-center font-bold font-sans cursor-pointer text-[10px] ${
+                options.useAdxFilter
+                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.15)]'
+                  : 'bg-[#08080a] border-[#1c1d22] text-[#5e616e]'
+              }`}
+            >
+              {options.useAdxFilter ? 'ADX FILTER ACTIVE' : 'ADX FILTER INACTIVE'}
+            </button>
+          </div>
+
+          {/* Trailing Stop */}
+          <div className="flex flex-col justify-between">
+            <div>
+              <label className="block text-[#5e616e] text-[9px] uppercase mb-1">Trailing Stop Loss</label>
+              <p className="text-[10px] text-[#5e616e] leading-snug mb-2">
+                Plot dynamic trailing stop bounds tracking the price action highs and lows.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOptions(prev => ({ ...prev, useTrailingStop: !prev.useTrailingStop }))}
+              className={`w-full py-2 px-3 border text-center font-bold font-sans cursor-pointer text-[10px] ${
+                options.useTrailingStop
+                  ? 'bg-amber-950/60 text-amber-400 border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.15)]'
+                  : 'bg-[#08080a] border-[#1c1d22] text-[#5e616e]'
+              }`}
+            >
+              {options.useTrailingStop ? 'TRAILING STOP ACTIVE' : 'TRAILING STOP INACTIVE'}
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Editor Controls Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-[10px]">
