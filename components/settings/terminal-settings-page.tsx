@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Settings,
   Cpu,
@@ -15,15 +15,15 @@ import { AppStorageEngine } from '@/lib/storage/app-db';
 
 export const TerminalSettingsPage: React.FC = () => {
   const [llmUrl, setLlmUrl] = useState('http://127.0.0.1:20128/v1');
-  const [defaultExchange, setDefaultExchange] = useState('kucoin');
-  const [defaultTimeframe, setDefaultTimeframe] = useState('1h');
-  const [savedSuccess, setSavedSuccess] = useState(false);
-
-  useEffect(() => {
+  const [defaultExchange, setDefaultExchange] = useState(() => {
     const session = AppStorageEngine.getSession();
-    if (session.selectedExchange) setDefaultExchange(session.selectedExchange);
-    if (session.selectedTimeframe) setDefaultTimeframe(session.selectedTimeframe);
-  }, []);
+    return session.selectedExchange || 'kucoin';
+  });
+  const [defaultTimeframe, setDefaultTimeframe] = useState(() => {
+    const session = AppStorageEngine.getSession();
+    return session.selectedTimeframe || '1h';
+  });
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
   const handleSaveSettings = () => {
     AppStorageEngine.saveSession({

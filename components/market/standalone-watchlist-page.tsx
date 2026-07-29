@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Star,
   Pin,
@@ -26,15 +26,13 @@ export const StandaloneWatchlistPage: React.FC<StandaloneWatchlistPageProps> = (
   onSelectCoin,
   selectedSymbol,
 }) => {
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(() => {
+    return AppStorageEngine.getWatchlist();
+  });
   const [search, setSearch] = useState('');
   const [customCoinInput, setCustomCoinInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filterTab, setFilterTab] = useState<'all' | 'favorites' | 'pinned'>('all');
-
-  useEffect(() => {
-    setWatchlist(AppStorageEngine.getWatchlist());
-  }, []);
 
   const handleAddDirectSymbol = (symbolToAdd: string) => {
     const updated = AppStorageEngine.addCoinToWatchlist(symbolToAdd);

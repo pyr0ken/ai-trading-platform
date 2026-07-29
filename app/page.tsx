@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AtlanticTopNav } from '@/components/layout/atlantic-top-nav';
 import { AppSidebar, NavTab } from '@/components/layout/app-sidebar';
 import { DashboardTickerTape } from '@/components/dashboard/dashboard-ticker-tape';
 import { CoinSelector } from '@/components/market/coin-selector';
@@ -22,25 +21,36 @@ import { TerminalSettingsPage } from '@/components/settings/terminal-settings-pa
 
 import { useMarketData } from '@/hooks/use-market-data';
 import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
+import { useAutoResolver } from '@/hooks/use-auto-resolver';
+import { PreflightFactsPanel } from '@/components/terminal/preflight-facts-panel';
 import { StructuredLLMOutput } from '@/types/terminal';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 
 export default function DashboardPage() {
+  useAutoResolver();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTC/USDT');
-  const [selectedExchange, setSelectedExchange] = useState<string>('kucoin');
-  const [selectedTimeframe, setSelectedTimeframe] = useState<string>('1h');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const session = AppStorageEngine.getSession();
+    return session.sidebarOpen !== undefined ? !session.sidebarOpen : false;
+  });
+  const [selectedSymbol, setSelectedSymbol] = useState<string>(() => {
+    const session = AppStorageEngine.getSession();
+    return session.selectedSymbol || 'BTC/USDT';
+  });
+  const [selectedExchange, setSelectedExchange] = useState<string>(() => {
+    const session = AppStorageEngine.getSession();
+    return session.selectedExchange || 'kucoin';
+  });
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>(() => {
+    const session = AppStorageEngine.getSession();
+    return session.selectedTimeframe || '1h';
+  });
   const [hasRun, setHasRun] = useState<boolean>(false);
+  const [analysisMode, setAnalysisMode] = useState<'scalp' | 'swing'>('swing');
 
   useEffect(() => {
-    setMounted(true);
-    const session = AppStorageEngine.getSession();
-    if (session.selectedSymbol) setSelectedSymbol(session.selectedSymbol);
-    if (session.selectedExchange) setSelectedExchange(session.selectedExchange);
-    if (session.selectedTimeframe) setSelectedTimeframe(session.selectedTimeframe);
-    if (session.sidebarOpen !== undefined) setSidebarCollapsed(!session.sidebarOpen);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   useEffect(() => {
@@ -74,7 +84,7 @@ export default function DashboardPage() {
     setHasRun(true);
     const result = await refetchMarketData();
     if (result.data) {
-      runAnalysis(result.data);
+      runAnalysis({ ...result.data, mode: analysisMode });
     }
   };
 
@@ -91,7 +101,9 @@ export default function DashboardPage() {
     if (jsonMatch && jsonMatch[1]) {
       parsedJson = JSON.parse(jsonMatch[1]);
     }
-  } catch (e) {}
+  } catch {
+    // Ignore JSON parse errors
+  }
 
   const currentTfData = marketContext?.timeframes[selectedTimeframe] || marketContext?.timeframes['1h'];
 
@@ -123,6 +135,8 @@ export default function DashboardPage() {
                   selectedSymbol={selectedSymbol}
                   selectedExchange={selectedExchange}
                   selectedTimeframe={selectedTimeframe}
+                  analysisMode={analysisMode}
+                  onModeChange={setAnalysisMode}
                   onSymbolChange={setSelectedSymbol}
                   onExchangeChange={setSelectedExchange}
                   onTimeframeChange={setSelectedTimeframe}
@@ -133,6 +147,11 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" suppressHydrationWarning>
                 <div className="lg:col-span-8 space-y-4">
+                  <PreflightFactsPanel
+                    marketContext={marketContext}
+                    isLoading={isMarketLoading || isMarketFetching}
+                  />
+
                   <TradingViewChart
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
@@ -185,6 +204,7 @@ export default function DashboardPage() {
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
                     timeframe={selectedTimeframe}
+                    analysisMode={analysisMode}
                     error={analysisError}
                     logSteps={logSteps}
                     hasRun={hasRun}
@@ -205,6 +225,7 @@ export default function DashboardPage() {
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
                     timeframe={selectedTimeframe}
+                    analysisMode={analysisMode}
                     error={analysisError}
                     logSteps={logSteps}
                     hasRun={hasRun}

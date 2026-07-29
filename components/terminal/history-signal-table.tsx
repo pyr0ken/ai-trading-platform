@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { History, ArrowUpRight, ArrowDownRight, Eye } from 'lucide-react';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 
@@ -13,11 +13,9 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
   onSelectRecord = () => {},
   isLoading,
 }) => {
-  const [historyRecords, setHistoryRecords] = useState<StoredAnalysisRecord[]>([]);
-
-  useEffect(() => {
-    setHistoryRecords(AppStorageEngine.getAnalyses());
-  }, []);
+  const [historyRecords] = useState<StoredAnalysisRecord[]>(() => {
+    return AppStorageEngine.getAnalyses();
+  });
 
   if (isLoading) {
     return (

@@ -4,7 +4,7 @@ import { TechnicalIndicatorEngine } from '@/lib/market/indicators';
 import { MacroSentimentService } from '@/lib/market/macro-service';
 import { NewsService } from '@/lib/news/news-service';
 import { FullMarketContextPayload } from '@/types/analysis';
-import { ProcessedTimeframeData } from '@/types/market';
+import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         const latestIndicators =
           processedCandles.length > 0
             ? processedCandles[processedCandles.length - 1].indicators
-            : ({} as any);
+            : ({} as CalculatedIndicators);
 
         const tfData: ProcessedTimeframeData = {
           timeframe: tf,

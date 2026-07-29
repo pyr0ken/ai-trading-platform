@@ -14,13 +14,14 @@ interface PineScriptEditorProps {
 export const PineScriptEditor: React.FC<PineScriptEditorProps> = ({ data, symbol, isLoading }) => {
   const [copied, setCopied] = useState(false);
   const [scriptVersion, setScriptVersion] = useState(1);
-  const [editableCode, setEditableCode] = useState('');
+  const generatedCode = generateAdvancedPineScriptCode(data ?? null, symbol);
+  const [editableCode, setEditableCode] = useState(generatedCode);
   const [isEditing, setIsEditing] = useState(false);
 
-  const generatedCode = generateAdvancedPineScriptCode(data ?? null, symbol);
-
   useEffect(() => {
-    setEditableCode(generatedCode);
+    queueMicrotask(() => {
+      setEditableCode(generatedCode);
+    });
   }, [generatedCode]);
 
   const handleCopy = async () => {
@@ -62,7 +63,7 @@ export const PineScriptEditor: React.FC<PineScriptEditorProps> = ({ data, symbol
   const renderHighlightedCode = (code: string) => {
     const lines = code.split('\n');
     return lines.map((line, idx) => {
-      let highlighted = line
+      const highlighted = line
         // Comments
         .replace(/(\/\/.+$)/g, '<span class="text-[#5e616e] italic">$1</span>')
         // Pine Script Keywords

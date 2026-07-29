@@ -1,3 +1,4 @@
+import { FullMarketContextPayload } from '@/types/analysis';
 import {
   buildInstitutionalSystemPrompt,
   buildInstitutionalUserPrompt,
@@ -7,7 +8,7 @@ const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:20128/v1';
 const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
 
 export async function createLLMAnalysisStream(
-  marketContext: any,
+  marketContext: FullMarketContextPayload & { symbol?: string; exchange?: string; timeframe?: string },
   signal?: AbortSignal
 ): Promise<ReadableStream<Uint8Array>> {
   const symbol = marketContext.symbol || marketContext.metadata?.symbol || 'BTC/USDT';
@@ -41,8 +42,9 @@ export async function createLLMAnalysisStream(
     }
 
     return response.body;
-  } catch (err: any) {
-    if (err.code === 'ECONNREFUSED' || err.message?.includes('fetch failed')) {
+  } catch (err) {
+    const errorObject = err as Record<string, unknown>;
+    if (errorObject?.code === 'ECONNREFUSED' || errorObject?.message?.includes('fetch failed')) {
       throw new Error(
         `Local LLM server at ${LLM_BASE_URL} is unreachable (ECONNREFUSED). Please verify 9router/Hermes LLM is running.`
       );

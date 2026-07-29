@@ -230,8 +230,8 @@ export function useLLMAnalysis() {
       }
       setIsStreaming(false);
       autoSaveToLocalStorage(accumulatedText, contextPayload);
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
         console.error('[useLLMAnalysis] Exception:', err);
         setError(err.message || 'Error connecting to local LLM server');
         setLogSteps((prev) =>
@@ -241,11 +241,22 @@ export function useLLMAnalysis() {
               : step
           )
         );
+      } else if (err && typeof err === 'object' && 'name' in err && err.name !== 'AbortError') {
+        const errMsg = 'message' in err && typeof err.message === 'string' ? err.message : 'Error connecting to local LLM server';
+        console.error('[useLLMAnalysis] Exception:', err);
+        setError(errMsg);
+        setLogSteps((prev) =>
+          prev.map((step) =>
+            step.id === 'step-5' || step.id === 'step-6'
+              ? { ...step, status: 'failed', detail: errMsg }
+              : step
+          )
+        );
       }
       setIsLoading(false);
       setIsStreaming(false);
     }
-  }, []);
+  }, [autoSaveToLocalStorage]);
 
   return {
     analysisText,

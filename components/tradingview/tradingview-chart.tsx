@@ -61,8 +61,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      if (typeof window !== 'undefined' && (window as any).TradingView) {
-        new (window as any).TradingView.widget({
+      const win = window as unknown as { TradingView?: { widget: new (config: Record<string, unknown>) => unknown } };
+      if (typeof window !== 'undefined' && win.TradingView) {
+        new win.TradingView.widget({
           autosize: false,
           width: '100%',
           height: 850,
@@ -85,7 +86,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   }, [symbol, exchange, timeframe]);
 
   const handleCopyPine = async () => {
-    const code = generateAdvancedPineScriptCode(setup ? ({ trade_setup: setup } as any) : null, symbol);
+    const code = generateAdvancedPineScriptCode(setup ? ({ trade_setup: setup } as unknown as StructuredLLMOutput) : null, symbol);
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);

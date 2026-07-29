@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, Flame, Cpu, ShieldCheck } from 'lucide-react';
+import { Flame, Cpu, ShieldCheck } from 'lucide-react';
 
 export const DashboardTickerTape: React.FC = () => {
   return (

@@ -1,3 +1,5 @@
+import { FullMarketContextPayload } from '@/types/analysis';
+
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
  * Mandates 100% structured JSON signals and exhaustive 24-section Institutional Report.
@@ -87,7 +89,7 @@ export function buildInstitutionalUserPrompt(
   symbol: string,
   exchange: string,
   timeframe: string,
-  marketContext: any
+  marketContext: FullMarketContextPayload
 ): string {
   const price = marketContext.ticker?.price ?? 0;
   const change24h = marketContext.ticker?.change24hPercentage ?? 0;

@@ -1,3 +1,5 @@
+import { StructuredLLMOutput } from '@/types/terminal';
+
 /**
  * Browser Storage Engine for Local Persistence (IndexedDB + LocalStorage Wrapper)
  * Persists session state, watchlists, analysis history, chat history, Pine Scripts, and settings.
@@ -31,7 +33,7 @@ export interface StoredAnalysisRecord {
   signal: string;
   confidence: number;
   risk_level: string;
-  json_output: any;
+  json_output: StructuredLLMOutput | null;
   markdown_report: string;
   pine_script?: string;
   created_at: string;

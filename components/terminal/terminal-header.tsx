@@ -2,6 +2,8 @@
 
 import React from 'react';
 
+import { StoredAnalysisRecord } from '@/lib/storage/app-db';
+
 interface TerminalHeaderProps {
   symbol: string;
   exchange: string;
@@ -9,7 +11,7 @@ interface TerminalHeaderProps {
   onRefresh: () => void;
   isFetching?: boolean;
   onSelectCoin?: (symbol: string) => void;
-  onReplayAnalysis?: (record: any) => void;
+  onReplayAnalysis?: (record: StoredAnalysisRecord) => void;
 }
 
 export const TerminalHeader: React.FC<TerminalHeaderProps> = () => {

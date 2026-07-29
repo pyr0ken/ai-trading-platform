@@ -36,7 +36,6 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
   symbol,
   exchange,
   timeframe,
-  error,
   logSteps,
   hasRun,
   onRunAnalysis,
@@ -53,7 +52,9 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
       parsedJson = JSON.parse(jsonMatch[1]);
       markdownText = content.replace(/```json[\s\S]*?```/, '').trim();
     }
-  } catch (e) {}
+  } catch {
+    // Ignore JSON parse errors
+  }
 
   if (!hasRun && !content) {
     return (
@@ -108,7 +109,7 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
 
       <TradeSetupCard setup={parsedJson?.trade_setup} isLoading={isStreaming && !parsedJson} />
 
-      <SignalVisualizerChart data={parsedJson} symbol={symbol} />
+      <SignalVisualizerChart data={parsedJson} />
 
       <SmartSuggestions data={parsedJson} symbol={symbol} onSelectAction={onSelectAction} />
 

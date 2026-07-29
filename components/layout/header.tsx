@@ -13,13 +13,14 @@ export const Header: React.FC<HeaderProps> = ({ onRefresh, isFetching }) => {
   const [llmOnline, setLlmOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setMounted(true);
     const checkLlmStatus = async () => {
       try {
         const res = await fetch('/api/analysis/stream', { method: 'HEAD' });
         setLlmOnline(res.status !== 500);
       } catch {
         setLlmOnline(false);
+      } finally {
+        setMounted(true);
       }
     };
     checkLlmStatus();

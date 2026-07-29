@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MessageSquare, Send, Bot, User, Loader2, Trash2, Sparkles, Download, Copy, Check } from 'lucide-react';
 import { StructuredLLMOutput } from '@/types/terminal';
-import { AppStorageEngine, StoredChatMessage } from '@/lib/storage/app-db';
+import { AppStorageEngine } from '@/lib/storage/app-db';
 
 interface AIChatWidgetProps {
   symbol: string;
@@ -18,6 +18,12 @@ interface Message {
   content: string;
 }
 
+const getUniqueId = () => {
+  return typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID 
+    ? window.crypto.randomUUID() 
+    : Math.random().toString(36).substring(2, 15);
+};
+
 export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ symbol, analysisSummary }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -29,17 +35,21 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ symbol, analysisSumm
   useEffect(() => {
     const stored = AppStorageEngine.getChats(symbol);
     if (stored && stored.length > 0) {
-      setMessages(stored.map((c) => ({ id: c.id, role: c.role, content: c.content })));
+      queueMicrotask(() => {
+        setMessages(stored.map((c) => ({ id: c.id, role: c.role, content: c.content })));
+      });
     } else {
-      setMessages([
-        {
-          id: '1',
-          role: 'assistant',
-          content: `**AI Terminal Assistant**
+      queueMicrotask(() => {
+        setMessages([
+          {
+            id: '1',
+            role: 'assistant',
+            content: `**AI Terminal Assistant**
 
 Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s trade setup, indicators, risk levels, or leverage bounds.`,
-        },
-      ]);
+          },
+        ]);
+      });
     }
   }, [symbol]);
 
@@ -62,7 +72,7 @@ Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s t
     const q = (questionText || input).trim();
     if (!q || isLoading) return;
 
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: q };
+    const userMsg: Message = { id: getUniqueId(), role: 'user', content: q };
     setMessages((prev) => [...prev, userMsg]);
     AppStorageEngine.saveChat({
       id: userMsg.id,
@@ -88,7 +98,7 @@ Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s t
 
       const data = await res.json();
       const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
+        id: getUniqueId(),
         role: 'assistant',
         content: data.answer || 'No response returned.',
       };
@@ -100,11 +110,11 @@ Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s t
         content: botMsg.content,
         timestamp: new Date().toISOString(),
       });
-    } catch (e) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: getUniqueId(),
           role: 'assistant',
           content: 'Connection error to local LLM server.',
         },
@@ -118,7 +128,7 @@ Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s t
     AppStorageEngine.clearChats(symbol);
     setMessages([
       {
-        id: Date.now().toString(),
+        id: getUniqueId(),
         role: 'assistant',
         content: `Chat history cleared. Ready for queries on **${symbol}**.`,
       },

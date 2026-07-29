@@ -44,10 +44,11 @@ export async function POST(req: NextRequest) {
         Connection: 'keep-alive',
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in /api/analysis/stream:', error);
+    const message = error instanceof Error ? error.message : 'Failed to stream LLM analysis';
     return NextResponse.json(
-      { error: error.message || 'Failed to stream LLM analysis' },
+      { error: message },
       { status: 500 }
     );
   }

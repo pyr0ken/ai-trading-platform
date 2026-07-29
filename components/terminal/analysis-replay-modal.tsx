@@ -15,14 +15,16 @@ export const AnalysisReplayModal: React.FC<AnalysisReplayModalProps> = ({ onRepl
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   useEffect(() => {
     if (isOpen) {
-      setHistory(AppStorageEngine.getAnalyses());
+      queueMicrotask(() => {
+        setHistory(AppStorageEngine.getAnalyses());
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, mounted]);
 
   const modalContent = isOpen && mounted ? (
     <div className="fixed inset-0 z-[99999] bg-black/70 flex items-center justify-center p-4 min-h-screen">

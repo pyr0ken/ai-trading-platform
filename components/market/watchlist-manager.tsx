@@ -27,7 +27,9 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   onSelectCoin,
   selectedSymbol,
 }) => {
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(() => {
+    return AppStorageEngine.getWatchlist();
+  });
   const [search, setSearch] = useState('');
   const [customCoinInput, setCustomCoinInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -36,8 +38,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    setWatchlist(AppStorageEngine.getWatchlist());
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   const handleAddDirectSymbol = (symbolToAdd: string) => {

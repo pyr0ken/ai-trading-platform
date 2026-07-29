@@ -5,7 +5,7 @@ const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, symbol, marketContext, analysisSummary } = await req.json();
+    const { question, symbol, analysisSummary } = await req.json();
 
     if (!question) {
       return NextResponse.json({ error: 'Question is required' }, { status: 400 });
@@ -48,8 +48,9 @@ Provide a crisp, Markdown-formatted answer in the user's language:`;
     const answer = data?.choices?.[0]?.message?.content || 'پاسخی از هوش مصنوعی دریافت نشد.';
 
     return NextResponse.json({ answer });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in /api/chat:', error);
-    return NextResponse.json({ error: error.message || 'Failed to generate chat answer' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to generate chat answer';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { RotateCw, Clock, Globe2, Sparkles, RefreshCw, Pin } from 'lucide-react';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
-import { AppStorageEngine, WatchlistItem } from '@/lib/storage/app-db';
+import { AppStorageEngine, WatchlistItem, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { CoinIcon } from '@/components/common/coin-icon';
 
 interface CoinSelectorProps {
@@ -16,7 +16,7 @@ interface CoinSelectorProps {
   onTimeframeChange: (timeframe: string) => void;
   onRunAnalysis: () => void;
   isRunning: boolean;
-  onReplayAnalysis?: (record: any) => void;
+  onReplayAnalysis?: (record: StoredAnalysisRecord) => void;
 }
 
 export const CoinSelector: React.FC<CoinSelectorProps> = ({
@@ -30,12 +30,18 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   isRunning,
   onReplayAnalysis = () => {},
 }) => {
-  const [pinnedCoins, setPinnedCoins] = useState<WatchlistItem[]>([]);
+  const [pinnedCoins, setPinnedCoins] = useState<WatchlistItem[]>(() => {
+    const list = AppStorageEngine.getWatchlist();
+    const pinned = list.filter((item) => item.pinned);
+    return pinned.length > 0 ? pinned : list.slice(0, 4);
+  });
 
   useEffect(() => {
     const list = AppStorageEngine.getWatchlist();
     const pinned = list.filter((item) => item.pinned);
-    setPinnedCoins(pinned.length > 0 ? pinned : list.slice(0, 4));
+    queueMicrotask(() => {
+      setPinnedCoins(pinned.length > 0 ? pinned : list.slice(0, 4));
+    });
   }, [selectedSymbol]);
 
   const exchanges = [
