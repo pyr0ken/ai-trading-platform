@@ -1,4 +1,4 @@
-import { CalculatedIndicators, CandleData, SupportResistanceLevels } from '@/types/market';
+import { CalculatedIndicators, CandleData, SupportResistanceLevels, MarketTechnicalFacts } from '@/types/market';
 
 /**
  * Technical Indicator Calculation Engine (Pure TypeScript)
@@ -283,5 +283,57 @@ export class TechnicalIndicatorEngine {
         indicators,
       };
     });
+  }
+
+  /**
+   * Extract key deterministic technical facts to pass to the LLM
+   */
+  public static extractTechnicalFacts(candles: CandleData[]): MarketTechnicalFacts {
+    if (candles.length < 50) {
+      return {
+        trend: 'NEUTRAL',
+        supportLevels: [],
+        resistanceLevels: [],
+        atrVolatility: 0,
+        rsiCondition: 'NEUTRAL',
+        macdCrossover: 'NONE',
+      };
+    }
+
+    const closes = candles.map((c) => c.close);
+    const ema20 = this.calculateEMA(closes, 20);
+    const ema50 = this.calculateEMA(closes, 50);
+
+    const trend = ema20[ema20.length - 1] > ema50[ema50.length - 1] ? 'BULLISH' : 'BEARISH';
+
+    const rsi = this.calculateRSI(closes, 14);
+    const latestRsi = rsi[rsi.length - 1];
+    const rsiCondition = latestRsi < 30 ? 'OVERSOLD' : latestRsi > 70 ? 'OVERBOUGHT' : 'NEUTRAL';
+
+    const macd = this.calculateMACD(closes);
+    const hist = macd.histogram;
+    const prevHist = hist[hist.length - 2];
+    const currHist = hist[hist.length - 1];
+
+    let macdCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE' = 'NONE';
+    if (prevHist <= 0 && currHist > 0) {
+      macdCrossover = 'BULLISH_CROSS';
+    } else if (prevHist >= 0 && currHist < 0) {
+      macdCrossover = 'BEARISH_CROSS';
+    }
+
+    const atr = this.calculateATR(candles, 14);
+
+    // Extract support & resistance
+    const sr = this.extractSupportResistance(candles, 5);
+
+    return {
+      trend,
+      supportLevels: sr.supportLevels,
+      resistanceLevels: sr.resistanceLevels,
+      atrVolatility: atr[atr.length - 1],
+      rsiCondition,
+      macdCrossover,
+    };
   }
 }

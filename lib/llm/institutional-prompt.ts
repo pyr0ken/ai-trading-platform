@@ -89,17 +89,34 @@ export function buildInstitutionalUserPrompt(
   symbol: string,
   exchange: string,
   timeframe: string,
-  marketContext: FullMarketContextPayload
+  marketContext: FullMarketContextPayload,
+  mode: 'scalp' | 'swing' = 'swing'
 ): string {
   const price = marketContext.ticker?.price ?? 0;
   const change24h = marketContext.ticker?.change24hPercentage ?? 0;
 
+  const technicalFactsText = marketContext.technicalFacts ? `
+DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
+- Trend Phase: ${marketContext.technicalFacts.trend}
+- Immediate Support Levels: ${marketContext.technicalFacts.supportLevels.join(', ')}
+- Immediate Resistance Levels: ${marketContext.technicalFacts.resistanceLevels.join(', ')}
+- Volatility (ATR): ${marketContext.technicalFacts.atrVolatility}
+- RSI State: ${marketContext.technicalFacts.rsiCondition}
+- MACD Cross: ${marketContext.technicalFacts.macdCrossover}
+` : '';
+
+  const modeInstruction = mode === 'scalp'
+    ? 'CRITICAL MODE CONSTRAINT: You are in SCALP MODE. Output ONLY Section 1 (the JSON block starting with ```json and ending with ```). DO NOT write any report or markdown text after the JSON block.'
+    : 'You are in SWING MODE. Output Section 1 (JSON block) first, followed by Section 2 (Exhaustive Institutional Markdown Report).';
+
   return `TARGET ASSET: ${symbol} (${timeframe})
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
+${technicalFactsText}
+${modeInstruction}
 
 RAW QUANTITATIVE MARKET DATA PAYLOAD:
 ${JSON.stringify(marketContext, null, 2)}
 
-Provide the Dual Output (Section 1: JSON block first, followed by Section 2: Institutional Markdown Report).`;
+Provide the Output matching the mode constraints.`;
 }

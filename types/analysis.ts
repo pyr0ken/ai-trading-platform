@@ -1,4 +1,4 @@
-import { MarketTicker, ProcessedTimeframeData, DerivativesMetrics, MicrostructureMetrics, MacroSentiment } from './market';
+import { MarketTicker, ProcessedTimeframeData, DerivativesMetrics, MicrostructureMetrics, MacroSentiment, MarketTechnicalFacts } from './market';
 import { NewsPayload } from './news';
 
 /**
@@ -17,6 +17,8 @@ export interface FullMarketContextPayload {
   microstructure: MicrostructureMetrics;
   news: NewsPayload;
   timeframes: Record<string, ProcessedTimeframeData>;
+  technicalFacts?: MarketTechnicalFacts;
+  mode?: 'scalp' | 'swing';
 }
 
 export interface AnalysisRequestOptions {

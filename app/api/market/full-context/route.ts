@@ -56,6 +56,11 @@ export async function GET(request: Request) {
       timeframesData[tf] = tfData;
     }
 
+    const primaryTfData = timeframesData[primaryTimeframe];
+    const technicalFacts = primaryTfData 
+      ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles) 
+      : undefined;
+
     const payload: FullMarketContextPayload = {
       metadata: {
         symbol,
@@ -69,6 +74,7 @@ export async function GET(request: Request) {
       microstructure,
       news,
       timeframes: timeframesData,
+      technicalFacts,
     };
 
     return NextResponse.json(payload);

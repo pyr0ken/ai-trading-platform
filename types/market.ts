@@ -111,6 +111,15 @@ export interface MacroSentiment {
   };
 }
 
+export interface MarketTechnicalFacts {
+  trend: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  supportLevels: number[];
+  resistanceLevels: number[];
+  atrVolatility: number;
+  rsiCondition: 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL';
+  macdCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE';
+}
+
 export interface MarketContextPayload {
   symbol: string;
   exchange: string;
