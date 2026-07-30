@@ -76,6 +76,7 @@ export default function DashboardPage() {
 
   const {
     analysisText,
+    setAnalysisText,
     isStreaming,
     isLoading: isAnalysisLoading,
     error: analysisError,
@@ -96,6 +97,10 @@ export default function DashboardPage() {
     setSelectedExchange(record.exchange);
     setSelectedTimeframe(record.timeframe);
     setHasRun(true);
+    // Load the saved analysis text back into the card so TP/SL, scenarios, and all analysis data reappear
+    if (record.markdown_report) {
+      setAnalysisText(record.markdown_report);
+    }
   };
 
   let parsedJson: StructuredLLMOutput | null = null;
@@ -233,7 +238,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <HistorySignalTable />
+                  <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
                 </div>
 
                 <div className="lg:col-span-4 sticky top-24 max-h-[calc(100vh-120px)] overflow-y-auto pr-1 space-y-6">
@@ -318,7 +323,7 @@ export default function DashboardPage() {
                     All historical signal predictions and snapshot evaluations are stored locally in browser IndexedDB.
                   </p>
                 </div>
-                <HistorySignalTable />
+                <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
               </div>
             )}
 

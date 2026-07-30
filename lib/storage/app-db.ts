@@ -220,6 +220,12 @@ export class AppStorageEngine {
     }
   }
 
+  public static deleteAnalysis(id: string): void {
+    const list = this.getAnalyses();
+    const updated = list.filter((a) => a.id !== id);
+    this.saveAnalyses(updated);
+  }
+
   public static clearAnalyses(): void {
     if (typeof window === 'undefined') return;
     try {

@@ -7,7 +7,11 @@ import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
 
 export function useLLMAnalysis() {
-  const [analysisText, setAnalysisText] = useState<string>('');
+  const [analysisText, setAnalysisTextState] = useState<string>('');
+
+  const setAnalysisText = useCallback((text: string) => {
+    setAnalysisTextState(text);
+  }, []);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -235,7 +239,7 @@ export function useLLMAnalysis() {
               const tokenContent = json.choices?.[0]?.delta?.content || json.content || '';
               if (tokenContent) {
                 accumulatedText += tokenContent;
-                setAnalysisText((prev) => prev + tokenContent);
+                setAnalysisTextState((prev) => prev + tokenContent);
               }
               if (json.error) {
                 setError(json.error);
@@ -281,10 +285,11 @@ export function useLLMAnalysis() {
       setIsLoading(false);
       setIsStreaming(false);
     }
-  }, [autoSaveToLocalStorage]);
+  }, [autoSaveToLocalStorage, setAnalysisText]);
 
   return {
     analysisText,
+    setAnalysisText,
     isStreaming,
     isLoading,
     error,
