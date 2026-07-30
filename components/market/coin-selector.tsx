@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RotateCw, Clock, Globe2, Sparkles, RefreshCw, Pin } from 'lucide-react';
+import { RotateCw, Clock, Globe2, Sparkles, RefreshCw, Pin, XCircle } from 'lucide-react';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
 import { AppStorageEngine, WatchlistItem, StoredAnalysisRecord } from '@/lib/storage/app-db';
@@ -17,6 +17,7 @@ interface CoinSelectorProps {
   onExchangeChange: (exchange: string) => void;
   onTimeframeChange: (timeframe: string) => void;
   onRunAnalysis: () => void;
+  onStopAnalysis?: () => void;
   isRunning: boolean;
   onReplayAnalysis?: (record: StoredAnalysisRecord) => void;
 }
@@ -31,6 +32,7 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   onExchangeChange,
   onTimeframeChange,
   onRunAnalysis,
+  onStopAnalysis = () => {},
   isRunning,
   onReplayAnalysis = () => {},
 }) => {
@@ -215,6 +217,15 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
             </>
           )}
         </button>
+        {isRunning && onStopAnalysis && (
+          <button
+            onClick={onStopAnalysis}
+            className="bg-rose-600/90 text-white text-[13px] font-sans font-medium py-2.5 px-5 rounded-[9999px] shrink-0 hover:bg-rose-500 transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <XCircle className="w-4 h-4" />
+            <span>Stop</span>
+          </button>
+        )}
       </div>
     </div>
   );

@@ -295,5 +295,20 @@ export function useLLMAnalysis() {
     error,
     logSteps,
     runAnalysis: triggerAnalysis,
+    stopAnalysis: () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      setIsLoading(false);
+      setIsStreaming(false);
+      setLogSteps((prev) =>
+        prev.map((step) =>
+          step.status === 'in_progress'
+            ? { ...step, status: 'failed', detail: 'Cancelled by user' }
+            : step
+        )
+      );
+    },
   };
 }

@@ -50,7 +50,7 @@ export default function DashboardPage() {
     const session = AppStorageEngine.getSession();
     return session.selectedTimeframe || '1h';
   });
-  const [hasRun, setHasRun] = useState<boolean>(true);
+  const [hasRun, setHasRun] = useState<boolean>(false);
   const [analysisMode, setAnalysisMode] = useState<'scalp' | 'swing'>(() => {
     const session = AppStorageEngine.getSession();
     return session.analysisMode || 'swing';
@@ -90,6 +90,7 @@ export default function DashboardPage() {
     error: analysisError,
     logSteps,
     runAnalysis,
+    stopAnalysis,
   } = useLLMAnalysis();
 
   const handleRunAnalysis = async () => {
@@ -162,6 +163,7 @@ export default function DashboardPage() {
                   onExchangeChange={setSelectedExchange}
                   onTimeframeChange={setSelectedTimeframe}
                   onRunAnalysis={handleRunAnalysis}
+                  onStopAnalysis={stopAnalysis}
                   isRunning={isMarketLoading || isMarketFetching || isStreaming}
                   onReplayAnalysis={handleReplayAnalysis}
                 />

@@ -18,8 +18,8 @@ export function useTickerPoll(symbol: string, exchange: string) {
       if (!res.ok) throw new Error('Ticker poll failed');
       return res.json();
     },
-    refetchInterval: 10_000, // poll every 10s
-    staleTime: 5_000,
+    refetchInterval: 5_000, // poll every 5s
+    staleTime: 3_000,
     retry: 1,
   });
 }
