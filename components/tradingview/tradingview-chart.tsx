@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TradeSetup, StructuredLLMOutput } from '@/types/terminal';
 import { ShieldAlert, CheckCircle2, Copy, Check, PauseCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
+import { getPipInfo } from '@/lib/constants/forex-pairs';
 
 interface TradingViewChartProps {
   symbol: string;
@@ -43,6 +44,13 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const formatTVSymbol = (rawSymbol: string, rawExchange: string): string => {
     const cleanSymbol = rawSymbol.replace('/', '').replace('-', '').toUpperCase();
     const ex = rawExchange.toUpperCase();
+
+    // Check if it's a forex pair — use forex provider symbol
+    const pipInfo = getPipInfo(rawSymbol);
+    if (pipInfo.isForex && pipInfo.tradingViewSymbol) {
+      return pipInfo.tradingViewSymbol; // e.g. OANDA:EURUSD, OANDA:XAUUSD
+    }
+
     return `${ex}:${cleanSymbol}`;
   };
 

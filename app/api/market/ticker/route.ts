@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CCXTMarketService } from '@/lib/market/ccxt-service';
+import { ForexMarketService } from '@/lib/market/forex-service';
+import { getPipInfo } from '@/lib/constants/forex-pairs';
 
 /**
  * Stale-while-revalidate cache for ticker responses.
@@ -25,6 +27,9 @@ export async function GET(req: NextRequest) {
   const symbol = searchParams.get('symbol') || 'BTC/USDT';
   const exchange = searchParams.get('exchange') || 'kucoin';
 
+  const pipInfo = getPipInfo(symbol);
+  const isForex = pipInfo.isForex || exchange.toLowerCase() === 'forex' || exchange.toLowerCase() === 'oanda';
+
   const cacheKey = `${symbol}:${exchange}`;
   const now = Date.now();
   const entry = cache.get(cacheKey);
@@ -36,33 +41,28 @@ export async function GET(req: NextRequest) {
 
   // 2. Stale cache hit — return stale data, trigger background refresh
   if (entry && now < entry.staleAt) {
-    // If no refresh is already in-flight, start one
     if (!entry.refreshPromise) {
-      entry.refreshPromise = refresh(cacheKey, symbol, exchange);
+      entry.refreshPromise = refresh(cacheKey, symbol, exchange, isForex);
     }
     return NextResponse.json(entry.data);
   }
 
   // 3. No cache or stale past limit — must refresh (return stale if exists)
   if (entry) {
-    // Return stale data while waiting (better than hanging)
-    refresh(cacheKey, symbol, exchange);
+    refresh(cacheKey, symbol, exchange, isForex);
     return NextResponse.json(entry.data);
   }
 
   // 4. First request ever — no cache at all, must wait
-  const result = await refresh(cacheKey, symbol, exchange);
+  const result = await refresh(cacheKey, symbol, exchange, isForex);
   return NextResponse.json(result);
 }
 
-/**
- * Fetch fresh ticker data from the exchange and update cache.
- * If this is an in-flight deduplication call, it waits for the existing refresh.
- */
 async function refresh(
   cacheKey: string,
   symbol: string,
-  exchange: string
+  exchange: string,
+  isForex: boolean
 ): Promise<{ price: number; change24h: number; change24hPercentage: number }> {
   const entry = cache.get(cacheKey);
 
@@ -74,7 +74,7 @@ async function refresh(
   }
 
   // Mark in-flight
-  const refreshPromise = doFetch(symbol, exchange, cacheKey);
+  const refreshPromise = doFetch(symbol, exchange, cacheKey, isForex);
   if (entry) entry.refreshPromise = refreshPromise;
 
   try {
@@ -88,21 +88,23 @@ async function refresh(
 async function doFetch(
   symbol: string,
   exchange: string,
-  cacheKey: string
+  cacheKey: string,
+  isForex: boolean
 ): Promise<{ price: number; change24h: number; change24hPercentage: number }> {
   const now = Date.now();
-  // Default fallback in case the exchange call fails
   const fallback = { price: 0, change24h: 0, change24hPercentage: 0 };
 
   try {
-    const ticker = await CCXTMarketService.fetchTicker(symbol, exchange);
+    const ticker = isForex
+      ? await ForexMarketService.fetchTicker(symbol)
+      : await CCXTMarketService.fetchTicker(symbol, exchange);
+
     const result = {
       price: ticker.price,
       change24h: ticker.change24h,
       change24hPercentage: ticker.change24hPercentage,
     };
 
-    // Update cache with fresh data
     cache.set(cacheKey, {
       data: result,
       expiresAt: now + FRESH_TTL_MS,
@@ -112,16 +114,13 @@ async function doFetch(
 
     return result;
   } catch {
-    // On complete failure: if we had a previous entry, extend its stale window
-    // so we don't keep hammering the exchange
     const existing = cache.get(cacheKey);
     if (existing) {
-      existing.staleAt = now + 60_000; // Extend stale window by 1 minute
+      existing.staleAt = now + 60_000;
       existing.refreshPromise = null;
       return existing.data;
     }
 
-    // No previous data — return fallback
     cache.set(cacheKey, {
       data: fallback,
       expiresAt: now + 15_000,
