@@ -132,45 +132,48 @@ export class CCXTMarketService {
   }
 
   /**
-   * Fetch current live market ticker statistics with real exchange fallback
+   * Fetch current live market ticker statistics — tries ONLY the requested exchange,
+   * then falls back to direct REST APIs (without chaining through other ccxt exchanges).
+   * Each attempt has a short timeout to avoid memory pileup.
    */
   public static async fetchTicker(symbol: string, exchangeId = 'kucoin'): Promise<MarketTicker> {
-    const exchangesToTry = [exchangeId, 'binance', 'bybit', 'okx'];
-
-    for (const exId of exchangesToTry) {
-      try {
-        const exchange = await this.getExchange(exId);
-        const ticker = await exchange.fetchTicker(symbol);
-        const price = ticker.last || ticker.close || 0;
-        if (price > 0) {
-          const change24hPct = ticker.percentage || 0;
-          const change24hVal = ticker.change || (price * change24hPct) / 100;
-
-          return {
-            symbol,
-            exchange: exId,
-            price: Number(price.toFixed(price < 1 ? 4 : 2)),
-            change24h: Number(change24hVal.toFixed(price < 1 ? 4 : 2)),
-            change24hPercentage: Number(change24hPct.toFixed(2)),
-            high24h: Number((ticker.high || price * 1.02).toFixed(price < 1 ? 4 : 2)),
-            low24h: Number((ticker.low || price * 0.98).toFixed(price < 1 ? 4 : 2)),
-            volume24h: Number((ticker.baseVolume || ticker.quoteVolume || 1500000).toFixed(2)),
-            bid: Number((ticker.bid || price * 0.9995).toFixed(price < 1 ? 4 : 2)),
-            ask: Number((ticker.ask || price * 1.0005).toFixed(price < 1 ? 4 : 2)),
-          };
-        }
-      } catch {}
+    // 1. Try the requested exchange directly (single attempt, no fallback chain)
+    try {
+      const exchange = await this.getExchange(exchangeId);
+      const ticker = await exchange.fetchTicker(symbol);
+      const price = ticker.last || ticker.close || 0;
+      if (price > 0) {
+        const change24hPct = ticker.percentage || 0;
+        const change24hVal = ticker.change || (price * change24hPct) / 100;
+        return {
+          symbol,
+          exchange: exchangeId,
+          price: Number(price.toFixed(price < 1 ? 4 : 2)),
+          change24h: Number(change24hVal.toFixed(price < 1 ? 4 : 2)),
+          change24hPercentage: Number(change24hPct.toFixed(2)),
+          high24h: Number((ticker.high || price * 1.02).toFixed(price < 1 ? 4 : 2)),
+          low24h: Number((ticker.low || price * 0.98).toFixed(price < 1 ? 4 : 2)),
+          volume24h: Number((ticker.baseVolume || ticker.quoteVolume || 1500000).toFixed(2)),
+          bid: Number((ticker.bid || price * 0.9995).toFixed(price < 1 ? 4 : 2)),
+          ask: Number((ticker.ask || price * 1.0005).toFixed(price < 1 ? 4 : 2)),
+        };
+      }
+    } catch {
+      // Exchange failed, try direct REST below
     }
 
+    // 2. Try direct REST APIs (no ccxt fallback chain)
     const directTicker = await this.fetchDirectTicker(symbol);
     if (directTicker) {
       return directTicker;
     }
 
+    // 3. Final fallback — synthetic data, always succeeds and uses no heap
+    const fakePrice = 100.0;
     return {
       symbol,
       exchange: `${exchangeId}`,
-      price: 100.0,
+      price: fakePrice,
       change24h: 1.25,
       change24hPercentage: 1.25,
       high24h: 102.5,
