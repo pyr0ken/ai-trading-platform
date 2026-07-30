@@ -23,6 +23,7 @@ import { PaperPortfolio } from '@/components/terminal/paper-portfolio';
 import { ToastContainer, showToast } from '@/components/terminal/toast';
 
 import { useMarketData } from '@/hooks/use-market-data';
+import { useTickerPoll } from '@/hooks/use-ticker-poll';
 import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
 import { useAutoResolver } from '@/hooks/use-auto-resolver';
 import { PreflightFactsPanel } from '@/components/terminal/preflight-facts-panel';
@@ -79,6 +80,8 @@ export default function DashboardPage() {
     refetch: refetchMarketData,
   } = useMarketData(selectedSymbol, selectedExchange, selectedTimeframe, hasRun);
 
+  const { data: liveTicker } = useTickerPoll(selectedSymbol, selectedExchange);
+
   const {
     analysisText,
     setAnalysisText,
@@ -133,8 +136,8 @@ export default function DashboardPage() {
     <div className="min-h-screen flex flex-col bg-[#08080a] text-[#e2e3e9]" suppressHydrationWarning>
       <DashboardTickerTape
         symbol={selectedSymbol}
-        price={marketContext?.ticker?.price}
-        change24h={marketContext?.ticker?.change24h}
+        price={liveTicker?.price ?? marketContext?.ticker?.price}
+        change24h={liveTicker?.change24h ?? marketContext?.ticker?.change24h}
       />
 
       <div className="flex-1 flex w-full">
