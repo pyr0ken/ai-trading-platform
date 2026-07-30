@@ -19,10 +19,10 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   const isPositive = change24h !== undefined && change24h >= 0;
 
   return (
-    <div className="w-full bg-[#040406] border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 px-2 select-none">
-      <div className="w-full flex items-center justify-between gap-4 max-w-7xl mx-auto">
+    <div className="w-full bg-[#040406] border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
+      <div className="w-full flex items-center justify-between max-w-7xl mx-auto">
         {/* Left: market stats */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <span>24h Vol: <strong className="text-[#e2e3e9] font-medium">$94.2B</strong></span>
           </div>
@@ -62,7 +62,7 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
         </div>
 
         {/* Right: status */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center shrink-0">
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#cc9166]" />
             <span className="text-[10px] tracking-wide">Encryption Active</span>
