@@ -49,7 +49,7 @@ export default function DashboardPage() {
     const session = AppStorageEngine.getSession();
     return session.selectedTimeframe || '1h';
   });
-  const [hasRun, setHasRun] = useState<boolean>(false);
+  const [hasRun, setHasRun] = useState<boolean>(true);
   const [analysisMode, setAnalysisMode] = useState<'scalp' | 'swing'>(() => {
     const session = AppStorageEngine.getSession();
     return session.analysisMode || 'swing';
