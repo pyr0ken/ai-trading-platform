@@ -14,15 +14,15 @@ interface BuySellMeterProps {
 }
 
 export const BuySellMeter: React.FC<BuySellMeterProps> = ({
-  buyPct = 74,
-  sellPct = 26,
+  buyPct,
+  sellPct,
   neutralPct = 0,
   isLoading,
   microstructure,
 }) => {
   // Derive buy/sell pressure from real microstructure data when available
-  let displayBuy = buyPct;
-  let displaySell = sellPct;
+  let displayBuy: number | null = null;
+  let displaySell: number | null = null;
 
   if (microstructure?.orderBookDepth?.imbalanceRatio) {
     const ratio = microstructure.orderBookDepth.imbalanceRatio;
@@ -30,7 +30,13 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
     const total = ratio + (1 / ratio);
     displayBuy = Math.round((ratio / total) * 100);
     displaySell = 100 - displayBuy;
-  } else if (!microstructure && !buyPct) {
+  } else if (buyPct !== undefined && sellPct !== undefined) {
+    // Fall back to AI probabilities
+    displayBuy = buyPct;
+    displaySell = sellPct;
+  }
+
+  if (displayBuy === null || displaySell === null) {
     // No real data yet — don't render
     return null;
   }
