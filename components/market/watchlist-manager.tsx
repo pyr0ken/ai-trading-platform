@@ -47,8 +47,11 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   // Open modal from external trigger (e.g. top-bar coin click)
   useEffect(() => {
     if (openExternal && !isOpen) {
-      setIsOpen(true);
-      onOpened?.();
+      const timer = setTimeout(() => {
+        setIsOpen(true);
+        onOpened?.();
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [openExternal, isOpen, onOpened]);
 

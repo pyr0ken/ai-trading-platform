@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   // 3. No cache or stale past limit — must refresh (return stale if exists)
   if (entry) {
     // Return stale data while waiting (better than hanging)
-    const promise = refresh(cacheKey, symbol, exchange);
+    refresh(cacheKey, symbol, exchange);
     return NextResponse.json(entry.data);
   }
 
