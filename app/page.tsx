@@ -92,26 +92,27 @@ export default function DashboardPage() {
     logSteps,
     runAnalysis,
     stopAnalysis,
+    resetAnalysis,
   } = useLLMAnalysis();
 
   // Reset analysis when symbol/exchange/timeframe changes from user interaction (not replay)
   const handleSymbolChange = useCallback((newSymbol: string) => {
     setSelectedSymbol(newSymbol);
-    setAnalysisText('');
+    resetAnalysis();
     setHasRun(false);
-  }, [setAnalysisText]);
+  }, [resetAnalysis]);
 
   const handleExchangeChange = useCallback((newExchange: string) => {
     setSelectedExchange(newExchange);
-    setAnalysisText('');
+    resetAnalysis();
     setHasRun(false);
-  }, [setAnalysisText]);
+  }, [resetAnalysis]);
 
   const handleTimeframeChange = useCallback((newTf: string) => {
     setSelectedTimeframe(newTf);
-    setAnalysisText('');
+    resetAnalysis();
     setHasRun(false);
-  }, [setAnalysisText]);
+  }, [resetAnalysis]);
 
   const handleRunAnalysis = async () => {
     setHasRun(true);
@@ -122,14 +123,16 @@ export default function DashboardPage() {
   };
 
   const handleReplayAnalysis = (record: StoredAnalysisRecord) => {
-    // Clear all current analysis state first
-    setAnalysisText('');
+    // Clear all current analysis state first to ensure no leakage
+    resetAnalysis();
     setHasRun(false);
-    // Then set new symbol/exchange/timeframe — market data will refetch automatically
+    
+    // Set new context
     setSelectedSymbol(record.symbol);
     setSelectedExchange(record.exchange);
     setSelectedTimeframe(record.timeframe);
-    // After a tick, mark as run and load the saved analysis text
+    
+    // Load saved data on next tick
     queueMicrotask(() => {
       setHasRun(true);
       if (record.markdown_report) {
@@ -191,7 +194,7 @@ export default function DashboardPage() {
                   onTimeframeChange={handleTimeframeChange}
                   onRunAnalysis={handleRunAnalysis}
                   onStopAnalysis={stopAnalysis}
-                  isRunning={isMarketLoading || isMarketFetching || isStreaming}
+                  isRunning={isStreaming}
                   onReplayAnalysis={handleReplayAnalysis}
                   watchlistOpen={watchlistOpen}
                   onWatchlistOpened={() => setWatchlistOpen(false)}
@@ -221,16 +224,18 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" suppressHydrationWarning>
                 <div className="lg:col-span-8 space-y-4">
-                  <PreflightFactsPanel
-                    marketContext={marketContext}
-                    isLoading={isMarketLoading || isMarketFetching}
-                  />
+                  {hasRun && (
+                    <PreflightFactsPanel
+                      marketContext={marketContext}
+                      isLoading={isMarketLoading || isMarketFetching}
+                    />
+                  )}
 
                   <TradingViewChart
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
                     timeframe={selectedTimeframe}
-                    setup={parsedJson?.trade_setup || (marketContext?.ticker?.price ? {
+                    setup={parsedJson?.trade_setup || (marketContext?.ticker?.price && hasRun ? {
                       position: 'NEUTRAL',
                       entry_range: [marketContext.ticker.price, marketContext.ticker.price],
                       stop_loss: marketContext.ticker.price,
@@ -244,43 +249,47 @@ export default function DashboardPage() {
                     } : null)}
                   />
 
-                  <MultiTimeframeMatrix
-                    marketContext={marketContext}
-                    isLoading={isMarketLoading}
-                  />
-
-                  <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isMarketLoading} />
-
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div className="md:col-span-5">
-                      <BuySellMeter
-                        buyPct={parsedJson?.probabilities?.bullish}
-                        sellPct={parsedJson?.probabilities?.bearish}
-                        microstructure={marketContext?.microstructure}
-                        isLoading={isMarketLoading || isStreaming}
+                  {hasRun && (
+                    <>
+                      <MultiTimeframeMatrix
+                        marketContext={marketContext}
+                        isLoading={isMarketLoading}
                       />
-                    </div>
-                    <div className="md:col-span-7">
-                      <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading || isStreaming} />
-                    </div>
-                  </div>
 
-                  <MarketStatsCard
-                    ticker={marketContext?.ticker}
-                    derivatives={marketContext?.derivatives}
-                    microstructure={marketContext?.microstructure}
-                    macroSentiment={marketContext?.macroSentiment}
-                    isLoading={isMarketLoading}
-                  />
+                      <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isMarketLoading} />
 
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    <div className="md:col-span-7">
-                      <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
-                    </div>
-                    <div className="md:col-span-5">
-                      <NewsFeed articles={marketContext?.news?.articles} isLoading={isMarketLoading} />
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div className="md:col-span-5">
+                          <BuySellMeter
+                            buyPct={parsedJson?.probabilities?.bullish}
+                            sellPct={parsedJson?.probabilities?.bearish}
+                            microstructure={marketContext?.microstructure}
+                            isLoading={isMarketLoading || isStreaming}
+                          />
+                        </div>
+                        <div className="md:col-span-7">
+                          <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading || isStreaming} />
+                        </div>
+                      </div>
+
+                      <MarketStatsCard
+                        ticker={marketContext?.ticker}
+                        derivatives={marketContext?.derivatives}
+                        microstructure={marketContext?.microstructure}
+                        macroSentiment={marketContext?.macroSentiment}
+                        isLoading={isMarketLoading}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        <div className="md:col-span-7">
+                          <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
+                        </div>
+                        <div className="md:col-span-5">
+                          <NewsFeed articles={marketContext?.news?.articles} isLoading={isMarketLoading} />
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
                 </div>

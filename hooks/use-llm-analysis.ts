@@ -310,5 +310,12 @@ export function useLLMAnalysis() {
         )
       );
     },
+    resetAnalysis: () => {
+      setAnalysisTextState('');
+      setError(null);
+      setIsLoading(false);
+      setIsStreaming(false);
+      setLogSteps((prev) => prev.map(s => ({ ...s, status: 'pending', detail: undefined })));
+    }
   };
 }
