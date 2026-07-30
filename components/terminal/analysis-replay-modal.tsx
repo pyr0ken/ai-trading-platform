@@ -27,8 +27,8 @@ export const AnalysisReplayModal: React.FC<AnalysisReplayModalProps> = ({ onRepl
   }, [isOpen, mounted]);
 
   const modalContent = isOpen && mounted ? (
-    <div className="fixed inset-0 z-[99999] bg-black/70 flex items-center justify-center p-4 min-h-screen">
-      <div className="bg-[#18181b] border border-[#27272a] rounded-[24px] w-full max-w-3xl p-6 text-[#f5f5f4] shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150 my-auto">
+    <div className="fixed inset-0 z-[99999] bg-black/70 flex items-center justify-center p-4 min-h-screen" onClick={() => setIsOpen(false)}>
+      <div className="bg-[#18181b] border border-[#27272a] rounded-[24px] w-full max-w-3xl p-6 text-[#f5f5f4] shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150 my-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#27272a] pb-4">
           <div className="flex items-center gap-2">
