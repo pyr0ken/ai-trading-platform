@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { RotateCw, Clock, Globe2, Sparkles, RefreshCw, XCircle } from 'lucide-react';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
-import { AppStorageEngine, WatchlistItem, StoredAnalysisRecord } from '@/lib/storage/app-db';
-import { CoinIcon } from '@/components/common/coin-icon';
+import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 
 interface CoinSelectorProps {
   selectedSymbol: string;
@@ -36,17 +35,6 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   isRunning,
   onReplayAnalysis = () => {},
 }) => {
-  const [quickCoins, setQuickCoins] = useState<WatchlistItem[]>(() => {
-    const list = AppStorageEngine.getWatchlist();
-    return list.slice(0, 6);
-  });
-
-  useEffect(() => {
-    const list = AppStorageEngine.getWatchlist();
-    queueMicrotask(() => {
-      setQuickCoins(list.slice(0, 6));
-    });
-  }, [selectedSymbol]);
 
   const exchanges = [
     { id: 'kucoin', name: 'KuCoin' },
@@ -165,35 +153,8 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
         </div>
       </div>
 
-      {/* Bottom Row: Quick Coin Selector & Run Analysis Button */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          <span className="text-[13px] text-[#9194a1] hidden sm:block shrink-0">Coins:</span>
-
-          {quickCoins.length === 0 ? (
-            <span className="text-[13px] text-[#5e616e] italic">
-              Add coins via Watchlist to see them here.
-            </span>
-          ) : (
-            quickCoins.map((coin) => {
-              const isSelected = selectedSymbol === coin.symbol;
-              return (
-                <button
-                  key={coin.symbol}
-                  onClick={() => onSymbolChange(coin.symbol)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-[9999px] text-[13px] transition-all duration-200 cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#121317] text-[#cc9166] border border-[#cc9166] font-medium'
-                      : 'bg-[#08080a] text-[#e2e3e9] border border-[#1c1d22] hover:border-[#777a88]'
-                  }`}
-                >
-                  <CoinIcon symbol={coin.symbol} size={18} />
-                  <span>{coin.symbol}</span>
-                </button>
-              );
-            })
-          )}
-        </div>
+      {/* Bottom Row: Run Analysis Button */}
+      <div className="flex flex-wrap items-center justify-end gap-4">
 
         <button
           onClick={onRunAnalysis}
