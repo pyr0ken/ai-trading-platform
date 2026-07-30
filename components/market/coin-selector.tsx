@@ -126,7 +126,7 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
                 className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
                   analysisMode === 'scalp'
                     ? 'bg-[#1c1d22] text-rose-400 border border-rose-500'
-                    : 'text-[#5e616e] hover:text-[#e2e3e9]'
+                    : 'text-[#5e616e] hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-950/20 border border-transparent'
                 }`}
               >
                 Scalp
@@ -136,7 +136,7 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
                 className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
                   analysisMode === 'swing'
                     ? 'bg-[#1c1d22] text-emerald-400 border border-emerald-500'
-                    : 'text-[#5e616e] hover:text-[#e2e3e9]'
+                    : 'text-[#5e616e] hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-950/20 border border-transparent'
                 }`}
               >
                 Swing

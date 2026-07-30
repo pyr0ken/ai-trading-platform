@@ -20,6 +20,7 @@ import { StandaloneWatchlistPage } from '@/components/market/standalone-watchlis
 import { TerminalSettingsPage } from '@/components/settings/terminal-settings-page';
 import { BacktestSimulator } from '@/components/terminal/backtest-simulator';
 import { PaperPortfolio } from '@/components/terminal/paper-portfolio';
+import { ToastContainer, showToast } from '@/components/terminal/toast';
 
 import { useMarketData } from '@/hooks/use-market-data';
 import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
@@ -49,7 +50,10 @@ export default function DashboardPage() {
     return session.selectedTimeframe || '1h';
   });
   const [hasRun, setHasRun] = useState<boolean>(false);
-  const [analysisMode, setAnalysisMode] = useState<'scalp' | 'swing'>('swing');
+  const [analysisMode, setAnalysisMode] = useState<'scalp' | 'swing'>(() => {
+    const session = AppStorageEngine.getSession();
+    return session.analysisMode || 'swing';
+  });
 
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
@@ -61,10 +65,11 @@ export default function DashboardPage() {
         selectedSymbol,
         selectedExchange,
         selectedTimeframe,
+        analysisMode,
         sidebarOpen: !sidebarCollapsed,
       });
     }
-  }, [selectedSymbol, selectedExchange, selectedTimeframe, sidebarCollapsed, mounted]);
+  }, [selectedSymbol, selectedExchange, selectedTimeframe, analysisMode, sidebarCollapsed, mounted]);
 
   const {
     data: marketContext,
@@ -101,6 +106,7 @@ export default function DashboardPage() {
     if (record.markdown_report) {
       setAnalysisText(record.markdown_report);
     }
+    showToast(`⏪ Replaying ${record.symbol} · ${record.signal} @ ${record.confidence}%`);
   };
 
   let parsedJson: StructuredLLMOutput | null = null;
@@ -125,7 +131,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#08080a] text-[#e2e3e9]" suppressHydrationWarning>
-      <DashboardTickerTape />
+      <DashboardTickerTape
+        symbol={selectedSymbol}
+        price={marketContext?.ticker?.price}
+        change24h={marketContext?.ticker?.change24h}
+      />
 
       <div className="flex-1 flex w-full">
         <AppSidebar
@@ -383,6 +393,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </footer>
+          <ToastContainer />
         </div>
       </div>
     </div>

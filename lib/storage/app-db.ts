@@ -10,6 +10,7 @@ export interface SessionState {
   selectedSymbol: string;
   selectedExchange: string;
   selectedTimeframe: string;
+  analysisMode: 'scalp' | 'swing';
   sidebarOpen: boolean;
   activeWorkspace: string;
   theme: 'dark' | 'light';
@@ -69,6 +70,7 @@ const DEFAULT_SESSION: SessionState = {
   selectedSymbol: 'BTC/USDT',
   selectedExchange: 'kucoin',
   selectedTimeframe: '1h',
+  analysisMode: 'swing',
   sidebarOpen: true,
   activeWorkspace: 'default',
   theme: 'dark',
