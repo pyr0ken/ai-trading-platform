@@ -139,6 +139,7 @@ export default function DashboardPage() {
         symbol={selectedSymbol}
         price={liveTicker?.price ?? marketContext?.ticker?.price}
         change24h={liveTicker?.change24h ?? marketContext?.ticker?.change24h}
+        onSymbolClick={() => setActiveTab('watchlist')}
       />
 
       <div className="flex-1 flex w-full">
