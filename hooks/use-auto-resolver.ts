@@ -64,12 +64,19 @@ export function useAutoResolver() {
 
         try {
           // Small delay between signals
-          if (i > 0) await new Promise((r) => setTimeout(r, 300));
+          if (i > 0) await new Promise((r) => setTimeout(r, 1000)); // 1s delay (was 300ms)
 
           const since = new Date(rec.created_at).getTime();
+          
+          // Use AbortController to cancel timed-out requests
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8_000); // 8s timeout
+
           const response = await fetch(
-            `/api/market/history-ohlcv?symbol=${encodeURIComponent(rec.symbol)}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=100`
+            `/api/market/history-ohlcv?symbol=${encodeURIComponent(rec.symbol)}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=100`,
+            { signal: controller.signal }
           );
+          clearTimeout(timeoutId);
 
           if (!response.ok) {
             if (response.status >= 500) {

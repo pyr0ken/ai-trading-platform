@@ -10,8 +10,8 @@ interface CacheEntry {
   expiresAt: number;
 }
 const responseCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 10_000; // 10 seconds
-const MAX_CACHE_SIZE = 20;
+const CACHE_TTL_MS = 30_000; // 30 seconds (was 10s)
+const MAX_CACHE_SIZE = 50;
 
 // Cleanup stale entries periodically
 let lastCleanup = Date.now();
