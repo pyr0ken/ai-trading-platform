@@ -347,7 +347,7 @@ export default function DashboardPage() {
             {activeTab === 'watchlist' && (
               <StandaloneWatchlistPage
                 onSelectCoin={(sym) => {
-                  setSelectedSymbol(sym);
+                  handleSymbolChange(sym);
                   setActiveTab('dashboard');
                 }}
                 selectedSymbol={selectedSymbol}
