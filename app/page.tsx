@@ -141,6 +141,7 @@ export default function DashboardPage() {
         symbol={selectedSymbol}
         price={liveTicker?.price ?? marketContext?.ticker?.price}
         change24h={liveTicker?.change24h ?? marketContext?.ticker?.change24h}
+        change24hPercentage={liveTicker?.change24hPercentage ?? marketContext?.ticker?.change24hPercentage}
         onSymbolClick={() => setWatchlistOpen(true)}
       />
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import { CoinIcon } from '@/components/common/coin-icon';
 
@@ -8,17 +8,44 @@ interface DashboardTickerTapeProps {
   symbol: string;
   price?: number;
   change24h?: number;
+  change24hPercentage?: number;
   onSymbolClick?: () => void;
 }
+
+type MetricMode = 'absolute' | 'percentage';
 
 export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   symbol,
   price,
   change24h,
+  change24hPercentage,
   onSymbolClick,
 }) => {
   const baseAsset = symbol ? symbol.split('/')[0] : 'BTC';
-  const isPositive = change24h !== undefined && change24h >= 0;
+  const [metricMode, setMetricMode] = useState<MetricMode>('percentage');
+  const [fading, setFading] = useState(false);
+
+  // Cycle between absolute change and percentage change every 4 seconds
+  useEffect(() => {
+    if (change24h === undefined && change24hPercentage === undefined) return;
+
+    const interval = setInterval(() => {
+      setFading(true);
+      setTimeout(() => {
+        setMetricMode((prev) => (prev === 'absolute' ? 'percentage' : 'absolute'));
+        setFading(false);
+      }, 300);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [change24h, change24hPercentage]);
+
+  const isPositive = (metricMode === 'absolute'
+    ? change24h
+    : change24hPercentage
+  ) !== undefined && (metricMode === 'absolute' ? change24h! : change24hPercentage!) >= 0;
+
+  const displayValue = metricMode === 'absolute' ? change24h : change24hPercentage;
 
   return (
     <div className="w-full bg-[#040406] border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
@@ -54,10 +81,25 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
               <span className="font-mono font-bold text-[#e2e3e9]">
                 ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              {change24h !== undefined && (
-                <span className={`flex items-center gap-0.5 font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {displayValue !== undefined && (
+                <span
+                  className={`flex items-center gap-0.5 font-medium transition-opacity duration-300 ${
+                    fading ? 'opacity-30' : 'opacity-100'
+                  } ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}
+                  title={metricMode === 'percentage' ? `$${change24h?.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : `${change24hPercentage?.toFixed(2)}%`}
+                >
                   {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {isPositive ? '+' : ''}{change24h.toFixed(2)}%
+                  <span>
+                    {isPositive ? '+' : ''}
+                    {metricMode === 'absolute'
+                      ? `$${change24h!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `${change24hPercentage!.toFixed(2)}%`
+                    }
+                  </span>
+                  {/* Tiny indicator showing the current metric mode */}
+                  <span className="text-[8px] text-[#5e616e] ml-0.5 font-mono">
+                    {metricMode === 'percentage' ? '%' : '$'}
+                  </span>
                 </span>
               )}
             </>
