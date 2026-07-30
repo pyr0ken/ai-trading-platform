@@ -1,30 +1,55 @@
-import ccxt, { Exchange } from 'ccxt';
+/**
+ * Node CCXT & Public REST Exchange Service with Live Price Synchronization
+ * Uses lazy loading to avoid importing all 247 exchange classes at startup.
+ */
 import {
   MarketTicker,
   CandleData,
   DerivativesMetrics,
   MicrostructureMetrics,
 } from '@/types/market';
+import type { Exchange } from 'ccxt';
+
+// Lazy-loaded exchange instances
+const exchangeInstances = new Map<string, Exchange>();
+let ccxtModule: typeof import('ccxt') | null = null;
 
 /**
- * Node CCXT & Public REST Exchange Service with Live Price Synchronization
+ * Lazily load the ccxt module to avoid importing all 247 exchange classes upfront.
  */
-export class CCXTMarketService {
-  private static instances: Record<string, Exchange> = {};
+async function getCcxt(): Promise<typeof import('ccxt')> {
+  if (!ccxtModule) {
+    ccxtModule = await import('ccxt');
+  }
+  return ccxtModule;
+}
 
-  private static getExchange(exchangeId = 'kucoin'): Exchange {
+export class CCXTMarketService {
+  /**
+   * Get or create a cached exchange instance.
+   * Only creates instances for exchanges that are actually used.
+   */
+  private static async getExchange(exchangeId: string): Promise<Exchange> {
     const id = exchangeId.toLowerCase();
-    if (!this.instances[id]) {
-      const exchangeClass = (ccxt as unknown as Record<string, typeof Exchange>)[id];
-      if (!exchangeClass) {
-        throw new Error(`Unsupported exchange: ${exchangeId}`);
-      }
-      this.instances[id] = new exchangeClass({
-        enableRateLimit: true,
-        timeout: 2000,
-      });
+
+    if (exchangeInstances.has(id)) {
+      return exchangeInstances.get(id)!;
     }
-    return this.instances[id];
+
+    const ccxt = await getCcxt();
+    const exchangeClass = (ccxt as Record<string, unknown>)[id] as typeof Exchange | undefined;
+
+    if (!exchangeClass) {
+      throw new Error(`Unsupported exchange: ${exchangeId}`);
+    }
+
+    const exchange = new exchangeClass({
+      enableRateLimit: true,
+      timeout: 3000,
+    }) as Exchange;
+
+    exchangeInstances.set(id, exchange);
+    return exchange;
   }
 
   private static resolveSwapSymbol(symbol: string): string {
@@ -40,8 +65,8 @@ export class CCXTMarketService {
    * Direct public REST price fetcher fallback (Binance & KuCoin REST APIs)
    */
   private static async fetchDirectTicker(symbol: string): Promise<MarketTicker | null> {
-    const cleanPair = symbol.replace('/', '').toUpperCase(); // e.g. DOTUSDT
-    const kucoinPair = symbol.replace('/', '-').toUpperCase(); // e.g. DOT-USDT
+    const cleanPair = symbol.replace('/', '').toUpperCase();
+    const kucoinPair = symbol.replace('/', '-').toUpperCase();
 
     // 1. Try Binance Public REST API
     try {
@@ -105,11 +130,11 @@ export class CCXTMarketService {
    * Fetch current live market ticker statistics with real exchange fallback
    */
   public static async fetchTicker(symbol: string, exchangeId = 'kucoin'): Promise<MarketTicker> {
-    const exchangesToTry = Array.from(new Set([exchangeId, 'binance', 'bybit', 'okx']));
+    const exchangesToTry = [exchangeId, 'binance', 'bybit', 'okx'];
 
     for (const exId of exchangesToTry) {
       try {
-        const exchange = this.getExchange(exId);
+        const exchange = await this.getExchange(exId);
         const ticker = await exchange.fetchTicker(symbol);
         const price = ticker.last || ticker.close || 0;
         if (price > 0) {
@@ -132,13 +157,11 @@ export class CCXTMarketService {
       } catch {}
     }
 
-    // Direct REST Fallback (Guarantees real live market price for DOT, ETH, SOL, etc.)
     const directTicker = await this.fetchDirectTicker(symbol);
     if (directTicker) {
       return directTicker;
     }
 
-    // Default fallback if offline
     return {
       symbol,
       exchange: `${exchangeId}`,
@@ -168,16 +191,18 @@ export class CCXTMarketService {
 
     for (const exId of exchangesToTry) {
       try {
-        // Each exchange attempt gets its own short-lived instance with aggressive timeout
-        const exchangeClass = (ccxt as unknown as Record<string, typeof Exchange>)[exId];
-        if (!exchangeClass) continue;
+        const exchange = await this.getExchange(exId);
 
-        const exchange = new exchangeClass({
-          enableRateLimit: true,
-          timeout: 1500,
+        // Create timeout promise that properly cleans up
+        let timeoutId: NodeJS.Timeout | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`${exId}: timeout`)), 3000);
         });
 
-        const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
+        const ohlcv = await Promise.race([exchange.fetchOHLCV(symbol, timeframe, since, limit), timeoutPromise]);
+
+        // Clear timeout whether successful or not
+        if (timeoutId) clearTimeout(timeoutId);
 
         if (ohlcv && ohlcv.length > 0) {
           return ohlcv.map((c) => {
@@ -203,7 +228,7 @@ export class CCXTMarketService {
       }
     }
 
-    console.error('[CCXT fetchOHLCVWithSince] All exchanges failed (likely network issue), returning empty:', errors);
+    console.error('[CCXT fetchOHLCVWithSince] All exchanges failed, returning empty:', errors);
     return [];
   }
 
@@ -213,19 +238,24 @@ export class CCXTMarketService {
     limit = 50,
     exchangeId = 'kucoin'
   ): Promise<CandleData[]> {
-    const exchangesToTry = Array.from(new Set([exchangeId, 'binance', 'bybit']));
+    const exchangesToTry = [exchangeId, 'binance', 'bybit'];
 
     for (const exId of exchangesToTry) {
       try {
-        const exchangeClass = (ccxt as unknown as Record<string, typeof Exchange>)[exId];
-        if (!exchangeClass) continue;
+        const exchange = await this.getExchange(exId);
 
-        const exchange = new exchangeClass({
-          enableRateLimit: true,
-          timeout: 1500,
+        let timeoutId: NodeJS.Timeout | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`${exId}: timeout`)), 3000);
         });
 
-        const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, undefined, limit);
+        const ohlcv = await Promise.race([
+          exchange.fetchOHLCV(symbol, timeframe, undefined, limit),
+          timeoutPromise,
+        ]);
+
+        if (timeoutId) clearTimeout(timeoutId);
+
         if (ohlcv && ohlcv.length > 0) {
           return ohlcv.map((c) => {
             const timestamp = Number(c[0]);
@@ -247,7 +277,7 @@ export class CCXTMarketService {
       } catch {}
     }
 
-    // Fallback candles aligned with current live ticker price
+    // Fallback candles
     const liveTicker = await this.fetchTicker(symbol, exchangeId);
     const basePrice = liveTicker.price;
     const decimalPlaces = basePrice < 1 ? 4 : 2;
@@ -289,9 +319,6 @@ export class CCXTMarketService {
     return candles;
   }
 
-  /**
-   * Fetch Derivatives Metrics with live price alignment
-   */
   public static async fetchDerivativesMetrics(
     symbol: string,
     exchangeId = 'kucoin'
@@ -301,7 +328,7 @@ export class CCXTMarketService {
     const markPrice = liveTicker.price;
 
     try {
-      const exchange = this.getExchange(exchangeId);
+      const exchange = await this.getExchange(exchangeId);
       if (exchange.has['fetchFundingRate']) {
         const frData = await exchange.fetchFundingRate(swapSymbol);
         const indexPrice = frData.indexPrice || markPrice;
@@ -328,9 +355,6 @@ export class CCXTMarketService {
     };
   }
 
-  /**
-   * Fetch Market Microstructure Metrics aligned with live price
-   */
   public static async fetchMicrostructure(
     symbol: string,
     exchangeId = 'kucoin'
@@ -343,7 +367,7 @@ export class CCXTMarketService {
     const bestAsk = Number((price * 1.0004).toFixed(decimalPlaces));
 
     try {
-      const exchange = this.getExchange(exchangeId);
+      const exchange = await this.getExchange(exchangeId);
       const orderBook = await exchange.fetchOrderBook(symbol, 20);
       const bids = orderBook.bids || [];
       const asks = orderBook.asks || [];

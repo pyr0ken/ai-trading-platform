@@ -2,15 +2,46 @@ import { useEffect, useRef } from 'react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 import { CandleData } from '@/types/market';
 
+/**
+ * Circuit breaker: if OHLCV calls keep failing, back off to avoid overwhelming the server.
+ */
+let consecutiveFailures = 0;
+let circuitOpenUntil = 0;
+const MAX_FAILURES = 3;
+const BACKOFF_MS = 60_000; // 1 minute
+
+function isCircuitOpen(): boolean {
+  return Date.now() < circuitOpenUntil;
+}
+
+function recordFailure(): void {
+  consecutiveFailures++;
+  if (consecutiveFailures >= MAX_FAILURES) {
+    circuitOpenUntil = Date.now() + BACKOFF_MS;
+    console.warn(`[AutoResolver] Circuit breaker opened for ${BACKOFF_MS / 1000}s`);
+  }
+}
+
+function recordSuccess(): void {
+  consecutiveFailures = 0;
+  circuitOpenUntil = 0;
+}
+
 export function useAutoResolver() {
   const resolvedRef = useRef(false);
 
   useEffect(() => {
-    // Only run once on mount to avoid repeated API calls
     if (resolvedRef.current) return;
     resolvedRef.current = true;
 
     const resolvePendingSignals = async () => {
+      // Circuit breaker check
+      if (isCircuitOpen()) {
+        const remaining = Math.ceil((circuitOpenUntil - Date.now()) / 1000);
+        console.warn(`[AutoResolver] Circuit open, waiting ${remaining}s`);
+        return;
+      }
+
       const analyses = AppStorageEngine.getAnalyses();
       const pending = analyses.filter(
         (rec) =>
@@ -20,36 +51,42 @@ export function useAutoResolver() {
 
       if (pending.length === 0) return;
 
-      console.log(`[AutoResolver] Found ${pending.length} pending signals to resolve.`);
+      console.log(`[AutoResolver] Resolving ${pending.length} pending signals`);
 
-      // Process signals sequentially with a small delay to avoid memory pileup
       for (let i = 0; i < pending.length; i++) {
         const rec = pending[i];
+        
+        // Check circuit before each request
+        if (isCircuitOpen()) {
+          console.warn('[AutoResolver] Circuit opened mid-loop, stopping');
+          break;
+        }
+
         try {
-          // Small delay between signals to let GC breathe
-          if (i > 0) {
-            await new Promise(r => setTimeout(r, 500));
-          }
+          // Small delay between signals
+          if (i > 0) await new Promise((r) => setTimeout(r, 300));
 
           const since = new Date(rec.created_at).getTime();
-          // We will fetch 1h or 15m candles from since timestamp to current time.
-          // Let's use 15m timeframe to get enough price granularities
           const response = await fetch(
-            `/api/market/history-ohlcv?symbol=${encodeURIComponent(
-              rec.symbol
-            )}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=100`
+            `/api/market/history-ohlcv?symbol=${encodeURIComponent(rec.symbol)}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=100`
           );
 
-          if (!response.ok) continue;
+          if (!response.ok) {
+            if (response.status >= 500) {
+              recordFailure();
+              console.warn(`[AutoResolver] Server error ${response.status}, stopping`);
+              break;
+            }
+            continue;
+          }
 
+          recordSuccess();
           const data = await response.json();
           const candles: CandleData[] = data.candles || [];
-
           if (candles.length === 0) continue;
 
           const setup = rec.json_output?.trade_setup;
           if (!setup) {
-            // If there's no trade setup inside JSON (e.g. LLM returned NEUTRAL or invalid JSON)
             AppStorageEngine.updateAnalysisRecordStatus(rec.id, 'INVALIDATED', rec.price, 0);
             continue;
           }
@@ -64,9 +101,7 @@ export function useAutoResolver() {
           let resolvedStatus: 'WIN' | 'LOSS' | 'PENDING' | 'INVALIDATED' = 'PENDING';
           let finalPrice = rec.price;
 
-          // Check if we hit entry, stop loss, or take profit
           for (const candle of candles) {
-            // First check if price triggered the Entry Range
             if (!entered) {
               if (
                 (candle.low <= entryMax && candle.high >= entryMin) ||
@@ -89,7 +124,6 @@ export function useAutoResolver() {
                   break;
                 }
               } else {
-                // Short position
                 if (candle.high >= stopLoss) {
                   resolvedStatus = 'LOSS';
                   finalPrice = stopLoss;
@@ -104,7 +138,7 @@ export function useAutoResolver() {
             }
           }
 
-          // Invalidation check: If signal is older than 3 days and hasn't triggered entry/SL/TP
+          // Invalidate signals older than 3 days
           const ageInMs = Date.now() - since;
           const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
           if (resolvedStatus === 'PENDING' && ageInMs > threeDaysInMs) {
@@ -124,16 +158,23 @@ export function useAutoResolver() {
               finalPrice,
               Number(pnl.toFixed(2))
             );
-            console.log(
-              `[AutoResolver] Resolved Signal ID ${rec.id} (${rec.symbol}) as ${resolvedStatus}. PnL: ${pnl.toFixed(2)}%`
-            );
+            console.log(`[AutoResolver] ${rec.symbol}: ${resolvedStatus} (PnL: ${pnl.toFixed(2)}%)`);
           }
         } catch (e) {
-          console.error(`[AutoResolver] Error resolving signal ${rec.id}:`, e);
+          console.error(`[AutoResolver] Error:`, e);
+          recordFailure();
+          
+          // Stop on circuit open
+          if (isCircuitOpen()) {
+            console.warn('[AutoResolver] Circuit opened due to error');
+            break;
+          }
         }
       }
     };
 
-    resolvePendingSignals();
+    // Start after a delay to let critical renders complete first
+    const timer = setTimeout(() => resolvePendingSignals(), 3_000);
+    return () => clearTimeout(timer);
   }, []);
 }
