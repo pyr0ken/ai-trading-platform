@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppSidebar, NavTab } from '@/components/layout/app-sidebar';
 import { DashboardTickerTape } from '@/components/dashboard/dashboard-ticker-tape';
 import { CoinSelector } from '@/components/market/coin-selector';
@@ -94,15 +94,24 @@ export default function DashboardPage() {
     stopAnalysis,
   } = useLLMAnalysis();
 
-  // Reset analysis when symbol changes
-  const prevSymbolRef = useRef(selectedSymbol);
-  useEffect(() => {
-    if (mounted && prevSymbolRef.current !== selectedSymbol) {
-      setAnalysisText('');
-      setHasRun(false);
-      prevSymbolRef.current = selectedSymbol;
-    }
-  }, [selectedSymbol, selectedExchange, selectedTimeframe, mounted, setAnalysisText]);
+  // Reset analysis when symbol/exchange/timeframe changes from user interaction (not replay)
+  const handleSymbolChange = useCallback((newSymbol: string) => {
+    setSelectedSymbol(newSymbol);
+    setAnalysisText('');
+    setHasRun(false);
+  }, [setAnalysisText]);
+
+  const handleExchangeChange = useCallback((newExchange: string) => {
+    setSelectedExchange(newExchange);
+    setAnalysisText('');
+    setHasRun(false);
+  }, [setAnalysisText]);
+
+  const handleTimeframeChange = useCallback((newTf: string) => {
+    setSelectedTimeframe(newTf);
+    setAnalysisText('');
+    setHasRun(false);
+  }, [setAnalysisText]);
 
   const handleRunAnalysis = async () => {
     setHasRun(true);
@@ -113,14 +122,20 @@ export default function DashboardPage() {
   };
 
   const handleReplayAnalysis = (record: StoredAnalysisRecord) => {
+    // Clear all current analysis state first
+    setAnalysisText('');
+    setHasRun(false);
+    // Then set new symbol/exchange/timeframe — market data will refetch automatically
     setSelectedSymbol(record.symbol);
     setSelectedExchange(record.exchange);
     setSelectedTimeframe(record.timeframe);
-    setHasRun(true);
-    // Load the saved analysis text back into the card so TP/SL, scenarios, and all analysis data reappear
-    if (record.markdown_report) {
-      setAnalysisText(record.markdown_report);
-    }
+    // After a tick, mark as run and load the saved analysis text
+    queueMicrotask(() => {
+      setHasRun(true);
+      if (record.markdown_report) {
+        setAnalysisText(record.markdown_report);
+      }
+    });
     showToast(`⏪ Replaying ${record.symbol} · ${record.signal} @ ${record.confidence}%`);
   };
 
@@ -171,9 +186,9 @@ export default function DashboardPage() {
                   selectedTimeframe={selectedTimeframe}
                   analysisMode={analysisMode}
                   onModeChange={setAnalysisMode}
-                  onSymbolChange={setSelectedSymbol}
-                  onExchangeChange={setSelectedExchange}
-                  onTimeframeChange={setSelectedTimeframe}
+                  onSymbolChange={handleSymbolChange}
+                  onExchangeChange={handleExchangeChange}
+                  onTimeframeChange={handleTimeframeChange}
                   onRunAnalysis={handleRunAnalysis}
                   onStopAnalysis={stopAnalysis}
                   isRunning={isMarketLoading || isMarketFetching || isStreaming}

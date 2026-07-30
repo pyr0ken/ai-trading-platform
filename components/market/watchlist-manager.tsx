@@ -123,8 +123,8 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
     : [];
 
   const modalContent = isOpen && mounted ? (
-    <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4 min-h-screen">
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] w-full max-w-4xl p-5 text-[#e2e3e9] space-y-4 my-auto">
+    <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4 min-h-screen" onClick={() => setIsOpen(false)}>
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] w-full max-w-4xl p-5 text-[#e2e3e9] space-y-4 my-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#1c1d22] pb-4">
           <div className="flex items-center gap-2.5">
