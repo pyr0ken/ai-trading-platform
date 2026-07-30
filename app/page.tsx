@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppSidebar, NavTab } from '@/components/layout/app-sidebar';
 import { DashboardTickerTape } from '@/components/dashboard/dashboard-ticker-tape';
 import { CoinSelector } from '@/components/market/coin-selector';
@@ -93,6 +93,16 @@ export default function DashboardPage() {
     runAnalysis,
     stopAnalysis,
   } = useLLMAnalysis();
+
+  // Reset analysis when symbol changes
+  const prevSymbolRef = useRef(selectedSymbol);
+  useEffect(() => {
+    if (mounted && prevSymbolRef.current !== selectedSymbol) {
+      setAnalysisText('');
+      setHasRun(false);
+      prevSymbolRef.current = selectedSymbol;
+    }
+  }, [selectedSymbol, selectedExchange, selectedTimeframe, mounted, setAnalysisText]);
 
   const handleRunAnalysis = async () => {
     setHasRun(true);

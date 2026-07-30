@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { FullMarketContextPayload } from '@/types/analysis';
 
-export function useMarketData(symbol: string, exchange: string, timeframe: string, enabled = false) {
+export function useMarketData(symbol: string, exchange: string, timeframe: string, enabled = true) {
   return useQuery<FullMarketContextPayload, Error>({
     queryKey: ['market-data', symbol, exchange, timeframe],
     queryFn: async () => {
@@ -42,7 +42,7 @@ export function useMarketData(symbol: string, exchange: string, timeframe: strin
       
       return data;
     },
-    enabled, // Only execute when user explicitly clicks Run Analysis button
+    enabled: true, // Fetch market facts automatically on symbol/exchange change
     staleTime: 30000,
     retry: 0, // Do not auto-retry on UI, let the user decide
   });
