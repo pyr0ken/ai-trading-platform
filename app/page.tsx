@@ -10,6 +10,7 @@ import { MarketStatsCard } from '@/components/market/market-stats-card';
 import { IndicatorTable } from '@/components/market/indicator-table';
 import { NewsTicker } from '@/components/news/news-ticker';
 import { NewsTabPage } from '@/components/news/news-tab-page';
+import { BreakingNewsBanner } from '@/components/news/breaking-news-banner';
 import { MultiTimeframeMatrix } from '@/components/terminal/multi-timeframe-matrix';
 import { TechnicalScoreRadar } from '@/components/terminal/technical-score-radar';
 import { BuySellMeter } from '@/components/terminal/buy-sell-meter';
@@ -154,7 +155,8 @@ export default function DashboardPage() {
         />
 
         <div className="flex-1 flex flex-col min-w-0 bg-[#08080a]">
-          <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
+            <BreakingNewsBanner />
+            <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
             {activeTab === 'dashboard' && (
               <>
                 <CoinSelector
