@@ -20,9 +20,9 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
 
   return (
     <div className="w-full bg-[#040406] border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
-      <div className="w-full flex items-center justify-between max-w-7xl mx-auto">
-        {/* Left: market stats */}
-        <div className="flex items-center gap-4">
+      <div className="relative flex items-center">
+        {/* Left: market stats (pushed to left edge) */}
+        <div className="flex items-center gap-4 pl-4">
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <span>24h Vol: <strong className="text-[#e2e3e9] font-medium">$94.2B</strong></span>
           </div>
@@ -39,8 +39,8 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
           </div>
         </div>
 
-        {/* Center: selected coin live price */}
-        <div className="flex items-center gap-2 bg-[#08080a] border border-[#1c1d22] px-3 py-1 rounded-[9999px] mx-auto">
+        {/* Center: selected coin live price (exactly centered) */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#08080a] border border-[#1c1d22] px-3 py-1 rounded-[9999px]">
           <CoinIcon symbol={symbol} size={18} />
           <span className="text-[#e2e3e9] font-semibold text-[13px]">{baseAsset}</span>
           <span className="text-[#5e616e] mx-0.5">|</span>
@@ -61,8 +61,8 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
           )}
         </div>
 
-        {/* Right: status */}
-        <div className="flex items-center shrink-0">
+        {/* Right: status (pushed to right edge) */}
+        <div className="ml-auto pr-4 shrink-0">
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#cc9166]" />
             <span className="text-[10px] tracking-wide">Encryption Active</span>
