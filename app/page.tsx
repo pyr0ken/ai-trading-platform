@@ -8,7 +8,8 @@ import { TradingViewChart } from '@/components/tradingview/tradingview-chart';
 import { PersianAnalysisCard as AnalysisCard } from '@/components/analysis/persian-analysis-card';
 import { MarketStatsCard } from '@/components/market/market-stats-card';
 import { IndicatorTable } from '@/components/market/indicator-table';
-import { NewsFeed } from '@/components/news/news-feed';
+import { NewsTicker } from '@/components/news/news-ticker';
+import { NewsTabPage } from '@/components/news/news-tab-page';
 import { MultiTimeframeMatrix } from '@/components/terminal/multi-timeframe-matrix';
 import { TechnicalScoreRadar } from '@/components/terminal/technical-score-radar';
 import { BuySellMeter } from '@/components/terminal/buy-sell-meter';
@@ -253,7 +254,11 @@ export default function DashboardPage() {
                       <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
                     </div>
                     <div className="md:col-span-5">
-                      <NewsFeed articles={marketContext?.news?.articles} isLoading={isMarketLoading} />
+                      <NewsTicker
+                        articles={marketContext?.news?.articles}
+                        isLoading={isMarketLoading}
+                        onViewAll={() => setActiveTab('news')}
+                      />
                     </div>
                   </div>
 
@@ -378,6 +383,13 @@ export default function DashboardPage() {
                 </div>
                 <PaperPortfolio currentPrice={liveTicker?.price ?? marketContext?.ticker?.price} symbol={selectedSymbol} />
               </div>
+            )}
+
+            {activeTab === 'news' && (
+              <NewsTabPage
+                symbol={selectedSymbol}
+                exchange={selectedExchange}
+              />
             )}
 
             {activeTab === 'settings' && <TerminalSettingsPage />}
