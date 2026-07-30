@@ -85,6 +85,11 @@
   animation: copper-pulse 3s ease-in-out infinite;
 }
 
+@keyframes shrinkWidth {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 :root {
   /* Colors */
   --color-obsidian: #08080a;

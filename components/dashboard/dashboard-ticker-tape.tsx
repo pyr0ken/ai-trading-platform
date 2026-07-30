@@ -21,7 +21,7 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   const isPositive = change24h !== undefined && change24h >= 0;
 
   return (
-    <div className="w-full bg-[#040406] border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
+    <div className="sticky top-0 z-50 w-full bg-[#040406]/95 backdrop-blur-md border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
       <div className="relative flex items-center">
         {/* Left: market stats */}
         <div className="flex items-center gap-4 pl-4">
