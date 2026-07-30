@@ -54,8 +54,15 @@ export async function GET(req: NextRequest) {
   }
 
   // 4. First request ever — no cache at all, must wait
-  const result = await refresh(cacheKey, symbol, exchange, isForex);
-  return NextResponse.json(result);
+  try {
+    const result = await refresh(cacheKey, symbol, exchange, isForex);
+    return NextResponse.json(result);
+  } catch {
+    return NextResponse.json(
+      { price: null, change24h: null, change24hPercentage: null, message: 'Market data temporarily unavailable' },
+      { status: 503 }
+    );
+  }
 }
 
 async function refresh(
@@ -68,8 +75,13 @@ async function refresh(
 
   // If a refresh is already in-flight, wait for it
   if (entry?.refreshPromise) {
-    await entry.refreshPromise;
+    try {
+      await entry.refreshPromise;
+    } catch {
+      throw new Error('Exchange API failed');
+    }
     const updated = cache.get(cacheKey);
+    if (!updated) throw new Error('Cache cleared during refresh');
     return updated!.data;
   }
 
@@ -92,41 +104,27 @@ async function doFetch(
   isForex: boolean
 ): Promise<{ price: number; change24h: number; change24hPercentage: number }> {
   const now = Date.now();
-  const fallback = { price: 0, change24h: 0, change24hPercentage: 0 };
 
-  try {
-    const ticker = isForex
-      ? await ForexMarketService.fetchTicker(symbol)
-      : await CCXTMarketService.fetchTicker(symbol, exchange);
+  const ticker = isForex
+    ? await ForexMarketService.fetchTicker(symbol)
+    : await CCXTMarketService.fetchTicker(symbol, exchange);
 
-    const result = {
-      price: ticker.price,
-      change24h: ticker.change24h,
-      change24hPercentage: ticker.change24hPercentage,
-    };
-
-    cache.set(cacheKey, {
-      data: result,
-      expiresAt: now + FRESH_TTL_MS,
-      staleAt: now + STALE_TTL_MS,
-      refreshPromise: null,
-    });
-
-    return result;
-  } catch {
-    const existing = cache.get(cacheKey);
-    if (existing) {
-      existing.staleAt = now + 60_000;
-      existing.refreshPromise = null;
-      return existing.data;
-    }
-
-    cache.set(cacheKey, {
-      data: fallback,
-      expiresAt: now + 15_000,
-      staleAt: now + 60_000,
-      refreshPromise: null,
-    });
-    return fallback;
+  if (!ticker || !ticker.price || ticker.price <= 0) {
+    throw new Error('Invalid ticker data received from exchange');
   }
+
+  const result = {
+    price: ticker.price,
+    change24h: ticker.change24h,
+    change24hPercentage: ticker.change24hPercentage,
+  };
+
+  cache.set(cacheKey, {
+    data: result,
+    expiresAt: now + FRESH_TTL_MS,
+    staleAt: now + STALE_TTL_MS,
+    refreshPromise: null,
+  });
+
+  return result;
 }

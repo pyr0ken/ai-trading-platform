@@ -90,8 +90,8 @@ export async function GET(request: Request) {
       NewsService.getNewsPayload(5),
     ]);
 
-    if (!ticker || ticker.price === 0) {
-      console.warn(`[API /market/full-context] Ticker fetch resulted in fallback data for ${symbol}.`);
+    if (!ticker || ticker.price <= 0) {
+      throw new Error(`Failed to fetch ticker data for ${symbol}. Market data is currently unavailable.`);
     }
 
     const CANDLE_LIMIT = 40;
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
           const latestClose =
             processedCandles.length > 0
               ? processedCandles[processedCandles.length - 1].close
-              : ticker.price || 0;
+              : ticker!.price || 0;
           const latestIndicators =
             processedCandles.length > 0
               ? processedCandles[processedCandles.length - 1].indicators
