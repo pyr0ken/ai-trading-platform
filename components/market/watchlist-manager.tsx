@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Star,
-  Pin,
   Trash2,
   Plus,
   Search,
@@ -13,6 +12,7 @@ import {
   X,
   Coins,
   Sparkles,
+  Grid3X3,
 } from 'lucide-react';
 import { AppStorageEngine, WatchlistItem } from '@/lib/storage/app-db';
 import { TOP_300_COINS } from '@/lib/constants/top-coins';
@@ -34,7 +34,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   const [customCoinInput, setCustomCoinInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [filterTab, setFilterTab] = useState<'all' | 'favorites' | 'pinned'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'favorites'>('all');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -62,11 +62,6 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
 
   const handleToggleFavorite = (symbol: string) => {
     const updated = AppStorageEngine.toggleFavorite(symbol);
-    setWatchlist(updated);
-  };
-
-  const handleTogglePin = (symbol: string) => {
-    const updated = AppStorageEngine.togglePin(symbol);
     setWatchlist(updated);
   };
 
@@ -102,7 +97,6 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
     const matchesSearch = item.symbol.toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
     if (filterTab === 'favorites') return item.favorite;
-    if (filterTab === 'pinned') return item.pinned;
     return true;
   });
 
@@ -116,7 +110,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
 
   const modalContent = isOpen && mounted ? (
     <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4 min-h-screen">
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] w-full max-w-xl p-6 text-[#e2e3e9] space-y-5 my-auto">
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] w-full max-w-2xl p-6 text-[#e2e3e9] space-y-5 my-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#1c1d22] pb-4">
           <div className="flex items-center gap-2.5">
@@ -128,7 +122,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
                 Crypto Watchlist Manager
               </h3>
               <span className="text-[11px] text-[#9194a1] font-mono">
-                Organize, pin & sync top 300+ crypto pairs
+                Organize & browse top 300+ crypto pairs
               </span>
             </div>
           </div>
@@ -227,16 +221,6 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
             >
               Starred ({watchlist.filter((i) => i.favorite).length})
             </button>
-            <button
-              onClick={() => setFilterTab('pinned')}
-              className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
-                filterTab === 'pinned'
-                  ? 'bg-[#ffffff] text-[#08080a] font-semibold'
-                  : 'text-[#9194a1] hover:text-[#e2e3e9]'
-              }`}
-            >
-              Pinned ({watchlist.filter((i) => i.pinned).length})
-            </button>
           </div>
 
           <input
@@ -248,73 +232,57 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
           />
         </div>
 
-        {/* Watchlist Items Grid */}
-        <div className="max-h-72 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+        {/* Watchlist Grid */}
+        <div className="max-h-80 overflow-y-auto pr-1 font-mono text-xs">
           {filteredList.length === 0 ? (
             <div className="text-center text-[#777a88] py-8">
               No coins found matching criteria.
             </div>
           ) : (
-            filteredList.map((item) => {
-              const isSelected = selectedSymbol === item.symbol;
-              return (
-                <div
-                  key={item.symbol}
-                  onClick={() => {
-                    onSelectCoin(item.symbol);
-                    setIsOpen(false);
-                  }}
-                  className={`flex items-center justify-between p-3.5 rounded-[10px] border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#121317] border-[#cc9166] text-[#e2e3e9]'
-                      : 'bg-[#121317] border-[#1c1d22] text-[#e2e3e9] hover:border-[#777a88]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFavorite(item.symbol);
-                      }}
-                      className="p-1 hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      <Star
-                        className={`w-4 h-4 ${
-                          item.favorite
-                            ? 'text-[#cc9166] fill-[#cc9166]'
-                            : 'text-[#5e616e] hover:text-[#e2e3e9]'
-                        }`}
-                      />
-                    </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {filteredList.map((item) => {
+                const isSelected = selectedSymbol === item.symbol;
+                return (
+                  <div
+                    key={item.symbol}
+                    onClick={() => {
+                      onSelectCoin(item.symbol);
+                      setIsOpen(false);
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-[10px] border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#121317] border-[#cc9166]'
+                        : 'bg-[#121317] border-[#1c1d22] hover:border-[#777a88]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(item.symbol);
+                        }}
+                        className="p-0.5 hover:scale-110 transition-transform cursor-pointer shrink-0"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            item.favorite
+                              ? 'text-[#cc9166] fill-[#cc9166]'
+                              : 'text-[#5e616e] hover:text-[#e2e3e9]'
+                          }`}
+                        />
+                      </button>
 
-                    <CoinIcon symbol={item.symbol} size={24} />
+                      <CoinIcon symbol={item.symbol} size={22} />
 
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-[#ffffff]">{item.symbol}</span>
-                        {item.pinned && (
-                          <span className="text-[9px] bg-[#1c1d22] text-[#cc9166] px-1.5 py-0.2 rounded-[9999px] uppercase">
-                            Pinned
-                          </span>
-                        )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-[#ffffff] truncate">{item.symbol}</span>
+                        </div>
+                        <span className="text-[9px] text-[#9194a1] uppercase font-sans">
+                          Venue: {item.exchange}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-[#9194a1] uppercase font-sans">
-                        Venue: {item.exchange}
-                      </span>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTogglePin(item.symbol);
-                      }}
-                      title="Pin to top"
-                      className="p-1.5 rounded-[9999px] text-[#5e616e] hover:text-[#cc9166] hover:bg-[#1c1d22] transition-all cursor-pointer"
-                    >
-                      <Pin className={`w-3.5 h-3.5 ${item.pinned ? 'text-[#cc9166]' : ''}`} />
-                    </button>
 
                     <button
                       onClick={(e) => {
@@ -322,14 +290,14 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
                         handleRemoveCoin(item.symbol);
                       }}
                       title="Remove symbol"
-                      className="p-1.5 rounded-[9999px] text-[#5e616e] hover:text-rose-400 hover:bg-[#1c1d22] transition-all cursor-pointer"
+                      className="p-1.5 rounded-[9999px] text-[#5e616e] hover:text-rose-400 hover:bg-[#1c1d22] transition-all cursor-pointer opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -364,7 +332,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
         onClick={() => setIsOpen(true)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-[9999px] bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] text-xs text-[#e2e3e9] transition-all cursor-pointer font-mono hover:border-[#777a88]"
       >
-        <Star className="w-3.5 h-3.5 text-[#cc9166] fill-[#cc9166]" />
+        <Grid3X3 className="w-3.5 h-3.5 text-[#cc9166]" />
         <span>Watchlist ({watchlist.length})</span>
       </button>
 
@@ -372,4 +340,3 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
     </div>
   );
 };
-

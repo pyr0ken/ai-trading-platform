@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RotateCw, Clock, Globe2, Sparkles, RefreshCw, Pin, XCircle } from 'lucide-react';
+import { RotateCw, Clock, Globe2, Sparkles, RefreshCw, XCircle } from 'lucide-react';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
 import { AppStorageEngine, WatchlistItem, StoredAnalysisRecord } from '@/lib/storage/app-db';
@@ -36,17 +36,15 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   isRunning,
   onReplayAnalysis = () => {},
 }) => {
-  const [pinnedCoins, setPinnedCoins] = useState<WatchlistItem[]>(() => {
+  const [quickCoins, setQuickCoins] = useState<WatchlistItem[]>(() => {
     const list = AppStorageEngine.getWatchlist();
-    const pinned = list.filter((item) => item.pinned);
-    return pinned.length > 0 ? pinned : list.slice(0, 4);
+    return list.slice(0, 6);
   });
 
   useEffect(() => {
     const list = AppStorageEngine.getWatchlist();
-    const pinned = list.filter((item) => item.pinned);
     queueMicrotask(() => {
-      setPinnedCoins(pinned.length > 0 ? pinned : list.slice(0, 4));
+      setQuickCoins(list.slice(0, 6));
     });
   }, [selectedSymbol]);
 
@@ -167,20 +165,17 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
         </div>
       </div>
 
-      {/* Bottom Row: Pinned Coins & Run Analysis Button */}
+      {/* Bottom Row: Quick Coin Selector & Run Analysis Button */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          <div className="flex items-center gap-1.5 text-[13px] text-[#9194a1] mr-1 hidden sm:flex shrink-0">
-            <Pin className="w-3.5 h-3.5 text-[#cc9166]" />
-            <span>Pinned:</span>
-          </div>
+          <span className="text-[13px] text-[#9194a1] hidden sm:block shrink-0">Coins:</span>
 
-          {pinnedCoins.length === 0 ? (
+          {quickCoins.length === 0 ? (
             <span className="text-[13px] text-[#5e616e] italic">
-              No pinned coins. Pin coins in Watchlist to show here.
+              Add coins via Watchlist to see them here.
             </span>
           ) : (
-            pinnedCoins.map((coin) => {
+            quickCoins.map((coin) => {
               const isSelected = selectedSymbol === coin.symbol;
               return (
                 <button
