@@ -30,6 +30,9 @@ export const BuySellMeter: React.FC<BuySellMeterProps> = ({
     const total = ratio + (1 / ratio);
     displayBuy = Math.round((ratio / total) * 100);
     displaySell = 100 - displayBuy;
+  } else if (!microstructure && !buyPct) {
+    // No real data yet — don't render
+    return null;
   }
   if (isLoading) {
     return (

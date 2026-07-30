@@ -60,22 +60,21 @@ export const MultiTimeframeMatrix: React.FC<MultiTimeframeMatrixProps> = ({ mark
         .filter(Boolean) as TimeframeHeatmapRow[]
     : [];
 
+  // Don't render anything until we have real market data
+  if (!isLoading && !marketContext?.timeframes) {
+    return null;
+  }
+
+  const rows = derivedRows;
+
   // Compute confluence from derived rows
-  const signals = derivedRows.map((r) => r.signal);
+  const signals = rows.map((r) => r.signal);
   const buyCount = signals.filter((s) => s === 'BUY').length;
   const sellCount = signals.filter((s) => s === 'SELL').length;
   const total = signals.length || 1;
-  const confluencePct = Math.round(
+  const confluencePct = rows.length > 0 ? Math.round(
     buyCount > sellCount ? (buyCount / total) * 100 : (sellCount / total) * 100
-  );
-
-  const defaultRows: TimeframeHeatmapRow[] = derivedRows.length > 0 ? derivedRows : [
-    { timeframe: '5m', trend: 'Bullish', ema: 'Bullish', macd: 'Bullish', rsi: 'Neutral', vwap: 'Above', volume: 'High', signal: 'BUY' },
-    { timeframe: '15m', trend: 'Bullish', ema: 'Bullish', macd: 'Bullish', rsi: 'Neutral', vwap: 'Above', volume: 'High', signal: 'BUY' },
-    { timeframe: '1h', trend: 'Bullish', ema: 'Bullish', macd: 'Bullish', rsi: 'Neutral', vwap: 'Above', volume: 'Normal', signal: 'BUY' },
-    { timeframe: '4h', trend: 'Neutral', ema: 'Bullish', macd: 'Neutral', rsi: 'Neutral', vwap: 'Above', volume: 'Normal', signal: 'HOLD' },
-    { timeframe: '1D', trend: 'Bullish', ema: 'Bullish', macd: 'Bullish', rsi: 'Neutral', vwap: 'Above', volume: 'High', signal: 'BUY' },
-  ];
+  ) : 0;
 
   if (isLoading) {
     return (
@@ -147,7 +146,7 @@ export const MultiTimeframeMatrix: React.FC<MultiTimeframeMatrixProps> = ({ mark
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1c1d22]">
-            {defaultRows.map((r) => (
+            {rows.map((r) => (
               <tr key={r.timeframe} className="hover:bg-[#121317] transition-all">
                 <td className="py-3.5 px-3 font-sans text-sm text-[#e2e3e9]">{r.timeframe}</td>
                 <td className="py-3.5 px-3">{getStatusBadge(r.trend)}</td>

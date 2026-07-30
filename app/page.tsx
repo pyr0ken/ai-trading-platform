@@ -226,8 +226,8 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-5">
                       <BuySellMeter
-                        buyPct={parsedJson?.probabilities?.bullish ?? 50}
-                        sellPct={parsedJson?.probabilities?.bearish ?? 50}
+                        buyPct={parsedJson?.probabilities?.bullish}
+                        sellPct={parsedJson?.probabilities?.bearish}
                         microstructure={marketContext?.microstructure}
                         isLoading={isMarketLoading || isStreaming}
                       />
