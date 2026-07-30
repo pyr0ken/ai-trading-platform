@@ -68,6 +68,7 @@ export class CCXTMarketService {
 
   /**
    * Direct public REST price fetcher fallback (Binance & KuCoin REST APIs)
+   * Uses AbortController to prevent hanging IO from piling up during network outages.
    */
   private static async fetchDirectTicker(symbol: string): Promise<MarketTicker | null> {
     const cleanPair = symbol.replace('/', '').toUpperCase();
@@ -75,9 +76,12 @@ export class CCXTMarketService {
 
     // 1. Try Binance Public REST API
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3_000);
       const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${cleanPair}`, {
-        next: { revalidate: 10 },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
         const price = parseFloat(data.lastPrice);
@@ -97,13 +101,18 @@ export class CCXTMarketService {
           };
         }
       }
-    } catch {}
+    } catch {
+      // Network error or timeout — continue to next fallback
+    }
 
     // 2. Try KuCoin Public REST API
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3_000);
       const res = await fetch(`https://api.kucoin.com/api/v1/market/stats?symbol=${kucoinPair}`, {
-        next: { revalidate: 10 },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (res.ok) {
         const json = await res.json();
         if (json?.data) {
@@ -126,7 +135,9 @@ export class CCXTMarketService {
           }
         }
       }
-    } catch {}
+    } catch {
+      // Network error or timeout — will return null below
+    }
 
     return null;
   }
