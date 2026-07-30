@@ -372,7 +372,7 @@ export default function DashboardPage() {
                     Monitor live active paper positions, execute copy trade suggestions from AI, manage leverage/margins, and track mock account growth.
                   </p>
                 </div>
-                <PaperPortfolio currentPrice={marketContext?.ticker?.price} symbol={selectedSymbol} />
+                <PaperPortfolio currentPrice={liveTicker?.price ?? marketContext?.ticker?.price} symbol={selectedSymbol} />
               </div>
             )}
 
