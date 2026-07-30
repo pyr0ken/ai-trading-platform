@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Star,
-  Trash2,
   Plus,
   Search,
   Download,
@@ -110,7 +109,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
 
   const modalContent = isOpen && mounted ? (
     <div className="fixed inset-0 z-[99999] bg-black/80 flex items-center justify-center p-4 min-h-screen">
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] w-full max-w-2xl p-6 text-[#e2e3e9] space-y-5 my-auto">
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] w-full max-w-4xl p-5 text-[#e2e3e9] space-y-4 my-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#1c1d22] pb-4">
           <div className="flex items-center gap-2.5">
@@ -233,13 +232,13 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
         </div>
 
         {/* Watchlist Grid */}
-        <div className="max-h-80 overflow-y-auto pr-1 font-mono text-xs">
+        <div className="max-h-96 overflow-y-auto pr-1 font-mono text-xs">
           {filteredList.length === 0 ? (
             <div className="text-center text-[#777a88] py-8">
               No coins found matching criteria.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {filteredList.map((item) => {
                 const isSelected = selectedSymbol === item.symbol;
                 return (
@@ -249,39 +248,33 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
                       onSelectCoin(item.symbol);
                       setIsOpen(false);
                     }}
-                    className={`flex items-center justify-between p-3 rounded-[10px] border transition-all cursor-pointer ${
+                    className={`flex flex-col items-center justify-center gap-2 p-3 rounded-[10px] border transition-all cursor-pointer text-center ${
                       isSelected
                         ? 'bg-[#121317] border-[#cc9166]'
                         : 'bg-[#121317] border-[#1c1d22] hover:border-[#777a88]'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleFavorite(item.symbol);
-                        }}
-                        className="p-0.5 hover:scale-110 transition-transform cursor-pointer shrink-0"
-                      >
-                        <Star
-                          className={`w-4 h-4 ${
-                            item.favorite
-                              ? 'text-[#cc9166] fill-[#cc9166]'
-                              : 'text-[#5e616e] hover:text-[#e2e3e9]'
-                          }`}
-                        />
-                      </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(item.symbol);
+                      }}
+                      className="self-end -mb-2 p-0.5 hover:scale-110 transition-transform cursor-pointer"
+                    >
+                      <Star
+                        className={`w-3.5 h-3.5 ${
+                          item.favorite
+                            ? 'text-[#cc9166] fill-[#cc9166]'
+                            : 'text-[#5e616e] hover:text-[#e2e3e9]'
+                        }`}
+                      />
+                    </button>
 
-                      <CoinIcon symbol={item.symbol} size={22} />
+                    <CoinIcon symbol={item.symbol} size={28} />
 
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-[#ffffff] truncate">{item.symbol}</span>
-                        </div>
-                        <span className="text-[9px] text-[#9194a1] uppercase font-sans">
-                          Venue: {item.exchange}
-                        </span>
-                      </div>
+                    <div>
+                      <span className="font-bold text-sm text-[#ffffff] block">{item.symbol}</span>
+                      <span className="text-[9px] text-[#9194a1] uppercase font-sans">{item.exchange}</span>
                     </div>
 
                     <button
@@ -289,10 +282,10 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
                         e.stopPropagation();
                         handleRemoveCoin(item.symbol);
                       }}
-                      title="Remove symbol"
-                      className="p-1.5 rounded-[9999px] text-[#5e616e] hover:text-rose-400 hover:bg-[#1c1d22] transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                      title="Remove"
+                      className="mt-1 px-2 py-0.5 rounded-[9999px] text-[9px] text-rose-400/60 hover:text-rose-300 hover:bg-rose-950/30 border border-rose-900/30 transition-all cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      Remove
                     </button>
                   </div>
                 );
