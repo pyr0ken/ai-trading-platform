@@ -55,6 +55,7 @@ export default function DashboardPage() {
     const session = AppStorageEngine.getSession();
     return session.analysisMode || 'swing';
   });
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
@@ -139,7 +140,7 @@ export default function DashboardPage() {
         symbol={selectedSymbol}
         price={liveTicker?.price ?? marketContext?.ticker?.price}
         change24h={liveTicker?.change24h ?? marketContext?.ticker?.change24h}
-        onSymbolClick={() => setActiveTab('watchlist')}
+        onSymbolClick={() => setWatchlistOpen(true)}
       />
 
       <div className="flex-1 flex w-full">
@@ -167,6 +168,8 @@ export default function DashboardPage() {
                   onStopAnalysis={stopAnalysis}
                   isRunning={isMarketLoading || isMarketFetching || isStreaming}
                   onReplayAnalysis={handleReplayAnalysis}
+                  watchlistOpen={watchlistOpen}
+                  onWatchlistOpened={() => setWatchlistOpen(false)}
                 />
 
                 {marketError && (

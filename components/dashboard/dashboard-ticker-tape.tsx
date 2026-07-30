@@ -44,27 +44,27 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
         {/* Center: selected coin — interactive pill */}
         <button
           onClick={onSymbolClick}
-          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white text-[#08080a] px-3 py-1 rounded-[9999px] shadow-[0_0_12px_rgba(204,145,102,0.35),0_0_30px_rgba(204,145,102,0.15)] hover:shadow-[0_0_18px_rgba(204,145,102,0.5),0_0_40px_rgba(204,145,102,0.25)] transition-all duration-300 cursor-pointer animate-subtle-glow group"
+          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#08080a] text-[#e2e3e9] px-3 py-1 rounded-[9999px] shadow-[0_0_14px_rgba(204,145,102,0.4),0_0_40px_rgba(204,145,102,0.18),0_0_60px_rgba(204,145,102,0.08)] hover:shadow-[0_0_22px_rgba(204,145,102,0.6),0_0_55px_rgba(204,145,102,0.3),0_0_80px_rgba(204,145,102,0.12)] hover:border-[#cc9166]/80 transition-all duration-500 ease-out cursor-pointer animate-copper-pulse group border border-[#1c1d22]"
         >
           <CoinIcon symbol={symbol} size={18} />
           <span className="font-semibold text-[13px]">{baseAsset}</span>
-          <span className="text-[#c0c0c0] mx-0.5">|</span>
+          <span className="text-[#5e616e] mx-0.5">|</span>
           {price ? (
             <>
-              <span className="font-mono font-bold">
+              <span className="font-mono font-bold text-[#e2e3e9]">
                 ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               {change24h !== undefined && (
-                <span className={`flex items-center gap-0.5 font-medium ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                <span className={`flex items-center gap-0.5 font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                   {isPositive ? '+' : ''}{change24h.toFixed(2)}%
                 </span>
               )}
             </>
           ) : (
-            <span className="text-[#888] italic">Loading...</span>
+            <span className="text-[#5e616e] italic">Loading...</span>
           )}
-          <ChevronDown className="w-3 h-3 text-[#888] group-hover:text-[#08080a] transition-colors" />
+          <ChevronDown className="w-3 h-3 text-[#5e616e] group-hover:text-[#e2e3e9] transition-colors duration-300" />
         </button>
 
         {/* Right: status */}

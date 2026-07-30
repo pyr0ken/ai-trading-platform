@@ -20,11 +20,15 @@ import { CoinIcon } from '@/components/common/coin-icon';
 interface WatchlistManagerProps {
   onSelectCoin: (symbol: string) => void;
   selectedSymbol: string;
+  openExternal?: boolean;
+  onOpened?: () => void;
 }
 
 export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   onSelectCoin,
   selectedSymbol,
+  openExternal,
+  onOpened,
 }) => {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>(() => {
     return AppStorageEngine.getWatchlist();
@@ -39,6 +43,14 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
   }, []);
+
+  // Open modal from external trigger (e.g. top-bar coin click)
+  useEffect(() => {
+    if (openExternal && !isOpen) {
+      setIsOpen(true);
+      onOpened?.();
+    }
+  }, [openExternal, isOpen, onOpened]);
 
   const handleAddDirectSymbol = (symbolToAdd: string) => {
     const updated = AppStorageEngine.addCoinToWatchlist(symbolToAdd);

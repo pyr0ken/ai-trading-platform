@@ -19,6 +19,8 @@ interface CoinSelectorProps {
   onStopAnalysis?: () => void;
   isRunning: boolean;
   onReplayAnalysis?: (record: StoredAnalysisRecord) => void;
+  watchlistOpen?: boolean;
+  onWatchlistOpened?: () => void;
 }
 
 export const CoinSelector: React.FC<CoinSelectorProps> = ({
@@ -34,6 +36,8 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   onStopAnalysis = () => {},
   isRunning,
   onReplayAnalysis = () => {},
+  watchlistOpen,
+  onWatchlistOpened,
 }) => {
   const exchanges = [
     { id: 'kucoin', name: 'KC' },
@@ -124,7 +128,7 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
 
         {/* Right: Watchlist · Replay · Run / Stop */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <WatchlistManager onSelectCoin={onSymbolChange} selectedSymbol={selectedSymbol} />
+          <WatchlistManager onSelectCoin={onSymbolChange} selectedSymbol={selectedSymbol} openExternal={watchlistOpen} onOpened={onWatchlistOpened} />
           <AnalysisReplayModal onReplayAnalysis={onReplayAnalysis} />
 
           {/* Run Analysis Button */}
