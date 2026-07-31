@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       throw new Error(`Failed to fetch ticker data for ${symbol}. Market data is currently unavailable.`);
     }
 
-    const CANDLE_LIMIT = 40;
+    const CANDLE_LIMIT = 60;
     const errors: string[] = [];
 
     const candlesResults = await runLimitedConcurrency<ProcessedTimeframeData>(

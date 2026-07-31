@@ -44,9 +44,16 @@ export class TechnicalIndicatorEngine {
    */
   public static calculateRSI(closes: number[], period = 14): number[] {
     const rsi: number[] = [];
+    // Guard: not enough data to compute a meaningful RSI
+    if (closes.length < period + 1) {
+      return closes.map(() => 50);
+    }
+
     let gains = 0;
     let losses = 0;
 
+    // Seed average gain/loss over the first `period` price changes
+    // Note: closes[i] - closes[i-1] for i in [1..period] uses indices 1..period
     for (let i = 1; i <= period; i++) {
       const diff = closes[i] - closes[i - 1];
       if (diff >= 0) gains += diff;
@@ -448,7 +455,10 @@ export class TechnicalIndicatorEngine {
     candles: CandleData[],
     precomputed?: CalculatedIndicators
   ): MarketTechnicalFacts {
-    if (candles.length < 50) {
+    // Require at least 30 candles to compute meaningful indicators.
+    // Previously required 50, but the API only fetches ~40-60 candles,
+    // so 50 caused technicalFacts to always fall back to all-NEUTRAL.
+    if (candles.length < 30) {
       return {
         trend: 'NEUTRAL',
         supportLevels: [],

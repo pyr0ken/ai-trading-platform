@@ -98,11 +98,11 @@ export function buildInstitutionalUserPrompt(
   const change24h = marketContext.ticker?.change24hPercentage ?? 0;
 
   const technicalFactsText = marketContext.technicalFacts ? `
-DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
-- Trend Phase: ${marketContext.technicalFacts.trend}
+DETERMINISTIC TECHNICAL FACTS (USE THESE AS YOUR PRIMARY QUANTITATIVE BASIS — DO NOT CONTRADICT THEM WITHOUT STRONG EVIDENCE):
+- Trend Phase: ${marketContext.technicalFacts.trend} (based on EMA 20 vs EMA 50 alignment)
 - Market Consolidation State (ADX 14): Value = ${marketContext.technicalFacts.adxValue ?? 'N/A'} (Trend Strength: ${marketContext.technicalFacts.adxTrend ?? 'N/A'})
-- Immediate Clustered Support Levels (S&R Zones): ${marketContext.technicalFacts.supportLevels.join(', ')}
-- Immediate Clustered Resistance Levels (S&R Zones): ${marketContext.technicalFacts.resistanceLevels.join(', ')}
+- Immediate Clustered Support Levels (S&R Zones): ${marketContext.technicalFacts.supportLevels.join(', ') || 'None detected'}
+- Immediate Clustered Resistance Levels (S&R Zones): ${marketContext.technicalFacts.resistanceLevels.join(', ') || 'None detected'}
 - Volatility (ATR 14): ${marketContext.technicalFacts.atrVolatility}
 - RSI State: ${marketContext.technicalFacts.rsiCondition}
 - MACD Cross: ${marketContext.technicalFacts.macdCrossover}
@@ -110,6 +110,12 @@ DETERMINISTIC TECHNICAL FACTS (DO NOT VIOLATE IN YOUR ANALYSIS):
 - RSI Divergence: ${marketContext.technicalFacts.rsiDivergence ?? 'NONE'}
 - MACD Divergence: ${marketContext.technicalFacts.macdDivergence ?? 'NONE'}
 - BTC Correlation Index (30d): ${marketContext.technicalFacts.btcCorrelation ?? 1.0}
+
+IMPORTANT DECISION GUIDANCE:
+- RSI BELOW 30 = OVERSOLD (bullish reversal bias), RSI ABOVE 70 = OVERBOUGHT (bearish reversal bias), RSI 30-70 = momentum continuation zone. Use RSI direction (rising vs falling) to detect momentum shifts, not just the absolute value.
+- If ADX < 20 the market is ranging — still make a directional call based on RSI position, EMA alignment, MACD histogram direction, and support/resistance proximity. A ranging market does NOT mean NEUTRAL is the correct signal; it means you should pick the side with higher probability (e.g. RSI near oversold at support with bullish divergence = BUY bias).
+- NEVER default to NEUTRAL/HOLD unless ALL of the following are true: RSI is mid-range (45-55) AND flat, MACD histogram is flat near zero, price is equidistant between support and resistance, AND no divergence or BOS signal exists. If ANY directional signal exists, make a directional call with appropriate confidence.
+- The signal field accepts BUY / SELL / HOLD / NEUTRAL. Prefer BUY/SELL over HOLD when directional evidence exists. HOLD is reserved for no edge; NEUTRAL is reserved for truly mixed signals.
 
 DETERMINISTIC ATR-BASED TRADE THRESHOLDS (GUIDELINE LIMITS):
 * Long Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossLong} (Risk Buffer)
@@ -151,8 +157,21 @@ ${economicWarningsText}
 ${recentSignalsText}
 ${modeInstruction}
 
-RAW QUANTITATIVE MARKET DATA PAYLOAD:
-${JSON.stringify(marketContext, null, 2)}
+RAW QUANTITATIVE MARKET DATA PAYLOAD (SUMMARIZED — USE THE DETERMINISTIC FACTS ABOVE AS YOUR PRIMARY BASIS):
+- Ticker: Price=$${price} | 24h Change=${change24h}% | High/Low/Volume: $${marketContext.ticker?.high24h ?? 'N/A'}/$${marketContext.ticker?.low24h ?? 'N/A'}/$${marketContext.ticker?.volume24h ?? 'N/A'}
+- Derivatives: Funding=${marketContext.derivatives?.fundingRate ?? 'N/A'} | OI=${marketContext.derivatives?.openInterest ?? 'N/A'} | Basis=${marketContext.derivatives?.basisPremiumPct ?? 0}%
+- Microstructure: Orderbook Pressure=${marketContext.microstructure?.orderBookDepth?.orderBookPressure ?? 'NEUTRAL'} | Imbalance=${marketContext.microstructure?.orderBookDepth?.imbalanceRatio ?? 1.0} | CVD Signal=${marketContext.microstructure?.volumeDeltaCvd?.cvdSignal ?? 'BALANCED'} | Volume Delta=${marketContext.microstructure?.volumeDeltaCvd?.volumeDelta ?? 0}
+- Macro: Fear&Greed=${marketContext.macroSentiment?.fearAndGreed?.value ?? 'N/A'} (${marketContext.macroSentiment?.fearAndGreed?.classification ?? 'N/A'}) | Stablecoin Mcap=$${marketContext.macroSentiment?.stablecoinLiquidity?.totalStablecoinMarketCapUsd ?? 'N/A'}
+- News Sentiment Index: ${marketContext.news?.newsSentimentIndex ?? 0} (${newsSentimentLabel})
+
+MULTI-TIMEFRAME INDICATORS (latest candle per timeframe):
+${Object.entries(marketContext.timeframes || {})
+  .map(([tf, td]) => {
+    const ind = td?.indicators;
+    if (!ind) return `- ${tf}: no data`;
+    return `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | BB Upper/Lower=$${ind.bb_upper}/$${ind.bb_lower} | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels`;
+  })
+  .join('\n')}
 
 Provide the Output matching the mode constraints.`;
 }
