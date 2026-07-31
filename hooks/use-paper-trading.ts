@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 import { PaperPosition, PaperAccount } from '@/types/paper-trading';
 
@@ -8,23 +8,34 @@ const fetchClientSidePrice = async (symbol: string): Promise<number | null> => {
   const cleanPair = symbol.replace('/', '').toUpperCase();
   const kucoinPair = symbol.replace('/', '-').toUpperCase();
 
+  // Hard 8s deadline per attempt — prevents hanging fetches piling up when network is down
+  const fetchWithTimeout = (url: string) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeout));
+  };
+
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${cleanPair}`);
+    const res = await fetchWithTimeout(`https://api.binance.com/api/v3/ticker/price?symbol=${cleanPair}`);
     if (res.ok) {
       const data = await res.json();
       const p = parseFloat(data.price);
       if (p > 0) return p;
     }
-  } catch {}
+  } catch {
+    // timeout or network error — try next source
+  }
 
   try {
-    const res = await fetch(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${kucoinPair}`);
+    const res = await fetchWithTimeout(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${kucoinPair}`);
     if (res.ok) {
       const json = await res.json();
       const p = parseFloat(json?.data?.price);
       if (p > 0) return p;
     }
-  } catch {}
+  } catch {
+    // timeout or network error
+  }
 
   return null;
 };
@@ -62,8 +73,14 @@ export function usePaperTrading() {
   }, [refresh]);
 
   // Live monitoring of open positions
+  // positionsRef keeps the interval stable (no teardown/rebuild every 6s)
+  const positionsRef = useRef<PaperPosition[]>(positions);
   useEffect(() => {
-    const activeOpen = positions.filter(p => p.status === 'OPEN');
+    positionsRef.current = positions;
+  }, [positions]);
+
+  useEffect(() => {
+    const activeOpen = positionsRef.current.filter(p => p.status === 'OPEN');
     if (activeOpen.length === 0) return;
 
     let isSubscribed = true;
@@ -119,7 +136,7 @@ export function usePaperTrading() {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [positions, refresh]);
+  }, [refresh]);
 
   return {
     positions,

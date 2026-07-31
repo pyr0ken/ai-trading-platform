@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WhaleTransaction } from '@/lib/whale/types';
 import { formatUsd } from '@/lib/whale/whale-service';
-import { ExternalLink, X, Activity } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 
 /* ───────────────────────────────────────────────
    Whale Popup — bottom-left toast for big movements
@@ -26,7 +26,19 @@ export function showWhalePopup(tx: WhaleTransaction) {
 export function WhalePopupContainer() {
   const [items, setItems] = useState<WhalePopupItem[]>([]);
   const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
-  const maxDisplayed = useRef(new Set<string>());
+  // Bounded dedup set — prevents unbounded growth in long sessions
+  const maxDisplayed = useRef<Set<string>>(new Set());
+  const MAX_DEDUP_ENTRIES = 200;
+
+  const markDisplayed = useCallback((txId: string) => {
+    const set = maxDisplayed.current;
+    if (set.size >= MAX_DEDUP_ENTRIES) {
+      // Evict oldest entries (Set preserves insertion order)
+      const toRemove = Array.from(set).slice(0, Math.floor(MAX_DEDUP_ENTRIES / 2));
+      for (const key of toRemove) set.delete(key);
+    }
+    set.add(txId);
+  }, []);
 
   const dismiss = useCallback((id: number) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
@@ -41,9 +53,9 @@ export function WhalePopupContainer() {
     popupListener = (tx: WhaleTransaction) => {
       // Only show high/critical in popup
       if (tx.severity !== 'high' && tx.severity !== 'critical') return;
-      // Dedup by id
+      // Dedup by id (bounded set)
       if (maxDisplayed.current.has(tx.id)) return;
-      maxDisplayed.current.add(tx.id);
+      markDisplayed(tx.id);
 
       const id = ++popupId;
       setItems((prev) => [{
@@ -62,13 +74,14 @@ export function WhalePopupContainer() {
 
     return () => {
       popupListener = null;
-      // Clear all timers
-      for (const timer of timersRef.current.values()) {
+      // Clear all timers — copy ref to a local var first (cleanup closure safety)
+      const timers = timersRef.current;
+      for (const timer of timers.values()) {
         clearTimeout(timer);
       }
-      timersRef.current.clear();
+      timers.clear();
     };
-  }, [dismiss]);
+  }, [dismiss, markDisplayed]);
 
   if (items.length === 0) return null;
 

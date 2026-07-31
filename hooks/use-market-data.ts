@@ -42,7 +42,7 @@ export function useMarketData(symbol: string, exchange: string, timeframe: strin
       
       return data;
     },
-    enabled: true, // Fetch market facts automatically on symbol/exchange change
+    enabled, // Gate: only fetch when caller flips this on (e.g. user clicked Analyze)
     staleTime: 30000,
     retry: 0, // Do not auto-retry on UI, let the user decide
   });

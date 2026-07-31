@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { StructuredLLMOutput } from '@/types/terminal';
 import { Target, ArrowUpRight, ArrowDownRight, Zap, PauseCircle, Eye } from 'lucide-react';
 import {
@@ -41,6 +41,44 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
     : isShort
     ? 'BEARISH SHORT'
     : 'NEUTRAL / HOLD';
+
+  // ─── Derived chart values (computed before early return to satisfy Rules of Hooks) ──
+  const rawMin  = setup?.entry_range?.[0]  ?? (isLong ? currentPrice * 0.995 : currentPrice * 1.005);
+  const rawMax  = setup?.entry_range?.[1]  ?? (isLong ? currentPrice * 1.005 : currentPrice * 0.995);
+  const rawSL   = setup?.stop_loss         ?? (isLong ? currentPrice * 0.97  : currentPrice * 1.03);
+  const rawTP1  = setup?.take_profit_1     ?? (isLong ? currentPrice * 1.02  : currentPrice * 0.98);
+  const rawTP2  = setup?.take_profit_2     ?? (isLong ? currentPrice * 1.04  : currentPrice * 0.96);
+  const rawTP3  = setup?.take_profit_3     ?? (isLong ? currentPrice * 1.06  : currentPrice * 0.94);
+
+  const entryMin = Number(rawMin);
+  const entryMax = Number(rawMax);
+  const stopLoss = Number(rawSL);
+  const tp1      = Number(rawTP1);
+  const tp2      = Number(rawTP2);
+  const tp3      = Number(rawTP3);
+  const currP    = Number(currentPrice);
+
+  const getPctDiff = useCallback((targetPrice: number) => {
+    const diff = ((targetPrice - currP) / currP) * 100;
+    return (diff >= 0 ? '+' : '') + diff.toFixed(2) + '%';
+  }, [currP]);
+
+  const chartRows = useMemo(() => [
+    { level: 'TP3 Target', price: tp3,      color: '#84cc16', badge: getPctDiff(tp3) },
+    { level: 'TP2 Target', price: tp2,      color: '#14b8a6', badge: getPctDiff(tp2) },
+    { level: 'TP1 Target', price: tp1,      color: '#10b981', badge: getPctDiff(tp1) },
+    { level: 'Entry Range', price: entryMax, color: '#3b82f6', badge: `$${entryMin} - $${entryMax}` },
+    { level: 'Stop Loss',  price: stopLoss,  color: '#f43f5e', badge: getPctDiff(stopLoss) },
+  ], [tp3, tp2, tp1, entryMax, entryMin, stopLoss, getPctDiff]);
+
+  const minVal = useMemo(
+    () => Math.floor(Math.min(stopLoss, entryMin, tp1, tp2, tp3) * 0.98),
+    [stopLoss, entryMin, tp1, tp2, tp3]
+  );
+  const maxVal = useMemo(
+    () => Math.ceil(Math.max(stopLoss, entryMax, tp1, tp2, tp3) * 1.02),
+    [stopLoss, entryMax, tp1, tp2, tp3]
+  );
 
   // ─── NEUTRAL: render a minimal "no-trade" panel instead of the chart ───────
   if (isNeutral) {
@@ -83,37 +121,6 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
   }
 
   // ─── LONG / SHORT: full target-level chart ──────────────────────────────────
-  const rawMin  = setup?.entry_range?.[0]  ?? (isLong ? currentPrice * 0.995 : currentPrice * 1.005);
-  const rawMax  = setup?.entry_range?.[1]  ?? (isLong ? currentPrice * 1.005 : currentPrice * 0.995);
-  const rawSL   = setup?.stop_loss         ?? (isLong ? currentPrice * 0.97  : currentPrice * 1.03);
-  const rawTP1  = setup?.take_profit_1     ?? (isLong ? currentPrice * 1.02  : currentPrice * 0.98);
-  const rawTP2  = setup?.take_profit_2     ?? (isLong ? currentPrice * 1.04  : currentPrice * 0.96);
-  const rawTP3  = setup?.take_profit_3     ?? (isLong ? currentPrice * 1.06  : currentPrice * 0.94);
-
-  const entryMin = Number(rawMin);
-  const entryMax = Number(rawMax);
-  const stopLoss = Number(rawSL);
-  const tp1      = Number(rawTP1);
-  const tp2      = Number(rawTP2);
-  const tp3      = Number(rawTP3);
-  const currP    = Number(currentPrice);
-
-  const getPctDiff = (targetPrice: number) => {
-    const diff = ((targetPrice - currP) / currP) * 100;
-    return (diff >= 0 ? '+' : '') + diff.toFixed(2) + '%';
-  };
-
-  const chartRows = [
-    { level: 'TP3 Target', price: tp3,      color: '#84cc16', badge: getPctDiff(tp3) },
-    { level: 'TP2 Target', price: tp2,      color: '#14b8a6', badge: getPctDiff(tp2) },
-    { level: 'TP1 Target', price: tp1,      color: '#10b981', badge: getPctDiff(tp1) },
-    { level: 'Entry Range', price: entryMax, color: '#3b82f6', badge: `$${entryMin} - $${entryMax}` },
-    { level: 'Stop Loss',  price: stopLoss,  color: '#f43f5e', badge: getPctDiff(stopLoss) },
-  ];
-
-  const minVal = Math.floor(Math.min(stopLoss, entryMin, tp1, tp2, tp3) * 0.98);
-  const maxVal = Math.ceil(Math.max(stopLoss, entryMax, tp1, tp2, tp3) * 1.02);
-
   return (
     <div className="bg-[#18181b]/95 border border-[#27272a] backdrop-blur-xl rounded-[24px] p-6 text-[#f5f5f4] shadow-2xl space-y-5 hover:border-[#fbe1d1]/40 transition-all duration-300">
       {/* Header Bar */}

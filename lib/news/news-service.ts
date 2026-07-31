@@ -109,6 +109,20 @@ export class NewsService {
     timeout: 3000,
   });
 
+  // In-memory cache with TTL — RSS feeds are re-fetched at most once per CACHE_TTL_MS
+  private static cachedPayload: { articles: NewsArticle[]; fetchedAt: number } | null = null;
+  private static readonly CACHE_TTL_MS = 60_000; // 1 minute
+
+  private static async getCachedArticles(): Promise<NewsArticle[]> {
+    const now = Date.now();
+    if (this.cachedPayload && now - this.cachedPayload.fetchedAt < this.CACHE_TTL_MS) {
+      return this.cachedPayload.articles;
+    }
+    const articles = await this.fetchNews(4);
+    this.cachedPayload = { articles, fetchedAt: now };
+    return articles;
+  }
+
   private static positiveKeywords = [
     'bullish', 'surge', 'institutional', 'approved', 'buying', 'adoption', 'upgrade',
     'growth', 'inflow', 'gain', 'breakout', 'support', 'highest', 'profit', 'positive',
@@ -240,7 +254,7 @@ export class NewsService {
 
 
   public static async getNewsPayload(limit = 5): Promise<NewsPayload> {
-    const articles = await this.fetchNews(4);
+    const articles = await this.getCachedArticles();
     const sliced = articles.slice(0, limit);
 
     const summaryForPrompt = sliced

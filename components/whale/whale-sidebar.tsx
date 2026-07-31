@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { WhaleTransaction } from '@/lib/whale/types';
 import { POLL_INTERVAL, STORAGE_KEY } from '@/lib/whale/config';
 import { formatUsd } from '@/lib/whale/whale-service';
@@ -33,6 +33,14 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
   const [totalTodayUsd, setTotalTodayUsd] = useState(0);
   const [countToday, setCountToday] = useState(0);
   const [maximized, setMaximized] = useState(false);
+  // Refs for values used inside the poll closure — avoids stale closures & re-created callbacks
+  const liveFeedRef = useRef<WhaleTransaction[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  // Keep latest onCountChange in a ref so poll stays stable while still calling the freshest callback
+  const onCountChangeRef = useRef(onCountChange);
+  useEffect(() => {
+    onCountChangeRef.current = onCountChange;
+  }, [onCountChange]);
 
   /* ── Load history from storage ── */
   const loadHistory = useCallback(() => {
@@ -61,6 +69,28 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
     });
   }, []);
 
+  /* ── Play a short alert beep (reuses a single AudioContext) ── */
+  const playAlertSound = useCallback(() => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {
+      // silent — AudioContext may be blocked by the browser
+    }
+  }, []);
+
   /* ── Poll whale alerts ── */
   const poll = useCallback(async () => {
     try {
@@ -71,29 +101,10 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
 
       const fresh = data.transactions as WhaleTransaction[];
 
-      // Check for new critical/high transactions
+      // Check for new critical/high transactions (using ref to avoid stale closure)
       for (const tx of fresh) {
-        if ((tx.severity === 'high' || tx.severity === 'critical') && !liveFeed.some((l) => l.id === tx.id)) {
-          // play sound effect if supported
-          try {
-            const ctx = new AudioContext();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime(880, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 0.5);
-          } catch {
-            // silent
-          }
-        }
-
-        if (!liveFeed.some((l) => l.id === tx.id)) {
-          saveToHistory(tx);
+        if ((tx.severity === 'high' || tx.severity === 'critical') && !liveFeedRef.current.some((l) => l.id === tx.id)) {
+          playAlertSound();
         }
       }
 
@@ -102,12 +113,14 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
         for (const p of prev) {
           if (!merged.some((m) => m.id === p.id)) merged.push(p);
         }
-        return merged.sort((a, b) => b.valueUsd - a.valueUsd).slice(0, 50);
+        const sorted = merged.sort((a, b) => b.valueUsd - a.valueUsd).slice(0, 50);
+        liveFeedRef.current = sorted; // keep ref in sync for the poll closure
+        return sorted;
       });
 
       setTotalTodayUsd(data.totalUsd || 0);
       setCountToday(data.count || 0);
-      onCountChange?.(data.count || 0);
+      onCountChangeRef.current?.(data.count || 0);
       setError(null);
 
       // Also update history with any new ones
@@ -119,7 +132,7 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
     } finally {
       setIsLoading(false);
     }
-  }, [liveFeed, saveToHistory]);
+  }, [saveToHistory, playAlertSound]);
 
   /* ── Start polling ── */
   useEffect(() => {
@@ -140,6 +153,9 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
     return () => {
       mounted = false;
       clearTimeout(timer);
+      // Close the shared AudioContext to free browser audio resources
+      audioContextRef.current?.close().catch(() => {});
+      audioContextRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -150,13 +166,13 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
     poll();
   }, [poll]);
 
-  /* ── Today's count per severity ── */
-  const severityCounts = {
+  /* ── Today's count per severity (memoized — only recomputed when liveFeed changes) ── */
+  const severityCounts = useMemo(() => ({
     low: liveFeed.filter((t) => t.severity === 'low').length,
     medium: liveFeed.filter((t) => t.severity === 'medium').length,
     high: liveFeed.filter((t) => t.severity === 'high').length,
     critical: liveFeed.filter((t) => t.severity === 'critical').length,
-  };
+  }), [liveFeed]);
 
   if (!open) return null;
 

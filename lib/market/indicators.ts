@@ -5,16 +5,20 @@ import { CalculatedIndicators, CandleData, SupportResistanceLevels, MarketTechni
  */
 export class TechnicalIndicatorEngine {
   /**
-   * Calculate Simple Moving Average (SMA)
+   * Calculate Simple Moving Average (SMA) — sliding window, no per-iteration slice
    */
   public static calculateSMA(data: number[], period: number): number[] {
-    const sma: number[] = [];
+    const sma: number[] = new Array(data.length);
+    let windowSum = 0;
+
     for (let i = 0; i < data.length; i++) {
+      windowSum += data[i];
+      if (i >= period) windowSum -= data[i - period];
+
       if (i < period - 1) {
-        sma.push(data[i]);
+        sma[i] = data[i];
       } else {
-        const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val, 0);
-        sma.push(Number((sum / period).toFixed(2)));
+        sma[i] = Number((windowSum / period).toFixed(2));
       }
     }
     return sma;
@@ -100,7 +104,7 @@ export class TechnicalIndicatorEngine {
   }
 
   /**
-   * Calculate Bollinger Bands (Upper, Middle, Lower, Bandwidth)
+   * Calculate Bollinger Bands (Upper, Middle, Lower, Bandwidth) — sliding window variance
    */
   public static calculateBollingerBands(
     closes: number[],
@@ -108,28 +112,40 @@ export class TechnicalIndicatorEngine {
     multiplier = 2
   ): { upper: number[]; middle: number[]; lower: number[]; bandwidth: number[] } {
     const middle = this.calculateSMA(closes, period);
-    const upper: number[] = [];
-    const lower: number[] = [];
-    const bandwidth: number[] = [];
+    const upper: number[] = new Array(closes.length);
+    const lower: number[] = new Array(closes.length);
+    const bandwidth: number[] = new Array(closes.length);
+
+    let sumSq = 0;
+    let sum = 0;
 
     for (let i = 0; i < closes.length; i++) {
+      const val = closes[i];
+      sum += val;
+      sumSq += val * val;
+
+      if (i >= period) {
+        const oldVal = closes[i - period];
+        sum -= oldVal;
+        sumSq -= oldVal * oldVal;
+      }
+
       if (i < period - 1) {
-        upper.push(middle[i]);
-        lower.push(middle[i]);
-        bandwidth.push(0);
+        upper[i] = middle[i];
+        lower[i] = middle[i];
+        bandwidth[i] = 0;
       } else {
-        const slice = closes.slice(i - period + 1, i + 1);
-        const mean = middle[i];
-        const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / period;
+        const mean = sum / period;
+        const variance = Math.max(sumSq / period - mean * mean, 0);
         const stdDev = Math.sqrt(variance);
 
         const u = Number((mean + stdDev * multiplier).toFixed(2));
         const l = Number((mean - stdDev * multiplier).toFixed(2));
         const bw = Number((((u - l) / mean) * 100).toFixed(2));
 
-        upper.push(u);
-        lower.push(l);
-        bandwidth.push(bw);
+        upper[i] = u;
+        lower[i] = l;
+        bandwidth[i] = bw;
       }
     }
     return { upper, middle, lower, bandwidth };

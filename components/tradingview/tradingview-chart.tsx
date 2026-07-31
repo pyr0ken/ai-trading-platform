@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { TradeSetup, StructuredLLMOutput } from '@/types/terminal';
 import { ShieldAlert, CheckCircle2, Copy, Check, PauseCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
@@ -22,7 +22,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
-  const mapResolution = (tf: string): string => {
+  const mapResolution = useCallback((tf: string): string => {
     switch (tf) {
       case '1m':
         return '1';
@@ -39,9 +39,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       default:
         return '60';
     }
-  };
+  }, []);
 
-  const formatTVSymbol = (rawSymbol: string, rawExchange: string): string => {
+  const formatTVSymbol = useCallback((rawSymbol: string, rawExchange: string): string => {
     const cleanSymbol = rawSymbol.replace('/', '').replace('-', '').toUpperCase();
     const ex = rawExchange.toUpperCase();
 
@@ -52,22 +52,28 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     }
 
     return `${ex}:${cleanSymbol}`;
-  };
+  }, []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = '';
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Clean up previous widget instance + script to avoid memory leaks
+    container.innerHTML = '';
+    const existingScript = container.querySelector('script[data-tv-script]');
+    if (existingScript) existingScript.remove();
 
     const containerId = 'tv_chart_container_' + Math.random().toString(36).substring(2, 9);
     const chartDiv = document.createElement('div');
     chartDiv.id = containerId;
     chartDiv.style.width = '100%';
     chartDiv.style.height = '850px';
-    containerRef.current.appendChild(chartDiv);
+    container.appendChild(chartDiv);
 
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
+    script.dataset.tvScript = 'true';
     script.onload = () => {
       const win = window as unknown as { TradingView?: { widget: new (config: Record<string, unknown>) => unknown } };
       if (typeof window !== 'undefined' && win.TradingView) {
@@ -90,8 +96,12 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
     };
 
-    containerRef.current.appendChild(script);
-  }, [symbol, exchange, timeframe]);
+    container.appendChild(script);
+
+    return () => {
+      container.innerHTML = '';
+    };
+  }, [symbol, exchange, timeframe, mapResolution, formatTVSymbol]);
 
   const handleCopyPine = async () => {
     const code = generateAdvancedPineScriptCode(setup ? ({ trade_setup: setup } as unknown as StructuredLLMOutput) : null, symbol);
