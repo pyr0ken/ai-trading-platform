@@ -68,6 +68,7 @@ export class ForexMarketService {
       const res = await fetch(url, {
         next: { revalidate: 15 },
         headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(4000),
       });
 
       if (res.ok) {
@@ -151,6 +152,7 @@ export class ForexMarketService {
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${config.interval}&range=${config.range}`;
       const res = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(4000),
       });
 
       if (res.ok) {

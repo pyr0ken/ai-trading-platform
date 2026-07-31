@@ -4,19 +4,37 @@ import { MacroSentiment } from '@/types/market';
  * Macro Sentiment & Liquidity Service
  */
 export class MacroSentimentService {
+  private static cachedSentiment: { data: MacroSentiment; fetchedAt: number } | null = null;
+  private static inFlightPromise: Promise<MacroSentiment> | null = null;
+  private static readonly CACHE_TTL_MS = 300_000; // 5 minutes
+
   /**
    * Fetch Alternative.me Fear & Greed Index + DefiLlama Stablecoin Market Cap
    */
   public static async fetchMacroSentiment(): Promise<MacroSentiment> {
-    const [fearAndGreed, stablecoinLiquidity] = await Promise.all([
-      this.fetchFearAndGreedIndex(),
-      this.fetchStablecoinLiquidity(),
-    ]);
+    const now = Date.now();
+    if (this.cachedSentiment && now - this.cachedSentiment.fetchedAt < this.CACHE_TTL_MS) {
+      return this.cachedSentiment.data;
+    }
+    if (this.inFlightPromise) {
+      return this.inFlightPromise;
+    }
 
-    return {
-      fearAndGreed,
-      stablecoinLiquidity,
-    };
+    this.inFlightPromise = (async () => {
+      try {
+        const [fearAndGreed, stablecoinLiquidity] = await Promise.all([
+          this.fetchFearAndGreedIndex(),
+          this.fetchStablecoinLiquidity(),
+        ]);
+        const data: MacroSentiment = { fearAndGreed, stablecoinLiquidity };
+        this.cachedSentiment = { data, fetchedAt: Date.now() };
+        return data;
+      } finally {
+        this.inFlightPromise = null;
+      }
+    })();
+
+    return this.inFlightPromise;
   }
 
   private static async fetchFearAndGreedIndex() {

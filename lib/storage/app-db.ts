@@ -88,15 +88,24 @@ const DEFAULT_WATCHLIST: WatchlistItem[] = [
 ];
 
 export class AppStorageEngine {
+  private static cachedSession: SessionState | null = null;
+  private static cachedWatchlist: WatchlistItem[] | null = null;
+  private static cachedAnalyses: StoredAnalysisRecord[] | null = null;
+  private static cachedChats: StoredChatMessage[] | null = null;
+  private static cachedPaperAccount: PaperAccount | null = null;
+  private static cachedPaperPositions: PaperPosition[] | null = null;
+
   // --- Session Restoration ---
   public static getSession(): SessionState {
     if (typeof window === 'undefined') return DEFAULT_SESSION;
+    if (this.cachedSession) return this.cachedSession;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.SESSION);
-      return data ? { ...DEFAULT_SESSION, ...JSON.parse(data) } : DEFAULT_SESSION;
+      this.cachedSession = data ? { ...DEFAULT_SESSION, ...JSON.parse(data) } : DEFAULT_SESSION;
     } catch {
-      return DEFAULT_SESSION;
+      this.cachedSession = DEFAULT_SESSION;
     }
+    return this.cachedSession || DEFAULT_SESSION;
   }
 
   public static saveSession(session: Partial<SessionState>): void {
@@ -104,6 +113,7 @@ export class AppStorageEngine {
     try {
       const current = this.getSession();
       const updated = { ...current, ...session, lastUpdated: new Date().toISOString() };
+      this.cachedSession = updated;
       localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(updated));
     } catch (e) {
       console.warn('LocalStorage saveSession error:', e);
@@ -113,17 +123,20 @@ export class AppStorageEngine {
   // --- Watchlist Manager ---
   public static getWatchlist(): WatchlistItem[] {
     if (typeof window === 'undefined') return DEFAULT_WATCHLIST;
+    if (this.cachedWatchlist) return this.cachedWatchlist;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.WATCHLIST);
-      return data ? JSON.parse(data) : DEFAULT_WATCHLIST;
+      this.cachedWatchlist = data ? JSON.parse(data) : DEFAULT_WATCHLIST;
     } catch {
-      return DEFAULT_WATCHLIST;
+      this.cachedWatchlist = DEFAULT_WATCHLIST;
     }
+    return this.cachedWatchlist || DEFAULT_WATCHLIST;
   }
 
   public static saveWatchlist(list: WatchlistItem[]): void {
     if (typeof window === 'undefined') return;
     try {
+      this.cachedWatchlist = list;
       localStorage.setItem(STORAGE_KEYS.WATCHLIST, JSON.stringify(list));
     } catch (e) {
       console.warn('LocalStorage saveWatchlist error:', e);
@@ -176,18 +189,22 @@ export class AppStorageEngine {
   // --- Analyses History & Replay ---
   public static getAnalyses(): StoredAnalysisRecord[] {
     if (typeof window === 'undefined') return [];
+    if (this.cachedAnalyses) return this.cachedAnalyses;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.ANALYSES);
-      return data ? JSON.parse(data) : [];
+      this.cachedAnalyses = data ? JSON.parse(data) : [];
     } catch {
-      return [];
+      this.cachedAnalyses = [];
     }
+    return this.cachedAnalyses || [];
   }
 
   public static saveAnalyses(list: StoredAnalysisRecord[]): void {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(list));
+      const capped = list.slice(0, 100);
+      this.cachedAnalyses = capped;
+      localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(capped));
     } catch (e) {
       console.warn('LocalStorage saveAnalyses error:', e);
     }
@@ -231,6 +248,7 @@ export class AppStorageEngine {
   public static clearAnalyses(): void {
     if (typeof window === 'undefined') return;
     try {
+      this.cachedAnalyses = [];
       localStorage.removeItem(STORAGE_KEYS.ANALYSES);
     } catch (e) {
       console.warn('LocalStorage clearAnalyses error:', e);
@@ -240,16 +258,19 @@ export class AppStorageEngine {
   // --- Chat Messages Persistence ---
   public static getChats(symbol?: string): StoredChatMessage[] {
     if (typeof window === 'undefined') return [];
-    try {
-      const data = localStorage.getItem(STORAGE_KEYS.CHATS);
-      const chats: StoredChatMessage[] = data ? JSON.parse(data) : [];
-      if (symbol) {
-        return chats.filter((c) => c.symbol.toUpperCase() === symbol.toUpperCase());
+    if (!this.cachedChats) {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.CHATS);
+        this.cachedChats = data ? JSON.parse(data) : [];
+      } catch {
+        this.cachedChats = [];
       }
-      return chats;
-    } catch {
-      return [];
     }
+    const chats = this.cachedChats || [];
+    if (symbol) {
+      return chats.filter((c) => c.symbol.toUpperCase() === symbol.toUpperCase());
+    }
+    return chats;
   }
 
   public static saveChat(msg: StoredChatMessage): void {
@@ -257,6 +278,7 @@ export class AppStorageEngine {
     try {
       const chats = this.getChats();
       const updated = [...chats, msg].slice(-200);
+      this.cachedChats = updated;
       localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(updated));
     } catch (e) {
       console.warn('LocalStorage saveChat error:', e);
@@ -268,8 +290,10 @@ export class AppStorageEngine {
     try {
       if (symbol) {
         const chats = this.getChats().filter((c) => c.symbol.toUpperCase() !== symbol.toUpperCase());
+        this.cachedChats = chats;
         localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(chats));
       } else {
+        this.cachedChats = [];
         localStorage.removeItem(STORAGE_KEYS.CHATS);
       }
     } catch {}
@@ -288,17 +312,20 @@ export class AppStorageEngine {
     };
 
     if (typeof window === 'undefined') return defaultAccount;
+    if (this.cachedPaperAccount) return this.cachedPaperAccount;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PAPER_ACCOUNT);
-      return data ? { ...defaultAccount, ...JSON.parse(data) } : defaultAccount;
+      this.cachedPaperAccount = data ? { ...defaultAccount, ...JSON.parse(data) } : defaultAccount;
     } catch {
-      return defaultAccount;
+      this.cachedPaperAccount = defaultAccount;
     }
+    return this.cachedPaperAccount || defaultAccount;
   }
 
   public static savePaperAccount(account: PaperAccount): void {
     if (typeof window === 'undefined') return;
     try {
+      this.cachedPaperAccount = account;
       localStorage.setItem(STORAGE_KEYS.PAPER_ACCOUNT, JSON.stringify(account));
     } catch (e) {
       console.warn('LocalStorage savePaperAccount error:', e);
@@ -307,17 +334,20 @@ export class AppStorageEngine {
 
   public static getPaperPositions(): PaperPosition[] {
     if (typeof window === 'undefined') return [];
+    if (this.cachedPaperPositions) return this.cachedPaperPositions;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PAPER_POSITIONS);
-      return data ? JSON.parse(data) : [];
+      this.cachedPaperPositions = data ? JSON.parse(data) : [];
     } catch {
-      return [];
+      this.cachedPaperPositions = [];
     }
+    return this.cachedPaperPositions || [];
   }
 
   public static savePaperPositions(list: PaperPosition[]): void {
     if (typeof window === 'undefined') return;
     try {
+      this.cachedPaperPositions = list;
       localStorage.setItem(STORAGE_KEYS.PAPER_POSITIONS, JSON.stringify(list));
     } catch (e) {
       console.warn('LocalStorage savePaperPositions error:', e);
@@ -391,6 +421,8 @@ export class AppStorageEngine {
   public static resetPaperTrading(): void {
     if (typeof window === 'undefined') return;
     try {
+      this.cachedPaperPositions = [];
+      this.cachedPaperAccount = null;
       localStorage.removeItem(STORAGE_KEYS.PAPER_POSITIONS);
       localStorage.removeItem(STORAGE_KEYS.PAPER_ACCOUNT);
     } catch {}

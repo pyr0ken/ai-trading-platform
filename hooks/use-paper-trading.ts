@@ -79,23 +79,30 @@ export function usePaperTrading() {
     positionsRef.current = positions;
   }, [positions]);
 
+  const openPositionsCount = positions.filter((p) => p.status === 'OPEN').length;
+
   useEffect(() => {
-    const activeOpen = positionsRef.current.filter(p => p.status === 'OPEN');
-    if (activeOpen.length === 0) return;
+    if (openPositionsCount === 0) return;
 
     let isSubscribed = true;
 
     const monitorPrices = async () => {
+      if (document.hidden) return;
       let updatedAny = false;
       const currentList = AppStorageEngine.getPaperPositions();
+      const activePositions = currentList.filter((p) => p.status === 'OPEN');
+      if (activePositions.length === 0) return;
 
-      for (const pos of currentList) {
-        if (pos.status !== 'OPEN') continue;
-
+      const pricePromises = activePositions.map(async (pos) => {
         const livePrice = await fetchClientSidePrice(pos.symbol);
+        return { pos, livePrice };
+      });
+
+      const results = await Promise.all(pricePromises);
+
+      for (const { pos, livePrice } of results) {
         if (!livePrice || !isSubscribed) continue;
 
-        // Check if Stop Loss or Take Profit is hit
         const isLong = pos.side === 'LONG';
         const hitSL = isLong ? livePrice <= pos.stopLoss : livePrice >= pos.stopLoss;
         const hitTP = isLong ? livePrice >= pos.takeProfit : livePrice <= pos.takeProfit;
@@ -107,9 +114,8 @@ export function usePaperTrading() {
           AppStorageEngine.closePaperPosition(pos.id, pos.takeProfit);
           updatedAny = true;
         } else {
-          // Update current price & floating PnL
           const list = AppStorageEngine.getPaperPositions();
-          const pIdx = list.findIndex(p => p.id === pos.id);
+          const pIdx = list.findIndex((p) => p.id === pos.id);
           if (pIdx !== -1 && list[pIdx].status === 'OPEN') {
             const currentPos = list[pIdx];
             currentPos.currentPrice = livePrice;
@@ -128,7 +134,6 @@ export function usePaperTrading() {
       }
     };
 
-    // Run immediately and then on a 6-second interval
     monitorPrices();
     const interval = setInterval(monitorPrices, 6000);
 
@@ -136,7 +141,7 @@ export function usePaperTrading() {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [refresh]);
+  }, [openPositionsCount, refresh]);
 
   return {
     positions,

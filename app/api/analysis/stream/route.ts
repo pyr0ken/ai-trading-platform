@@ -4,7 +4,10 @@ import { createLLMAnalysisStream } from '@/lib/llm/llm-client';
 export async function HEAD() {
   const llmBaseUrl = process.env.LLM_BASE_URL || 'http://127.0.0.1:20128/v1';
   try {
-    const res = await fetch(`${llmBaseUrl}/models`, { method: 'GET' });
+    const res = await fetch(`${llmBaseUrl}/models`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(3000),
+    });
     if (res.ok) {
       return new NextResponse(null, { status: 200 });
     }

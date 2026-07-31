@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppSidebar, NavTab } from '@/components/layout/app-sidebar';
 import { DashboardTickerTape } from '@/components/dashboard/dashboard-ticker-tape';
 import { CoinSelector } from '@/components/market/coin-selector';
@@ -145,15 +145,17 @@ export default function DashboardPage() {
     showToast(`⏪ Replaying ${record.symbol} · ${record.signal} @ ${record.confidence}%`);
   };
 
-  let parsedJson: StructuredLLMOutput | null = null;
-  try {
-    const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch && jsonMatch[1]) {
-      parsedJson = JSON.parse(jsonMatch[1]);
+  const parsedJson: StructuredLLMOutput | null = useMemo(() => {
+    try {
+      const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch && jsonMatch[1]) {
+        return JSON.parse(jsonMatch[1]);
+      }
+    } catch {
+      // Ignore JSON parse errors
     }
-  } catch {
-    // Ignore JSON parse errors
-  }
+    return null;
+  }, [analysisText]);
 
   const currentTfData = marketContext?.timeframes[selectedTimeframe] || marketContext?.timeframes['1h'];
 

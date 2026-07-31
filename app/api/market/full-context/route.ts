@@ -160,14 +160,19 @@ export async function GET(request: Request) {
           const btcCandles = await CCXTMarketService.fetchOHLCV('BTC/USDT', '1d', 40, exchange);
           const symbolCandles = timeframesData['1d']?.candles || [];
 
+          const btcMap = new Map<number, number>();
+          for (const bc of btcCandles) {
+            btcMap.set(bc.timestamp, bc.close);
+          }
+
           const btcPrices: number[] = [];
           const symbolPrices: number[] = [];
 
           for (const sc of symbolCandles) {
-            const matchingBtc = btcCandles.find((bc: CandleData) => bc.timestamp === sc.timestamp);
-            if (matchingBtc) {
+            const btcClose = btcMap.get(sc.timestamp);
+            if (btcClose !== undefined) {
               symbolPrices.push(sc.close);
-              btcPrices.push(matchingBtc.close);
+              btcPrices.push(btcClose);
             }
           }
 

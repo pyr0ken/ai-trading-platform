@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { FullMarketContextPayload } from '@/types/analysis';
 import { LogStep } from '@/components/analysis/live-status-logger';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
@@ -50,6 +50,14 @@ export function useLLMAnalysis() {
   ]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const autoSaveToLocalStorage = useCallback((text: string, contextPayload: FullMarketContextPayload) => {
     if (!text) return;
@@ -206,7 +214,23 @@ export function useLLMAnalysis() {
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
       let accumulatedText = '';
-      setIsLoading(false);
+      let pendingBatch = '';
+      let rafId: number | null = null;
+
+      const flushPending = () => {
+        if (pendingBatch) {
+          const chunk = pendingBatch;
+          pendingBatch = '';
+          setAnalysisTextState((prev) => prev + chunk);
+        }
+        rafId = null;
+      };
+
+      const scheduleFlush = () => {
+        if (rafId === null) {
+          rafId = requestAnimationFrame(flushPending);
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -221,6 +245,8 @@ export function useLLMAnalysis() {
           if (!trimmed || trimmed.startsWith(':')) continue;
 
           if (trimmed === 'data: [DONE]') {
+            if (rafId !== null) cancelAnimationFrame(rafId);
+            flushPending();
             setIsStreaming(false);
             autoSaveToLocalStorage(accumulatedText, contextPayload);
             setLogSteps((prev) =>
@@ -239,7 +265,8 @@ export function useLLMAnalysis() {
               const tokenContent = json.choices?.[0]?.delta?.content || json.content || '';
               if (tokenContent) {
                 accumulatedText += tokenContent;
-                setAnalysisTextState((prev) => prev + tokenContent);
+                pendingBatch += tokenContent;
+                scheduleFlush();
               }
               if (json.error) {
                 setError(json.error);
@@ -257,6 +284,8 @@ export function useLLMAnalysis() {
           }
         }
       }
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      flushPending();
       setIsStreaming(false);
       autoSaveToLocalStorage(accumulatedText, contextPayload);
     } catch (err) {

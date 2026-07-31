@@ -512,7 +512,9 @@ export class TechnicalIndicatorEngine {
       const signalLineRaw = this.calculateEMA(macdLineRaw, 9);
       const hist = macdLineRaw.map((m, i) => Number((m - signalLineRaw[i]).toFixed(2)));
       prevHist = hist.length >= 2 ? hist[hist.length - 2] : 0;
-      currHist = hist.length >= 1 ? hist[hist.length - 1] : precomputed.macd_hist;
+      latestAtr = precomputed.atr_14 ?? 0;
+      latestAdx = precomputed.adx_14 ?? 0;
+      adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
     } else {
       const ema20 = this.calculateEMA(closes, 20);
       const ema50 = this.calculateEMA(closes, 50);
@@ -541,14 +543,6 @@ export class TechnicalIndicatorEngine {
     } else if (prevHist >= 0 && currHist < 0) {
       macdCrossover = 'BEARISH_CROSS';
     }
-
-    // These are still calculated fresh regardless (relatively cheap)
-    const atr = this.calculateATR(candles, 14);
-    latestAtr = atr[atr.length - 1];
-
-    const adx = this.calculateADX(candles, 14);
-    latestAdx = adx[adx.length - 1];
-    adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
 
     // Extract support & resistance using dynamic clustering
     const sr = this.extractSupportResistance(candles, 5);

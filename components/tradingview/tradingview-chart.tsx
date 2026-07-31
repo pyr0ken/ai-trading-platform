@@ -58,10 +58,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    // Clean up previous widget instance + script to avoid memory leaks
     container.innerHTML = '';
-    const existingScript = container.querySelector('script[data-tv-script]');
-    if (existingScript) existingScript.remove();
 
     const containerId = 'tv_chart_container_' + Math.random().toString(36).substring(2, 9);
     const chartDiv = document.createElement('div');
@@ -70,13 +67,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     chartDiv.style.height = '850px';
     container.appendChild(chartDiv);
 
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.dataset.tvScript = 'true';
-    script.onload = () => {
+    const initWidget = () => {
       const win = window as unknown as { TradingView?: { widget: new (config: Record<string, unknown>) => unknown } };
-      if (typeof window !== 'undefined' && win.TradingView) {
+      if (typeof window !== 'undefined' && win.TradingView && containerRef.current?.contains(chartDiv)) {
         new win.TradingView.widget({
           autosize: false,
           width: '100%',
@@ -96,7 +89,19 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       }
     };
 
-    container.appendChild(script);
+    const win = window as unknown as { TradingView?: unknown };
+    if (win.TradingView) {
+      initWidget();
+    } else {
+      let script = document.querySelector('script[src="https://s3.tradingview.com/tv.js"]') as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement('script');
+        script.src = 'https://s3.tradingview.com/tv.js';
+        script.async = true;
+        document.head.appendChild(script);
+      }
+      script.addEventListener('load', initWidget, { once: true });
+    }
 
     return () => {
       container.innerHTML = '';
@@ -116,7 +121,6 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const isLong     = setup?.position === 'LONG';
   const isShort    = setup?.position === 'SHORT';
   const isNeutral  = !setup || setup.position === 'NEUTRAL';
-  const hasLevels  = setup && !isNeutral; // only show SL/TP/Entry for LONG or SHORT
 
   const positionBadgeStyle = isLong
     ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'

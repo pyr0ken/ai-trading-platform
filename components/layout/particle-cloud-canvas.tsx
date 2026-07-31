@@ -70,8 +70,19 @@ export const ParticleCloudCanvas: React.FC = () => {
     const particles = particlesRef.current;
 
     let time = 0;
+    let isPaused = document.hidden;
+
+    const handleVisibility = () => {
+      isPaused = document.hidden;
+      if (!isPaused) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     const render = () => {
+      if (isPaused) return;
       time += 0.015;
       ctx.clearRect(0, 0, width, height);
 
@@ -122,6 +133,7 @@ export const ParticleCloudCanvas: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);

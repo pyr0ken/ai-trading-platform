@@ -13,9 +13,21 @@ import { lookupLabel, shortenAddress } from './known-addresses';
    Cleared on each poll tick; history stored in client
    ─────────────────────────────────────────────── */
 
+const MAX_SEEN_HASHES = 1000;
 const seenTxHashes = new Set<string>();
 const priceCache = new Map<string, { usd: number; fetchedAt: number }>();
 const CACHE_TTL = 60_000; // 1 minute
+
+function markTxSeen(id: string): boolean {
+  if (seenTxHashes.has(id)) return true;
+  if (seenTxHashes.size >= MAX_SEEN_HASHES) {
+    const oldest = seenTxHashes.keys().next().value;
+    if (oldest) seenTxHashes.delete(oldest);
+  }
+  seenTxHashes.add(id);
+  return false;
+}
+
 
 /* ───────────────────────────────────────────────
    Helpers
@@ -360,8 +372,7 @@ export async function pollWhaleAlerts(): Promise<{
     ) ? 'ethereum' : 'ethereum'; // rough; we track by chain context
 
     const id = generateId(chain, raw.hash);
-    if (seenTxHashes.has(id)) continue;
-    seenTxHashes.add(id);
+    if (markTxSeen(id)) continue;
 
     const tx: WhaleTransaction = {
       id,

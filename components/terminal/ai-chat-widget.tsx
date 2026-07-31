@@ -18,6 +18,8 @@ interface Message {
   content: string;
 }
 
+const remarkPluginsList = [remarkGfm];
+
 const getUniqueId = () => {
   return typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID 
     ? window.crypto.randomUUID() 
@@ -235,7 +237,7 @@ Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s t
                 ) : (
                   <div>
                     <div className="prose prose-invert max-w-none prose-headings:font-serif prose-headings:font-normal prose-headings:text-[#e2e3e9] prose-h3:text-xs prose-p:text-[#e2e3e9] prose-p:text-xs prose-p:leading-relaxed prose-li:text-xs prose-strong:text-[#cc9166] prose-code:text-[#cc9166] prose-code:bg-[#1c1d22] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={remarkPluginsList}>{m.content}</ReactMarkdown>
                     </div>
                     <button
                       onClick={() => handleCopyMessage(m.id, m.content)}

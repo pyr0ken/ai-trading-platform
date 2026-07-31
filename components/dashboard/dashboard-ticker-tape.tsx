@@ -35,15 +35,19 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   useEffect(() => {
     if (!VALID_PRICE(price) || (change24h === undefined && change24hPercentage === undefined)) return;
 
+    let fadeTimer: ReturnType<typeof setTimeout>;
     const interval = setInterval(() => {
       setFading(true);
-      setTimeout(() => {
+      fadeTimer = setTimeout(() => {
         setMetricMode((prev) => (prev === 'absolute' ? 'percentage' : 'absolute'));
         setFading(false);
       }, 300);
     }, 4000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(fadeTimer);
+    };
   }, [price, change24h, change24hPercentage]);
 
   const activeValue = metricMode === 'absolute' ? change24h : change24hPercentage;

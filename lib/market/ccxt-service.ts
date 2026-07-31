@@ -20,7 +20,17 @@ const exchangeInstances = new Map<string, Exchange>();
 function cacheExchange(id: string, instance: Exchange) {
   if (exchangeInstances.size >= MAX_EXCHANGE_INSTANCES) {
     const firstKey = exchangeInstances.keys().next().value;
-    if (firstKey) exchangeInstances.delete(firstKey);
+    if (firstKey) {
+      const oldInstance = exchangeInstances.get(firstKey);
+      if (oldInstance && typeof (oldInstance as unknown as { close?: () => void }).close === 'function') {
+        try {
+          (oldInstance as unknown as { close: () => void }).close();
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+      exchangeInstances.delete(firstKey);
+    }
   }
   exchangeInstances.set(id, instance);
 }
@@ -328,13 +338,13 @@ export class CCXTMarketService {
     const swapSymbol = this.resolveSwapSymbol(symbol);
     const liveTicker = await this.fetchTicker(symbol, exchangeId);
     const markPrice = liveTicker?.price ?? 0;
-    const indexPrice = markPrice;
+    let indexPrice = markPrice;
 
     try {
       const exchange = await this.getExchange(exchangeId);
       if (exchange.has['fetchFundingRate']) {
         const frData = await exchange.fetchFundingRate(swapSymbol);
-        const indexPrice = frData.indexPrice || markPrice;
+        indexPrice = frData.indexPrice || markPrice;
         const basisPremiumPct = Number((((markPrice - indexPrice) / indexPrice) * 100).toFixed(4));
 
         return {

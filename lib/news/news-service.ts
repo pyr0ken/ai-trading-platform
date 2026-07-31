@@ -109,8 +109,8 @@ export class NewsService {
     timeout: 3000,
   });
 
-  // In-memory cache with TTL — RSS feeds are re-fetched at most once per CACHE_TTL_MS
   private static cachedPayload: { articles: NewsArticle[]; fetchedAt: number } | null = null;
+  private static inFlightPromise: Promise<NewsArticle[]> | null = null;
   private static readonly CACHE_TTL_MS = 60_000; // 1 minute
 
   private static async getCachedArticles(): Promise<NewsArticle[]> {
@@ -118,9 +118,19 @@ export class NewsService {
     if (this.cachedPayload && now - this.cachedPayload.fetchedAt < this.CACHE_TTL_MS) {
       return this.cachedPayload.articles;
     }
-    const articles = await this.fetchNews(4);
-    this.cachedPayload = { articles, fetchedAt: now };
-    return articles;
+    if (this.inFlightPromise) {
+      return this.inFlightPromise;
+    }
+    this.inFlightPromise = (async () => {
+      try {
+        const articles = await this.fetchNews(4);
+        this.cachedPayload = { articles, fetchedAt: Date.now() };
+        return articles;
+      } finally {
+        this.inFlightPromise = null;
+      }
+    })();
+    return this.inFlightPromise;
   }
 
   private static positiveKeywords = [

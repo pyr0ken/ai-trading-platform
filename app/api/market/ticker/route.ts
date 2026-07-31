@@ -18,9 +18,17 @@ interface CacheEntry {
   refreshPromise: Promise<{ price: number; change24h: number; change24hPercentage: number }> | null;
 }
 
+const MAX_CACHE_SIZE = 100;
 const cache = new Map<string, CacheEntry>();
 const FRESH_TTL_MS = 60_000;    // 60 seconds: serve directly from cache
 const STALE_TTL_MS = 300_000;   // 5 minutes: serve stale + bg refresh
+
+function evictOldestIfNeeded() {
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey) cache.delete(oldestKey);
+  }
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -42,14 +50,14 @@ export async function GET(req: NextRequest) {
   // 2. Stale cache hit — return stale data, trigger background refresh
   if (entry && now < entry.staleAt) {
     if (!entry.refreshPromise) {
-      entry.refreshPromise = refresh(cacheKey, symbol, exchange, isForex);
+      entry.refreshPromise = refresh(cacheKey, symbol, exchange, isForex).catch(() => entry.data);
     }
     return NextResponse.json(entry.data);
   }
 
   // 3. No cache or stale past limit — must refresh (return stale if exists)
   if (entry) {
-    refresh(cacheKey, symbol, exchange, isForex);
+    refresh(cacheKey, symbol, exchange, isForex).catch(() => {});
     return NextResponse.json(entry.data);
   }
 
@@ -119,6 +127,7 @@ async function doFetch(
     change24hPercentage: ticker.change24hPercentage,
   };
 
+  evictOldestIfNeeded();
   cache.set(cacheKey, {
     data: result,
     expiresAt: now + FRESH_TTL_MS,

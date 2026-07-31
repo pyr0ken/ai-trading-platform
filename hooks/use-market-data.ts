@@ -6,11 +6,12 @@ import { FullMarketContextPayload } from '@/types/analysis';
 export function useMarketData(symbol: string, exchange: string, timeframe: string, enabled = true) {
   return useQuery<FullMarketContextPayload, Error>({
     queryKey: ['market-data', symbol, exchange, timeframe],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await fetch(
         `/api/market/full-context?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(
           exchange
-        )}&timeframe=${encodeURIComponent(timeframe)}`
+        )}&timeframe=${encodeURIComponent(timeframe)}`,
+        { signal }
       );
       
       if (!res.ok) {

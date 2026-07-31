@@ -32,11 +32,14 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ watchlist, onSelec
     let isSubscribed = true;
 
     const fetchAllData = async () => {
+      if (document.hidden) return;
       setLoading(true);
       const promises = watchlist.map(async (item) => {
         const cleanPair = item.symbol.replace('/', '').toUpperCase();
         try {
-          const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${cleanPair}`);
+          const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${cleanPair}`, {
+            signal: AbortSignal.timeout(3000),
+          });
           if (res.ok) {
             const ticker = await res.json();
             return {
@@ -51,7 +54,9 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ watchlist, onSelec
         // Fallback to KuCoin if Binance fails
         try {
           const kucoinPair = item.symbol.replace('/', '-').toUpperCase();
-          const res = await fetch(`https://api.kucoin.com/api/v1/market/stats?symbol=${kucoinPair}`);
+          const res = await fetch(`https://api.kucoin.com/api/v1/market/stats?symbol=${kucoinPair}`, {
+            signal: AbortSignal.timeout(3000),
+          });
           if (res.ok) {
             const json = await res.json();
             if (json?.data) {

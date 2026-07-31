@@ -38,6 +38,7 @@ Provide a crisp, Markdown-formatted answer in the user's language:`;
         temperature: 0.3,
         stream: false,
       }),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {

@@ -72,6 +72,7 @@ export const BacktestSimulator: React.FC<BacktestSimulatorProps> = ({
 
   // Auto-populate when trade setup arrives
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
     if (latestTradeSetup && latestTradeSetup.position !== 'NEUTRAL') {
       const entry = latestTradeSetup.entry_range 
         ? (latestTradeSetup.entry_range[0] + latestTradeSetup.entry_range[1]) / 2 
@@ -79,8 +80,7 @@ export const BacktestSimulator: React.FC<BacktestSimulatorProps> = ({
       
       const lev = parseInt(latestTradeSetup.recommended_leverage || '5');
 
-      // Wrap state updates in microtask / setTimeout to prevent synchronous react render warnings
-      setTimeout(() => {
+      timer = setTimeout(() => {
         setPosition(latestTradeSetup.position === 'LONG' ? 'LONG' : 'SHORT');
         setEntryPrice(Number(entry.toFixed(2)));
         setStopLoss(latestTradeSetup.stop_loss || 0);
@@ -88,12 +88,15 @@ export const BacktestSimulator: React.FC<BacktestSimulatorProps> = ({
         setLeverage(isNaN(lev) ? 5 : lev);
       }, 0);
     } else if (marketContext?.ticker?.price) {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         setEntryPrice(marketContext.ticker.price);
         setStopLoss(Number((marketContext.ticker.price * 0.98).toFixed(2)));
         setTakeProfit(Number((marketContext.ticker.price * 1.05).toFixed(2)));
       }, 0);
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [latestTradeSetup, marketContext]);
 
   const handleRunBacktest = () => {
