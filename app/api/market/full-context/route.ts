@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server';
 import { CCXTMarketService } from '@/lib/market/ccxt-service';
+import { ForexMarketService } from '@/lib/market/forex-service';
 import { TechnicalIndicatorEngine } from '@/lib/market/indicators';
 import { MacroSentimentService } from '@/lib/market/macro-service';
 import { NewsService } from '@/lib/news/news-service';
 import { EconomicCalendar } from '@/lib/market/economic-calendar';
 import { FullMarketContextPayload } from '@/types/analysis';
 import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
+import { getPipInfo } from '@/lib/constants/forex-pairs';
+import { CandleData } from '@/types/market';
 
 /**
- * Process up to N items at a time to avoid memory spikes from concurrent CCXT fetches.
+ * Process up to N items at a time to avoid memory spikes from concurrent fetches.
  */
-async function runLimitedConcurrency(
+async function runLimitedConcurrency<T>(
   items: string[],
-  fn: (tf: string) => Promise<[string, ProcessedTimeframeData]>,
+  fn: (tf: string) => Promise<[string, T]>,
   concurrency = 2
-): Promise<[string, ProcessedTimeframeData][]> {
-  const results: [string, ProcessedTimeframeData][] = [];
+): Promise<[string, T][]> {
+  const results: [string, T][] = [];
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency);
     const batchResults = await Promise.all(batch.map(fn));
@@ -31,36 +34,83 @@ export async function GET(request: Request) {
   const primaryTimeframe = searchParams.get('timeframe') || '1h';
 
   try {
+    const pipInfo = getPipInfo(symbol);
+    const isForex = pipInfo.isForex || exchange.toLowerCase() === 'forex' || exchange.toLowerCase() === 'oanda';
     const timeframes = Array.from(new Set(['5m', '15m', '1h', '4h', '1d', primaryTimeframe]));
 
-    // 1. Fetch Ticker & Macro components first
-    const [ticker, macroSentiment, derivatives, microstructure, news] = await Promise.all([
-      CCXTMarketService.fetchTicker(symbol, exchange),
+    // 1. Fetch Ticker & Market structure based on market type
+    let ticker;
+    let derivatives = null;
+    let microstructure;
+
+    if (isForex) {
+      ticker = await ForexMarketService.fetchTicker(symbol);
+      derivatives = {
+        swapSymbol: symbol,
+        fundingRate: null,
+        openInterest: null,
+        markPrice: ticker.price,
+        indexPrice: ticker.price,
+        basisPremiumPct: 0,
+      };
+      microstructure = {
+        orderBookDepth: {
+          bestBid: ticker.bid,
+          bestAsk: ticker.ask,
+          spread: Number((ticker.ask - ticker.bid).toFixed(pipInfo.decimals)),
+          spreadPercentage: 0.01,
+          bidDepthVolumeTop20: 10000,
+          askDepthVolumeTop20: 10000,
+          imbalanceRatio: 1.0,
+          orderBookPressure: 'NEUTRAL' as const,
+        },
+        volumeDeltaCvd: {
+          sampleTradesCount: 100,
+          takerBuyVolume: 500,
+          takerSellVolume: 500,
+          volumeDelta: 0,
+          buySellRatio: 1.0,
+          cvdSignal: 'BALANCED' as const,
+        },
+        liquidationsStatus: 'Balanced',
+      };
+    } else {
+      const [t, d, m] = await Promise.all([
+        CCXTMarketService.fetchTicker(symbol, exchange),
+        CCXTMarketService.fetchDerivativesMetrics(symbol, exchange),
+        CCXTMarketService.fetchMicrostructure(symbol, exchange),
+      ]);
+      ticker = t;
+      derivatives = d;
+      microstructure = m;
+    }
+
+    const [macroSentiment, news] = await Promise.all([
       MacroSentimentService.fetchMacroSentiment(),
-      CCXTMarketService.fetchDerivativesMetrics(symbol, exchange),
-      CCXTMarketService.fetchMicrostructure(symbol, exchange),
       NewsService.getNewsPayload(5),
     ]);
-    
-    // Check if we got a valid ticker (if ticker.price is 0 or synthetic, we might have network issues)
-    if (!ticker || ticker.price === 100.0 /* synthetic fallback check */) {
-       console.warn(`[API /market/full-context] Ticker fetch resulted in fallback data for ${symbol}. Network might be down.`);
+
+    if (!ticker || ticker.price <= 0) {
+      throw new Error(`Failed to fetch ticker data for ${symbol}. Market data is currently unavailable.`);
     }
 
     const CANDLE_LIMIT = 40;
     const errors: string[] = [];
 
-    const candlesResults = await runLimitedConcurrency(
+    const candlesResults = await runLimitedConcurrency<ProcessedTimeframeData>(
       timeframes,
       async (tf) => {
         try {
-          const rawCandles = await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange);
+          const rawCandles: CandleData[] = isForex
+            ? await ForexMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT)
+            : await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange);
+
           const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
           const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
           const latestClose =
             processedCandles.length > 0
               ? processedCandles[processedCandles.length - 1].close
-              : ticker.price || 0;
+              : ticker!.price || 0;
           const latestIndicators =
             processedCandles.length > 0
               ? processedCandles[processedCandles.length - 1].indicators
@@ -78,7 +128,7 @@ export async function GET(request: Request) {
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           errors.push(`Timeframe ${tf}: ${msg}`);
-          throw e; // will be caught by the outer try-catch
+          throw e;
         }
       },
       2
@@ -97,35 +147,36 @@ export async function GET(request: Request) {
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];
-    // extractTechnicalFacts recalculates all indicators — pass pre-computed data so
-    // it doesn't redo EMA/RSI/MACD/ATR/ADX from scratch on the raw candle array
     const technicalFacts = primaryTfData?.candles?.length
       ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles, primaryTfData.indicators)
       : undefined;
 
+    // Only calculate BTC correlation for crypto symbols
     let btcCorrelation = 1.0;
-    const cleanSym = symbol.toUpperCase().replace('-', '/');
-    if (cleanSym !== 'BTC/USDT') {
-      try {
-        const btcCandles = await CCXTMarketService.fetchOHLCV('BTC/USDT', '1d', 40, exchange);
-        const symbolCandles = timeframesData['1d']?.candles || [];
-        
-        const btcPrices: number[] = [];
-        const symbolPrices: number[] = [];
-        
-        for (const sc of symbolCandles) {
-          const matchingBtc = btcCandles.find(bc => bc.timestamp === sc.timestamp);
-          if (matchingBtc) {
-            symbolPrices.push(sc.close);
-            btcPrices.push(matchingBtc.close);
+    if (!isForex) {
+      const cleanSym = symbol.toUpperCase().replace('-', '/');
+      if (cleanSym !== 'BTC/USDT') {
+        try {
+          const btcCandles = await CCXTMarketService.fetchOHLCV('BTC/USDT', '1d', 40, exchange);
+          const symbolCandles = timeframesData['1d']?.candles || [];
+
+          const btcPrices: number[] = [];
+          const symbolPrices: number[] = [];
+
+          for (const sc of symbolCandles) {
+            const matchingBtc = btcCandles.find((bc: CandleData) => bc.timestamp === sc.timestamp);
+            if (matchingBtc) {
+              symbolPrices.push(sc.close);
+              btcPrices.push(matchingBtc.close);
+            }
           }
+
+          if (symbolPrices.length > 5) {
+            btcCorrelation = TechnicalIndicatorEngine.calculatePearsonCorrelation(symbolPrices, btcPrices);
+          }
+        } catch {
+          // Silently skip BTC correlation for non-crypto
         }
-        
-        if (symbolPrices.length > 5) {
-          btcCorrelation = TechnicalIndicatorEngine.calculatePearsonCorrelation(symbolPrices, btcPrices);
-        }
-      } catch (e) {
-        console.warn('Failed to calculate BTC correlation:', e);
       }
     }
 
@@ -161,4 +212,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

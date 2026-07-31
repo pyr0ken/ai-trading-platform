@@ -147,7 +147,7 @@ export class CCXTMarketService {
    * then falls back to direct REST APIs (without chaining through other ccxt exchanges).
    * Each attempt has a short timeout to avoid memory pileup.
    */
-  public static async fetchTicker(symbol: string, exchangeId = 'kucoin'): Promise<MarketTicker> {
+  public static async fetchTicker(symbol: string, exchangeId = 'kucoin'): Promise<MarketTicker | null> {
     // 1. Try the requested exchange directly (single attempt, no fallback chain)
     try {
       const exchange = await this.getExchange(exchangeId);
@@ -179,20 +179,8 @@ export class CCXTMarketService {
       return directTicker;
     }
 
-    // 3. Final fallback — synthetic data, always succeeds and uses no heap
-    const fakePrice = 100.0;
-    return {
-      symbol,
-      exchange: `${exchangeId}`,
-      price: fakePrice,
-      change24h: 1.25,
-      change24hPercentage: 1.25,
-      high24h: 102.5,
-      low24h: 97.8,
-      volume24h: 1850000,
-      bid: 99.95,
-      ask: 100.05,
-    };
+    // 3. Return null — caller handles absence of data gracefully
+    return null;
   }
 
   /**
@@ -327,7 +315,8 @@ export class CCXTMarketService {
   ): Promise<DerivativesMetrics> {
     const swapSymbol = this.resolveSwapSymbol(symbol);
     const liveTicker = await this.fetchTicker(symbol, exchangeId);
-    const markPrice = liveTicker.price;
+    const markPrice = liveTicker?.price ?? 0;
+    const indexPrice = markPrice;
 
     try {
       const exchange = await this.getExchange(exchangeId);
@@ -362,7 +351,7 @@ export class CCXTMarketService {
     exchangeId = 'kucoin'
   ): Promise<MicrostructureMetrics> {
     const liveTicker = await this.fetchTicker(symbol, exchangeId);
-    const price = liveTicker.price;
+    const price = liveTicker?.price ?? 0;
     const decimalPlaces = price < 1 ? 4 : 2;
 
     const bestBid = Number((price * 0.9996).toFixed(decimalPlaces));

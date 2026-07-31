@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldCheck, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import { CoinIcon } from '@/components/common/coin-icon';
 
@@ -8,17 +8,46 @@ interface DashboardTickerTapeProps {
   symbol: string;
   price?: number;
   change24h?: number;
+  change24hPercentage?: number;
   onSymbolClick?: () => void;
+  onWhaleToggle?: () => void;
+  whaleAlertCount?: number;
 }
+
+type MetricMode = 'absolute' | 'percentage';
+const VALID_PRICE = (p?: number) => p !== undefined && p !== null && p > 0;
 
 export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   symbol,
   price,
   change24h,
+  change24hPercentage,
   onSymbolClick,
+  onWhaleToggle,
+  whaleAlertCount,
 }) => {
   const baseAsset = symbol ? symbol.split('/')[0] : 'BTC';
-  const isPositive = change24h !== undefined && change24h >= 0;
+  const [metricMode, setMetricMode] = useState<MetricMode>('percentage');
+  const [fading, setFading] = useState(false);
+  const hasPrice = VALID_PRICE(price);
+
+  // Cycle between absolute change and percentage change every 4 seconds
+  useEffect(() => {
+    if (!VALID_PRICE(price) || (change24h === undefined && change24hPercentage === undefined)) return;
+
+    const interval = setInterval(() => {
+      setFading(true);
+      setTimeout(() => {
+        setMetricMode((prev) => (prev === 'absolute' ? 'percentage' : 'absolute'));
+        setFading(false);
+      }, 300);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [price, change24h, change24hPercentage]);
+
+  const activeValue = metricMode === 'absolute' ? change24h : change24hPercentage;
+  const isPositive = activeValue !== undefined && activeValue >= 0;
 
   return (
     <div className="sticky top-0 z-50 w-full bg-[#040406]/95 backdrop-blur-md border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
@@ -49,26 +78,57 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
           <CoinIcon symbol={symbol} size={18} />
           <span className="font-semibold text-[13px]">{baseAsset}</span>
           <span className="text-[#5e616e] mx-0.5">|</span>
-          {price ? (
+          {hasPrice ? (
             <>
               <span className="font-mono font-bold text-[#e2e3e9]">
-                ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${price!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              {change24h !== undefined && (
-                <span className={`flex items-center gap-0.5 font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {activeValue !== undefined ? (
+                <span
+                  className={`flex items-center gap-0.5 font-medium transition-opacity duration-300 ${
+                    fading ? 'opacity-30' : 'opacity-100'
+                  } ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}
+                  title={
+                    metricMode === 'percentage' && VALID_PRICE(change24h)
+                      ? `$${change24h!.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                      : `${change24hPercentage?.toFixed(2)}%`
+                  }
+                >
                   {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {isPositive ? '+' : ''}{change24h.toFixed(2)}%
+                  <span>
+                    {isPositive ? '+' : ''}
+                    {metricMode === 'absolute'
+                      ? `$${change24h!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `${change24hPercentage!.toFixed(2)}%`
+                    }
+                  </span>
+                  <span className="text-[8px] text-[#5e616e] ml-0.5 font-mono">
+                    {metricMode === 'percentage' ? '%' : '$'}
+                  </span>
                 </span>
-              )}
+              ) : null}
             </>
           ) : (
-            <span className="text-[#5e616e] italic">Loading...</span>
+            <span className="text-[#5e616e] italic text-[11px]">—</span>
           )}
           <ChevronDown className="w-3 h-3 text-[#5e616e] group-hover:text-[#e2e3e9] transition-colors duration-300" />
         </button>
 
-        {/* Right: status */}
-        <div className="ml-auto pr-4 shrink-0">
+        {/* Right: status + whale toggle */}
+        <div className="ml-auto pr-4 shrink-0 flex items-center gap-2">
+          <button
+            onClick={onWhaleToggle}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] text-[#cc9166] hover:text-[#e2e3e9] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166]/30 transition-all duration-200 cursor-pointer"
+            title="Whale Alert Feed"
+          >
+            <span className="text-[11px] leading-none">🐋</span>
+            <span className="text-[9px] font-mono uppercase tracking-wider font-bold">Whale</span>
+            {whaleAlertCount !== undefined && whaleAlertCount > 0 && (
+              <span className="text-[9px] font-mono bg-rose-500/20 text-rose-400 px-1 py-0.5 rounded-[2px]">
+                {whaleAlertCount}
+              </span>
+            )}
+          </button>
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#cc9166]" />
             <span className="text-[10px] tracking-wide">Encryption Active</span>

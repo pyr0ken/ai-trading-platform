@@ -12,9 +12,11 @@ import {
   Coins,
   Sparkles,
   Grid3X3,
+  Globe2,
 } from 'lucide-react';
 import { AppStorageEngine, WatchlistItem } from '@/lib/storage/app-db';
-import { TOP_300_COINS } from '@/lib/constants/top-coins';
+import { TOP_300_COINS, CoinMeta } from '@/lib/constants/top-coins';
+import { FOREX_PAIRS, ForexPairMeta, getPipInfo } from '@/lib/constants/forex-pairs';
 import { CoinIcon } from '@/components/common/coin-icon';
 
 interface WatchlistManagerProps {
@@ -23,6 +25,30 @@ interface WatchlistManagerProps {
   openExternal?: boolean;
   onOpened?: () => void;
 }
+
+// Unified search result type
+interface SearchResult {
+  symbol: string;
+  name: string;
+  category: string;
+  type: 'crypto' | 'forex';
+}
+
+const FOREX_SEARCH: SearchResult[] = FOREX_PAIRS.map((p) => ({
+  symbol: p.symbol,
+  name: p.name,
+  category: p.category,
+  type: 'forex' as const,
+}));
+
+const CRYPTO_SEARCH: SearchResult[] = TOP_300_COINS.map((c) => ({
+  symbol: c.symbol,
+  name: c.name,
+  category: c.category || 'Crypto',
+  type: 'crypto' as const,
+}));
+
+const ALL_SEARCH: SearchResult[] = [...CRYPTO_SEARCH, ...FOREX_SEARCH];
 
 export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   onSelectCoin,
@@ -37,7 +63,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   const [customCoinInput, setCustomCoinInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [filterTab, setFilterTab] = useState<'all' | 'favorites'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'favorites' | 'crypto' | 'forex'>('all');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -63,9 +89,23 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
   };
 
   const handleAddCoin = () => {
-    const coin = customCoinInput.trim().toUpperCase();
-    if (!coin) return;
-    const formatted = coin.includes('/') ? coin : `${coin}/USDT`;
+    const raw = customCoinInput.trim().toUpperCase();
+    if (!raw) return;
+
+    // Check if it's a known forex pair (with or without slash)
+    const forexPair = FOREX_PAIRS.find(
+      (p) => p.symbol === raw || p.symbol.replace('/', '') === raw || p.symbol === raw.replace('-', '/')
+    );
+
+    let formatted: string;
+    if (forexPair) {
+      formatted = forexPair.symbol; // keep exact forex format e.g. EUR/USD
+    } else if (raw.includes('/')) {
+      formatted = raw; // user typed a slash, trust it
+    } else {
+      formatted = `${raw}/USDT`; // crypto default
+    }
+
     handleAddDirectSymbol(formatted);
   };
 
@@ -111,14 +151,17 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
     const matchesSearch = item.symbol.toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
     if (filterTab === 'favorites') return item.favorite;
-    return true;
+    if (filterTab === 'forex') return getPipInfo(item.symbol).isForex;
+    if (filterTab === 'crypto') return !getPipInfo(item.symbol).isForex;
+    return true; // 'all'
   });
 
-  const suggestions = customCoinInput.trim()
-    ? TOP_300_COINS.filter(
-        (c) =>
-          c.symbol.toLowerCase().includes(customCoinInput.toLowerCase()) ||
-          c.name.toLowerCase().includes(customCoinInput.toLowerCase())
+  const searchQuery = customCoinInput.trim().toLowerCase();
+  const suggestions = searchQuery
+    ? ALL_SEARCH.filter(
+        (r) =>
+          r.symbol.toLowerCase().includes(searchQuery) ||
+          r.name.toLowerCase().includes(searchQuery)
       ).slice(0, 8)
     : [];
 
@@ -133,10 +176,10 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
             </div>
             <div>
               <h3 className="font-ivy-presto text-lg font-normal text-[#ffffff]">
-                Crypto Watchlist Manager
+                Watchlist Manager
               </h3>
               <span className="text-[11px] text-[#9194a1] font-mono">
-                Organize & browse top 300+ crypto pairs
+                Search crypto & forex — just type a name or symbol
               </span>
             </div>
           </div>
@@ -148,14 +191,14 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
           </button>
         </div>
 
-        {/* Add Custom Coin Input */}
+        {/* Add Custom Coin/Currency Input */}
         <div className="relative">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#777a88] absolute left-3.5 top-3" />
               <input
                 type="text"
-                placeholder="Search Top 300 crypto (e.g. BT, AVA, PEPE, SUI, TAO)..."
+                placeholder="Search (e.g. BTC, EUR, PEPE, XAU, AVAX, GBP)..."
                 value={customCoinInput}
                 onChange={(e) => {
                   setCustomCoinInput(e.target.value);
@@ -179,20 +222,20 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
               className="flex items-center gap-1.5 px-4 py-2 rounded-[9999px] bg-[#ffffff] hover:bg-[#e2e3e9] text-[#08080a] text-xs font-semibold cursor-pointer shrink-0 transition-all"
             >
               <Plus className="w-4 h-4 text-[#08080a]" />
-              <span>Add Symbol</span>
+              <span>Add</span>
             </button>
           </div>
 
-          {/* Autocomplete Suggestions */}
+          {/* Autocomplete Suggestions — Crypto + Forex */}
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-[#121317] border border-[#1c1d22] rounded-[10px] p-2 space-y-1">
               <div className="px-3 py-1 text-[10px] text-[#9194a1] font-mono uppercase border-b border-[#1c1d22] mb-1 flex items-center justify-between">
-                <span>Matching Top 300 Crypto Symbols</span>
+                <span>Matching Symbols</span>
                 <Sparkles className="w-3 h-3 text-[#cc9166]" />
               </div>
               {suggestions.map((sug) => (
                 <div
-                  key={sug.symbol}
+                  key={`${sug.type}-${sug.symbol}`}
                   onClick={() => handleAddDirectSymbol(sug.symbol)}
                   className="flex items-center justify-between px-3.5 py-2 rounded-[9999px] hover:bg-[#1c1d22] cursor-pointer transition-all text-xs font-mono group"
                 >
@@ -202,6 +245,11 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
                       {sug.symbol}
                     </span>
                     <span className="text-[11px] text-[#9194a1] font-sans">({sug.name})</span>
+                    {sug.type === 'forex' && (
+                      <span className="text-[9px] bg-[#1c1d22] text-emerald-400 px-1.5 py-0.5 rounded-[9999px] font-semibold">
+                        FOREX
+                      </span>
+                    )}
                   </div>
                   <span className="text-[10px] bg-[#1c1d22] group-hover:bg-[#cc9166] group-hover:text-[#08080a] px-2 py-0.5 rounded-[9999px] text-[#e2e3e9] transition-all font-semibold">
                     + Add
@@ -212,7 +260,7 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
           )}
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter Bar — with Crypto / Forex tabs */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono border-b border-[#1c1d22] pb-3">
           <div className="flex items-center gap-1 bg-[#121317] border border-[#1c1d22] p-1 rounded-[9999px]">
             <button
@@ -235,11 +283,32 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
             >
               Starred ({watchlist.filter((i) => i.favorite).length})
             </button>
+            <button
+              onClick={() => setFilterTab('crypto')}
+              className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
+                filterTab === 'crypto'
+                  ? 'bg-[#ffffff] text-[#08080a] font-semibold'
+                  : 'text-[#9194a1] hover:text-[#e2e3e9]'
+              }`}
+            >
+              Crypto
+            </button>
+            <button
+              onClick={() => setFilterTab('forex')}
+              className={`px-3 py-1 rounded-[9999px] transition-all cursor-pointer ${
+                filterTab === 'forex'
+                  ? 'bg-[#ffffff] text-[#08080a] font-semibold'
+                  : 'text-[#9194a1] hover:text-[#e2e3e9]'
+              }`}
+            >
+              <Globe2 className="w-3 h-3 inline -mt-0.5 mr-0.5" />
+              Forex
+            </button>
           </div>
 
           <input
             type="text"
-            placeholder="Filter..."
+            placeholder="Filter watchlist..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-36 bg-[#121317] border border-[#1c1d22] rounded-[9999px] px-3 py-1.5 text-xs text-[#e2e3e9] placeholder-[#777a88] focus:outline-none"
@@ -250,12 +319,13 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
         <div className="max-h-96 overflow-y-auto pr-1 font-mono text-xs">
           {filteredList.length === 0 ? (
             <div className="text-center text-[#777a88] py-8">
-              No coins found matching criteria.
+              No symbols found matching criteria.
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {filteredList.map((item) => {
                 const isSelected = selectedSymbol === item.symbol;
+                const isForexItem = getPipInfo(item.symbol).isForex;
                 return (
                   <div
                     key={item.symbol}
@@ -289,7 +359,9 @@ export const WatchlistManager: React.FC<WatchlistManagerProps> = ({
 
                     <div>
                       <span className="font-bold text-sm text-[#ffffff] block">{item.symbol}</span>
-                      <span className="text-[9px] text-[#9194a1] uppercase font-sans">{item.exchange}</span>
+                      <span className="text-[9px] text-[#9194a1] uppercase font-sans">
+                        {isForexItem ? 'FOREX' : item.exchange}
+                      </span>
                     </div>
 
                     <button

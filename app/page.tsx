@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppSidebar, NavTab } from '@/components/layout/app-sidebar';
 import { DashboardTickerTape } from '@/components/dashboard/dashboard-ticker-tape';
 import { CoinSelector } from '@/components/market/coin-selector';
@@ -8,7 +8,9 @@ import { TradingViewChart } from '@/components/tradingview/tradingview-chart';
 import { PersianAnalysisCard as AnalysisCard } from '@/components/analysis/persian-analysis-card';
 import { MarketStatsCard } from '@/components/market/market-stats-card';
 import { IndicatorTable } from '@/components/market/indicator-table';
-import { NewsFeed } from '@/components/news/news-feed';
+import { NewsTicker } from '@/components/news/news-ticker';
+import { NewsTabPage } from '@/components/news/news-tab-page';
+import { BreakingNewsBanner } from '@/components/news/breaking-news-banner';
 import { MultiTimeframeMatrix } from '@/components/terminal/multi-timeframe-matrix';
 import { TechnicalScoreRadar } from '@/components/terminal/technical-score-radar';
 import { BuySellMeter } from '@/components/terminal/buy-sell-meter';
@@ -21,6 +23,7 @@ import { TerminalSettingsPage } from '@/components/settings/terminal-settings-pa
 import { BacktestSimulator } from '@/components/terminal/backtest-simulator';
 import { PaperPortfolio } from '@/components/terminal/paper-portfolio';
 import { ToastContainer, showToast } from '@/components/terminal/toast';
+import { WhalePopupContainer } from '@/components/whale/whale-popup';
 
 import { useMarketData } from '@/hooks/use-market-data';
 import { useTickerPoll } from '@/hooks/use-ticker-poll';
@@ -168,6 +171,7 @@ export default function DashboardPage() {
         symbol={selectedSymbol}
         price={liveTicker?.price ?? marketContext?.ticker?.price}
         change24h={liveTicker?.change24h ?? marketContext?.ticker?.change24h}
+        change24hPercentage={liveTicker?.change24hPercentage ?? marketContext?.ticker?.change24hPercentage}
         onSymbolClick={() => setWatchlistOpen(true)}
       />
 
@@ -180,7 +184,9 @@ export default function DashboardPage() {
         />
 
         <div className="flex-1 flex flex-col min-w-0 bg-[#08080a]">
-          <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
+            <BreakingNewsBanner />
+            <WhalePopupContainer />
+            <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
             {activeTab === 'dashboard' && (
               <>
                 <CoinSelector
@@ -194,7 +200,7 @@ export default function DashboardPage() {
                   onTimeframeChange={handleTimeframeChange}
                   onRunAnalysis={handleRunAnalysis}
                   onStopAnalysis={stopAnalysis}
-                  isRunning={isStreaming}
+                  isRunning={isMarketLoading || isMarketFetching || isStreaming}
                   onReplayAnalysis={handleReplayAnalysis}
                   watchlistOpen={watchlistOpen}
                   onWatchlistOpened={() => setWatchlistOpen(false)}
@@ -224,18 +230,16 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" suppressHydrationWarning>
                 <div className="lg:col-span-8 space-y-4">
-                  {hasRun && (
-                    <PreflightFactsPanel
-                      marketContext={marketContext}
-                      isLoading={isMarketLoading || isMarketFetching}
-                    />
-                  )}
+                  <PreflightFactsPanel
+                    marketContext={marketContext}
+                    isLoading={isMarketLoading || isMarketFetching}
+                  />
 
                   <TradingViewChart
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
                     timeframe={selectedTimeframe}
-                    setup={parsedJson?.trade_setup || (marketContext?.ticker?.price && hasRun ? {
+                    setup={parsedJson?.trade_setup || (marketContext?.ticker?.price ? {
                       position: 'NEUTRAL',
                       entry_range: [marketContext.ticker.price, marketContext.ticker.price],
                       stop_loss: marketContext.ticker.price,
@@ -249,47 +253,47 @@ export default function DashboardPage() {
                     } : null)}
                   />
 
-                  {hasRun && (
-                    <>
-                      <MultiTimeframeMatrix
-                        marketContext={marketContext}
-                        isLoading={isMarketLoading}
-                      />
+                  <MultiTimeframeMatrix
+                    marketContext={marketContext}
+                    isLoading={isMarketLoading}
+                  />
 
-                      <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isMarketLoading} />
+                  <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isMarketLoading} />
 
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div className="md:col-span-5">
-                          <BuySellMeter
-                            buyPct={parsedJson?.probabilities?.bullish}
-                            sellPct={parsedJson?.probabilities?.bearish}
-                            microstructure={marketContext?.microstructure}
-                            isLoading={isMarketLoading || isStreaming}
-                          />
-                        </div>
-                        <div className="md:col-span-7">
-                          <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading || isStreaming} />
-                        </div>
-                      </div>
-
-                      <MarketStatsCard
-                        ticker={marketContext?.ticker}
-                        derivatives={marketContext?.derivatives}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-5">
+                      <BuySellMeter
+                        buyPct={parsedJson?.probabilities?.bullish}
+                        sellPct={parsedJson?.probabilities?.bearish}
                         microstructure={marketContext?.microstructure}
-                        macroSentiment={marketContext?.macroSentiment}
-                        isLoading={isMarketLoading}
+                        isLoading={isMarketLoading || isStreaming}
                       />
+                    </div>
+                    <div className="md:col-span-7">
+                      <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading || isStreaming} />
+                    </div>
+                  </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                        <div className="md:col-span-7">
-                          <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
-                        </div>
-                        <div className="md:col-span-5">
-                          <NewsFeed articles={marketContext?.news?.articles} isLoading={isMarketLoading} />
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  <MarketStatsCard
+                    ticker={marketContext?.ticker}
+                    derivatives={marketContext?.derivatives}
+                    microstructure={marketContext?.microstructure}
+                    macroSentiment={marketContext?.macroSentiment}
+                    isLoading={isMarketLoading}
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="md:col-span-7">
+                      <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
+                    </div>
+                    <div className="md:col-span-5">
+                      <NewsTicker
+                        articles={marketContext?.news?.articles}
+                        isLoading={isMarketLoading}
+                        onViewAll={() => setActiveTab('news')}
+                      />
+                    </div>
+                  </div>
 
                   <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
                 </div>
@@ -412,6 +416,13 @@ export default function DashboardPage() {
                 </div>
                 <PaperPortfolio currentPrice={liveTicker?.price ?? marketContext?.ticker?.price} symbol={selectedSymbol} />
               </div>
+            )}
+
+            {activeTab === 'news' && (
+              <NewsTabPage
+                symbol={selectedSymbol}
+                exchange={selectedExchange}
+              />
             )}
 
             {activeTab === 'settings' && <TerminalSettingsPage />}
