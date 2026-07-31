@@ -378,6 +378,10 @@ export class AppStorageEngine {
         timestamp: new Date().toISOString(),
         balance: account.balance,
       });
+      // Cap balance history to prevent unbounded localStorage growth
+      if (account.balanceHistory.length > 500) {
+        account.balanceHistory = account.balanceHistory.slice(-500);
+      }
 
       this.savePaperAccount(account);
       this.savePaperPositions(list);

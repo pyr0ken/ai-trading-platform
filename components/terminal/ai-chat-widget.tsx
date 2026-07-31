@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { MessageSquare, Send, Bot, User, Loader2, Trash2, Sparkles, Download, Copy, Check } from 'lucide-react';
@@ -53,20 +53,20 @@ Ask questions in **English** or **Persian (فارسی)** regarding ${symbol}'s t
     }
   }, [symbol]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading]);
+  }, [messages, isLoading, scrollToBottom]);
 
-  const quickQuestions = [
+  const quickQuestions = useMemo(() => [
     { en: `Why ${analysisSummary?.signal || 'BUY'}?`, fa: 'چرا سیگنال خرید/فروش است؟' },
     { en: 'Explain RSI & MACD', fa: 'تحلیل اندیکاتور RSI و MACD' },
     { en: 'Is 10x leverage safe?', fa: 'آیا استفاده از اهرم ۱۰x مناسب است؟' },
     { en: 'Stop loss & Invalidation?', fa: 'حد ضرر و نقطه ابطال کجاست؟' },
-  ];
+  ], [analysisSummary?.signal]);
 
   const handleSend = async (questionText?: string) => {
     const q = (questionText || input).trim();

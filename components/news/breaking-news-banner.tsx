@@ -29,14 +29,25 @@ export function BreakingNewsBanner() {
   const [dismissed, setDismissed] = useState(false);
   const [enter, setEnter] = useState(false);
 
-  /* ── Initial fetch + polling ── */
+  /* ── Initial fetch + polling (paused when tab hidden, aborted on unmount) ── */
   useEffect(() => {
     let mounted = true;
     let timer: ReturnType<typeof setTimeout>;
+    let abortController: AbortController | null = null;
+    let isTabHidden = document.hidden;
 
     const poll = () => {
+      if (!mounted || isTabHidden) {
+        // Tab is hidden — skip fetch entirely, retry when visible again
+        timer = setTimeout(poll, POLL_INTERVAL);
+        return;
+      }
+
+      abortController?.abort();
+      abortController = new AbortController();
+
       // fetch + setState inline so there's no callback reference
-      fetch('/api/news?limit=15')
+      fetch('/api/news?limit=15', { signal: abortController.signal })
         .then((r) => r.ok ? r.json() : Promise.reject())
         .then((data) => {
           if (!mounted) return;
@@ -62,12 +73,25 @@ export function BreakingNewsBanner() {
         });
     };
 
+    const handleVisibility = () => {
+      isTabHidden = document.hidden;
+      // When tab becomes visible again, poll immediately (clear pending timer)
+      if (!isTabHidden) {
+        clearTimeout(timer);
+        poll();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
     poll();
+
     return () => {
       mounted = false;
       clearTimeout(timer);
+      abortController?.abort();
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── Dismiss handler ── */
   const handleDismiss = useCallback(() => {
@@ -78,7 +102,7 @@ export function BreakingNewsBanner() {
     const dismissedIds = getDismissedIds();
     dismissedIds.add(breaking.articleId!);
     localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissedIds]));
-  }, [breaking, getDismissedIds]);
+  }, [breaking]);
 
   if (!breaking || dismissed) return null;
 

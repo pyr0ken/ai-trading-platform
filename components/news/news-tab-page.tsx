@@ -448,7 +448,7 @@ function SentimentFooter({ articles }: { articles: NewsArticle[] }) {
    Main Component: NewsTabPage
    ────────────────────────────────────────────────── */
 
-export function NewsTabPage({ symbol: _symbol, exchange: _exchange }: NewsTabPageProps) {
+export function NewsTabPage(_props: NewsTabPageProps) {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +461,7 @@ export function NewsTabPage({ symbol: _symbol, exchange: _exchange }: NewsTabPag
   const [whaleOpen, setWhaleOpen] = useState(true);
   const [whaleAlertCount, setWhaleAlertCount] = useState(0);
 
-  /* ── Fetch news ── */
+  /* ── Fetch news (used by buttons — manual refresh) ── */
   const refreshNews = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -479,25 +479,39 @@ export function NewsTabPage({ symbol: _symbol, exchange: _exchange }: NewsTabPag
 
   useEffect(() => {
     let mounted = true;
+    let abortController: AbortController | null = null;
+    let isTabHidden = document.hidden;
 
     const load = async () => {
+      if (!mounted || isTabHidden) return; // skip while tab hidden — interval handles retry
+      abortController?.abort();
+      abortController = new AbortController();
       try {
-        const res = await fetch('/api/news?limit=30');
+        const res = await fetch('/api/news?limit=30', { signal: abortController.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (mounted) setArticles(data.articles || []);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         if (mounted) setError(err instanceof Error ? err.message : 'Failed to load news');
       } finally {
         if (mounted) setIsLoading(false);
       }
     };
 
+    const handleVisibility = () => {
+      isTabHidden = document.hidden;
+      if (!isTabHidden) load(); // poll immediately when tab becomes visible
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
     load();
     const interval = setInterval(load, 120_000);
     return () => {
       mounted = false;
       clearInterval(interval);
+      abortController?.abort();
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 

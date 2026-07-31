@@ -10,8 +10,20 @@ import {
 } from '@/types/market';
 import type { Exchange } from 'ccxt';
 
-// Per-exchange lazy-loaded instances — only the exchanges actually used are loaded
+// Per-exchange cached instances with basic cleanup to prevent memory leaks
+const MAX_EXCHANGE_INSTANCES = 5;
 const exchangeInstances = new Map<string, Exchange>();
+
+/**
+ * Manage exchange instance cache to prevent memory bloat
+ */
+function cacheExchange(id: string, instance: Exchange) {
+  if (exchangeInstances.size >= MAX_EXCHANGE_INSTANCES) {
+    const firstKey = exchangeInstances.keys().next().value;
+    if (firstKey) exchangeInstances.delete(firstKey);
+  }
+  exchangeInstances.set(id, instance);
+}
 
 /**
  * Dynamically import only the exchange class needed, not the entire ccxt module.
@@ -53,7 +65,7 @@ export class CCXTMarketService {
       timeout: 3000,
     }) as Exchange;
 
-    exchangeInstances.set(id, exchange);
+    cacheExchange(id, exchange);
     return exchange;
   }
 

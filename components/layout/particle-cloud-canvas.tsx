@@ -2,8 +2,47 @@
 
 import React, { useEffect, useRef } from 'react';
 
+interface Particle {
+  x: number;
+  y: number;
+  baseX: number;
+  baseY: number;
+  size: number;
+  alpha: number;
+  speed: number;
+  offset: number;
+}
+
+/**
+ * Pure particle factory — deterministic count based on viewport area,
+ * bounded to keep heap/GPU usage predictable.
+ */
+function createParticles(width: number, height: number): Particle[] {
+  const particleCount = Math.min(Math.floor((width * height) / 4000), 600);
+  const particles: Particle[] = new Array(particleCount);
+
+  for (let i = 0; i < particleCount; i++) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    particles[i] = {
+      x,
+      y,
+      baseX: x,
+      baseY: y,
+      size: Math.random() * 1.8 + 0.6,
+      alpha: Math.random() * 0.75 + 0.25,
+      speed: Math.random() * 0.0015 + 0.0005,
+      offset: Math.random() * Math.PI * 2,
+    };
+  }
+  return particles;
+}
+
 export const ParticleCloudCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Pre-compute particle pool once per mount — stable reference across re-renders
+  const particlesRef = useRef<Particle[] | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,33 +63,11 @@ export const ParticleCloudCanvas: React.FC = () => {
 
     window.addEventListener('resize', handleResize);
 
-    // Particle pool setup
-    const particleCount = Math.min(Math.floor((width * height) / 1800), 2200);
-    const particles: Array<{
-      x: number;
-      y: number;
-      baseX: number;
-      baseY: number;
-      size: number;
-      alpha: number;
-      speed: number;
-      offset: number;
-    }> = [];
-
-    for (let i = 0; i < particleCount; i++) {
-      const x = Math.random() * width;
-      const y = Math.random() * height;
-      particles.push({
-        x,
-        y,
-        baseX: x,
-        baseY: y,
-        size: Math.random() * 1.8 + 0.6,
-        alpha: Math.random() * 0.75 + 0.25,
-        speed: Math.random() * 0.0015 + 0.0005,
-        offset: Math.random() * Math.PI * 2,
-      });
+    // Build particle pool once, reuse on resize (no reallocation churn)
+    if (!particlesRef.current) {
+      particlesRef.current = createParticles(width, height);
     }
+    const particles = particlesRef.current;
 
     let time = 0;
 
