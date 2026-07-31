@@ -10,6 +10,8 @@ interface DashboardTickerTapeProps {
   change24h?: number;
   change24hPercentage?: number;
   onSymbolClick?: () => void;
+  onWhaleToggle?: () => void;
+  whaleAlertCount?: number;
 }
 
 type MetricMode = 'absolute' | 'percentage';
@@ -21,6 +23,8 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   change24h,
   change24hPercentage,
   onSymbolClick,
+  onWhaleToggle,
+  whaleAlertCount,
 }) => {
   const baseAsset = symbol ? symbol.split('/')[0] : 'BTC';
   const [metricMode, setMetricMode] = useState<MetricMode>('percentage');
@@ -110,8 +114,21 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
           <ChevronDown className="w-3 h-3 text-[#5e616e] group-hover:text-[#e2e3e9] transition-colors duration-300" />
         </button>
 
-        {/* Right: status */}
-        <div className="ml-auto pr-4 shrink-0">
+        {/* Right: status + whale toggle */}
+        <div className="ml-auto pr-4 shrink-0 flex items-center gap-2">
+          <button
+            onClick={onWhaleToggle}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] text-[#cc9166] hover:text-[#e2e3e9] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166]/30 transition-all duration-200 cursor-pointer"
+            title="Whale Alert Feed"
+          >
+            <span className="text-[11px] leading-none">🐋</span>
+            <span className="text-[9px] font-mono uppercase tracking-wider font-bold">Whale</span>
+            {whaleAlertCount !== undefined && whaleAlertCount > 0 && (
+              <span className="text-[9px] font-mono bg-rose-500/20 text-rose-400 px-1 py-0.5 rounded-[2px]">
+                {whaleAlertCount}
+              </span>
+            )}
+          </button>
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#cc9166]" />
             <span className="text-[10px] tracking-wide">Encryption Active</span>

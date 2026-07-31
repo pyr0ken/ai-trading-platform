@@ -14,8 +14,10 @@ import {
   Filter,
   X,
   AlertCircle,
+  Activity,
 } from 'lucide-react';
 import { NewsArticle, NewsCategory, NEWS_CATEGORIES } from '@/types/news';
+import { WhaleSidebar } from '@/components/whale/whale-sidebar';
 
 /* ──────────────────────────────────────────────────
    Types
@@ -456,6 +458,8 @@ export function NewsTabPage({ symbol: _symbol, exchange: _exchange }: NewsTabPag
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => getBookmarks());
   const [displayCount, setDisplayCount] = useState(15);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [whaleOpen, setWhaleOpen] = useState(true);
+  const [whaleAlertCount, setWhaleAlertCount] = useState(0);
 
   /* ── Fetch news ── */
   const refreshNews = useCallback(async () => {
@@ -595,41 +599,64 @@ export function NewsTabPage({ symbol: _symbol, exchange: _exchange }: NewsTabPag
     <>
       <style>{ANIMATION_STYLES}</style>
 
-      <div className="max-w-5xl mx-auto w-full space-y-5">
-        {/* ═══ Header ═══ */}
-        <div className="bg-[#040406] border border-[#1c1d22] rounded-[2px] p-6 md:p-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-[13px] font-sans font-semibold text-[#cc9166] uppercase tracking-wider">
-                  📰 News Intelligence
-                </span>
-                {!isLoading && (
-                  <span className="text-[10px] font-mono text-[#5e616e] bg-[#121317] px-2 py-0.5 rounded-[2px] border border-[#1c1d22]">
-                    {articles.length} articles · 5 feeds
+      <div className="flex gap-0 max-w-[1400px] mx-auto w-full items-stretch">
+        {/* ═══ Left: News Content ═══ */}
+        <div className="flex-1 min-w-0 space-y-5">
+          {/* ═══ Header ═══ */}
+          <div className="bg-[#040406] border border-[#1c1d22] rounded-[2px] p-6 md:p-8">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[13px] font-sans font-semibold text-[#cc9166] uppercase tracking-wider">
+                    📰 News Intelligence
                   </span>
-                )}
+                  {!isLoading && (
+                    <span className="text-[10px] font-mono text-[#5e616e] bg-[#121317] px-2 py-0.5 rounded-[2px] border border-[#1c1d22]">
+                      {articles.length} articles · 5 feeds
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-ivy-presto text-[28px] md:text-[32px] font-normal text-[#ffffff] leading-tight">
+                  Market Intelligence Feed
+                </h2>
+                <p className="text-[13px] text-[#9194a1] mt-1 font-sans max-w-xl">
+                  Curated crypto &amp; macroeconomic news — automatically categorized by AI for trading decisions.
+                </p>
               </div>
-              <h2 className="font-ivy-presto text-[28px] md:text-[32px] font-normal text-[#ffffff] leading-tight">
-                Market Intelligence Feed
-              </h2>
-              <p className="text-[13px] text-[#9194a1] mt-1 font-sans max-w-xl">
-                Curated crypto &amp; macroeconomic news — automatically categorized by AI for trading decisions.
-              </p>
-            </div>
 
-            <button
-              onClick={refreshNews}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-[#121317] border border-[#1c1d22]
-                         hover:border-[#777a88] transition-all duration-200 text-[12px] font-mono
-                         text-[#9194a1] hover:text-[#e2e3e9] rounded-[2px] disabled:opacity-50 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
-            </button>
+              <div className="flex items-center gap-2">
+                {/* Whale toggle button */}
+                <button
+                  onClick={() => setWhaleOpen((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-3 py-2 border transition-all duration-200 text-[11px] font-mono rounded-[2px] cursor-pointer ${
+                    whaleOpen
+                      ? 'bg-[#121317] border-[#cc9166]/40 text-[#cc9166] hover:border-[#cc9166]'
+                      : 'bg-[#121317] border-[#1c1d22] text-[#5e616e] hover:border-[#777a88] hover:text-[#e2e3e9]'
+                  }`}
+                  title={whaleOpen ? 'Hide Whale Alerts' : 'Show Whale Alerts'}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Whale</span>
+                  {whaleAlertCount > 0 && (
+                    <span className="text-[9px] font-mono bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded-[2px]">
+                      {whaleAlertCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={refreshNews}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#121317] border border-[#1c1d22]
+                             hover:border-[#777a88] transition-all duration-200 text-[12px] font-mono
+                             text-[#9194a1] hover:text-[#e2e3e9] rounded-[2px] disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
         {/* ═══ Search + Sort Bar ═══ */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -811,9 +838,20 @@ export function NewsTabPage({ symbol: _symbol, exchange: _exchange }: NewsTabPag
               </div>
             )}
 
-            {/* ═══ Sentiment Summary Footer ═══ */}
-            <SentimentFooter articles={articles} />
+          {/* ═══ Sentiment Summary Footer ═══ */}
+          <SentimentFooter articles={articles} />
           </>
+        )}
+        </div>{/* end left: news content */}
+
+        {/* ═══ Right: Whale Alert Sidebar ═══ */}
+        {whaleOpen && (
+          <WhaleSidebar
+            open={true}
+            onClose={() => setWhaleOpen(false)}
+            onCountChange={setWhaleAlertCount}
+            mode="inline"
+          />
         )}
       </div>
     </>
