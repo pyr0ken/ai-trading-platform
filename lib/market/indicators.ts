@@ -625,7 +625,9 @@ export class TechnicalIndicatorEngine {
       rsiDivergence: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
       macdDivergence: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
     } = { rsiDivergence: 'NONE', macdDivergence: 'NONE' };
-    if (candles.length < 35) return result;
+    
+    // Adaptive candle length threshold — minimum 20 candles needed for divergence scanning
+    if (candles.length < 20) return result;
 
     const closes = candles.map((c) => c.close);
     const rsi = this.calculateRSI(closes, 14);
@@ -635,22 +637,23 @@ export class TechnicalIndicatorEngine {
     const peaks: { index: number; price: number; rsiVal: number; macdHistVal: number }[] = [];
     const troughs: { index: number; price: number; rsiVal: number; macdHistVal: number }[] = [];
 
-    // Identify local peaks and troughs in the last 40 candles (leaving room at the end)
-    const startIdx = Math.max(2, candles.length - 40);
-    const endIdx = candles.length - 2;
+    // Adaptive pivot scan range based on available candles
+    const windowSpan = candles.length < 40 ? 1 : 2;
+    const startIdx = Math.max(windowSpan, candles.length - 45);
+    const endIdx = candles.length - (windowSpan + 1);
 
     for (let i = startIdx; i <= endIdx; i++) {
-      const isPeak =
-        candles[i].high >= candles[i - 1].high &&
-        candles[i].high >= candles[i + 1].high &&
-        candles[i].high >= candles[i - 2].high &&
-        candles[i].high >= candles[i + 2].high;
+      let isPeak = true;
+      let isTrough = true;
 
-      const isTrough =
-        candles[i].low <= candles[i - 1].low &&
-        candles[i].low <= candles[i + 1].low &&
-        candles[i].low <= candles[i - 2].low &&
-        candles[i].low <= candles[i + 2].low;
+      for (let offset = 1; offset <= windowSpan; offset++) {
+        if (candles[i].high < candles[i - offset].high || candles[i].high < candles[i + offset].high) {
+          isPeak = false;
+        }
+        if (candles[i].low > candles[i - offset].low || candles[i].low > candles[i + offset].low) {
+          isTrough = false;
+        }
+      }
 
       if (isPeak) {
         peaks.push({
