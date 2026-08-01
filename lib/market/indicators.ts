@@ -184,7 +184,8 @@ export class TechnicalIndicatorEngine {
   public static calculateADX(candles: CandleData[], period = 14): number[] {
     const adx: number[] = [];
     if (candles.length < period * 2) {
-      return Array(candles.length).fill(20);
+      // Not enough candles to reliably calculate Wilder's smoothed ADX — return 0s
+      return Array(candles.length).fill(0);
     }
 
     const tr: number[] = [];
@@ -495,7 +496,7 @@ export class TechnicalIndicatorEngine {
     let currHist: number;
     let latestAtr: number;
     let latestAdx: number;
-    let adxTrend: 'STRONG' | 'WEAK' | 'RANGING';
+    let adxTrend: 'STRONG' | 'WEAK' | 'RANGING' | 'UNKNOWN';
 
     if (precomputed) {
       // Use pre-computed values from processCandleIndicators
@@ -533,8 +534,8 @@ export class TechnicalIndicatorEngine {
       latestAtr = atr[atr.length - 1];
 
       const adx = this.calculateADX(candles, 14);
-      latestAdx = adx[adx.length - 1];
-      adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : 'RANGING';
+      latestAdx = adx[adx.length - 1] || 0;
+      adxTrend = latestAdx >= 25 ? 'STRONG' : latestAdx >= 20 ? 'WEAK' : latestAdx > 0 ? 'RANGING' : 'UNKNOWN';
     }
 
     let macdCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE' = 'NONE';

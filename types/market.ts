@@ -120,7 +120,7 @@ export interface MarketTechnicalFacts {
   rsiCondition: 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL';
   macdCrossover: 'BULLISH_CROSS' | 'BEARISH_CROSS' | 'NONE';
   adxValue?: number;
-  adxTrend?: 'STRONG' | 'WEAK' | 'RANGING';
+  adxTrend?: 'STRONG' | 'WEAK' | 'RANGING' | 'UNKNOWN';
   atrSuggestedStopLossLong?: number;
   atrSuggestedTakeProfitLong?: number;
   atrSuggestedStopLossShort?: number;

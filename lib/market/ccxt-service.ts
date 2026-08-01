@@ -287,50 +287,6 @@ export class CCXTMarketService {
     }
   }
 
-  /**
-   * Generate synthetic candles as a memory-safe fallback when the exchange API fails.
-   * This avoids chaining multiple exchange calls (which leaks orphaned promises/HTTP reqs).
-   */
-  private static generateFallbackCandles(
-    timeframe: string,
-    limit: number,
-  ): CandleData[] {
-    const intervalMs =
-      timeframe === '5m'
-        ? 300000
-        : timeframe === '15m'
-        ? 900000
-        : timeframe === '4h'
-        ? 14400000
-        : 3600000;
-    const basePrice = 100.0;
-    const decimalPlaces = 2;
-    const candles: CandleData[] = [];
-    const now = Date.now();
-    let currentPrice = basePrice * 0.98;
-    for (let i = limit; i >= 0; i--) {
-      const ts = now - i * intervalMs;
-      const dt = new Date(ts);
-      const volatility = basePrice * 0.006;
-      const open = currentPrice;
-      const close = i === 0 ? basePrice : open + Math.sin(i * 0.3) * volatility + (Math.random() - 0.48) * volatility;
-      const high = Math.max(open, close) + Math.random() * volatility * 0.5;
-      const low = Math.min(open, close) - Math.random() * volatility * 0.5;
-      const volume = Number((Math.random() * 50 + 10).toFixed(2));
-      currentPrice = close;
-      candles.push({
-        timestamp: ts,
-        gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-        open: Number(open.toFixed(decimalPlaces)),
-        high: Number(high.toFixed(decimalPlaces)),
-        low: Number(low.toFixed(decimalPlaces)),
-        close: Number(close.toFixed(decimalPlaces)),
-        volume,
-      });
-    }
-    return candles;
-  }
-
   public static async fetchDerivativesMetrics(
     symbol: string,
     exchangeId = 'kucoin'

@@ -192,38 +192,10 @@ export class ForexMarketService {
         }
       }
     } catch {
-      // Fall through to synthetic candles
+      // Failed to fetch real Forex candles — throw error instead of generating fake candles
+      throw new Error(`Failed to fetch Forex candles for ${symbol} (${timeframe})`);
     }
 
-    // Synthetic fallback candles aligned with ticker
-    const ticker = await this.fetchTicker(symbol);
-    const basePrice = ticker.price;
-    const candles: CandleData[] = [];
-    const now = Date.now();
-    const intervalMs = timeframe === '5m' ? 300000 : timeframe === '15m' ? 900000 : 3600000;
-
-    let currentPrice = basePrice * 0.998;
-    for (let i = limit; i >= 0; i--) {
-      const ts = now - i * intervalMs;
-      const dt = new Date(ts);
-      const volatility = basePrice * 0.0012;
-      const open = currentPrice;
-      const close = i === 0 ? basePrice : open + Math.sin(i * 0.4) * volatility;
-      const high = Math.max(open, close) + Math.random() * volatility * 0.3;
-      const low = Math.min(open, close) - Math.random() * volatility * 0.3;
-      currentPrice = close;
-
-      candles.push({
-        timestamp: ts,
-        gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-        open: Number(open.toFixed(decimals)),
-        high: Number(high.toFixed(decimals)),
-        low: Number(low.toFixed(decimals)),
-        close: Number(close.toFixed(decimals)),
-        volume: Math.floor(Math.random() * 5000 + 1000),
-      });
-    }
-
-    return candles;
+    throw new Error(`No Forex candle data returned for ${symbol} (${timeframe})`);
   }
 }
