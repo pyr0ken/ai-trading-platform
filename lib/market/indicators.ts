@@ -498,11 +498,11 @@ export class TechnicalIndicatorEngine {
     let latestAdx: number;
     let adxTrend: 'STRONG' | 'WEAK' | 'RANGING' | 'UNKNOWN';
 
-    if (precomputed) {
-      // Use pre-computed values from processCandleIndicators
-      trend = (precomputed.ema_20 || 0) > (precomputed.ema_50 || 0) ? 'BULLISH' : 'BEARISH';
-      latestRsi = precomputed.rsi_14;
-      rsiCondition = precomputed.rsi_condition as 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL';
+    if (precomputed && typeof precomputed.ema_20 === 'number' && typeof precomputed.ema_50 === 'number') {
+      // Use pre-computed values from processCandleIndicators with fallback validation
+      trend = precomputed.ema_20 > precomputed.ema_50 ? 'BULLISH' : 'BEARISH';
+      latestRsi = typeof precomputed.rsi_14 === 'number' ? precomputed.rsi_14 : 50;
+      rsiCondition = (precomputed.rsi_condition as 'OVERSOLD' | 'OVERBOUGHT' | 'NEUTRAL') || 'NEUTRAL';
       prevHist = 0; // Will be recalculated below from MACD arrays
       currHist = precomputed.macd_hist;
       // We need MACD hist for cross detection — recompute from full set
@@ -527,8 +527,8 @@ export class TechnicalIndicatorEngine {
 
       const macd = this.calculateMACD(closes);
       const hist = macd.histogram;
-      prevHist = hist[hist.length - 2];
-      currHist = hist[hist.length - 1];
+      prevHist = hist.length >= 2 ? hist[hist.length - 2] : 0;
+      currHist = hist.length >= 1 ? hist[hist.length - 1] : 0;
 
       const atr = this.calculateATR(candles, 14);
       latestAtr = atr[atr.length - 1];
