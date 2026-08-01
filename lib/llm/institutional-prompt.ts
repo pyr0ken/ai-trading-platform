@@ -164,12 +164,16 @@ RAW QUANTITATIVE MARKET DATA PAYLOAD (SUMMARIZED — USE THE DETERMINISTIC FACTS
 - Macro: Fear&Greed=${marketContext.macroSentiment?.fearAndGreed?.value ?? 'N/A'} (${marketContext.macroSentiment?.fearAndGreed?.classification ?? 'N/A'}) | Stablecoin Mcap=$${marketContext.macroSentiment?.stablecoinLiquidity?.totalStablecoinMarketCapUsd ?? 'N/A'}
 - News Sentiment Index: ${marketContext.news?.newsSentimentIndex ?? 0} (${newsSentimentLabel})
 
-MULTI-TIMEFRAME INDICATORS (latest candle per timeframe):
+MULTI-TIMEFRAME INDICATORS & RECENT CANDLES:
 ${Object.entries(marketContext.timeframes || {})
   .map(([tf, td]) => {
     const ind = td?.indicators;
     if (!ind) return `- ${tf}: no data`;
-    return `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | BB Upper/Lower=$${ind.bb_upper}/$${ind.bb_lower} | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels`;
+    const recent5 = (td.candles || []).slice(-5);
+    const candleText = recent5.length > 0
+      ? `  Recent 5 Candles (OHLCV): [${recent5.map(c => `O:$${c.open}/H:$${c.high}/L:$${c.low}/C:$${c.close}/V:${c.volume}`).join(' | ')}]`
+      : '';
+    return `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | BB Upper/Lower=$${ind.bb_upper}/$${ind.bb_lower} | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels\n${candleText}`;
   })
   .join('\n')}
 

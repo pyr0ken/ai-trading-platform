@@ -3,6 +3,7 @@ import {
   buildInstitutionalSystemPrompt,
   buildInstitutionalUserPrompt,
 } from './institutional-prompt';
+import { logPromptToFile } from './prompt-logger';
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:20128/v1';
 const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
@@ -18,6 +19,24 @@ export async function createLLMAnalysisStream(
 
   const systemPrompt = buildInstitutionalSystemPrompt();
   const userPrompt = buildInstitutionalUserPrompt(symbol, exchange, timeframe, marketContext, mode);
+
+  // 💾 DEBUG LOG: save the EXACT prompt + full raw payload before sending to the LLM.
+    // This file lets us audit what the model actually receives and catch
+    // over-summarization / dropped fields. Files land in ./logs/llm-prompts/
+    try {
+      await logPromptToFile(
+        symbol,
+        exchange,
+        timeframe,
+        mode,
+        systemPrompt,
+        userPrompt,
+        marketContext
+      );
+    } catch (logErr) {
+      // Logging must NEVER break analysis — swallow and continue
+      console.error('[prompt-logger] Failed to save prompt to file:', logErr);
+    }
 
   try {
     const response = await fetch(`${LLM_BASE_URL}/chat/completions`, {

@@ -147,6 +147,7 @@ export async function GET(request: Request) {
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];
+    // Ensure we run extractTechnicalFacts on the EXACT primary timeframe requested by user
     const technicalFacts = primaryTfData?.candles?.length
       ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles, primaryTfData.indicators)
       : undefined;

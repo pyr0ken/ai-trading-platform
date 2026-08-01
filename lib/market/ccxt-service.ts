@@ -282,8 +282,8 @@ export class CCXTMarketService {
       }
       return [];
     } catch {
-      // Fallback: generate synthetic candles so the UI never breaks
-      return this.generateFallbackCandles(timeframe, limit);
+      // Throw error if exchange fetch fails — never return fake 100$ fallback candles
+      throw new Error(`Failed to fetch OHLCV candles for ${symbol} (${timeframe})`);
     }
   }
 
