@@ -588,26 +588,35 @@ export class TechnicalIndicatorEngine {
     candles: CandleData[],
     srLevels: SupportResistanceLevels
   ): { type: 'BOS_BULLISH' | 'BOS_BEARISH' | 'NONE'; brokenLevel: number; volumeRatio: number } {
-    if (candles.length < 2) return { type: 'NONE', brokenLevel: 0, volumeRatio: 1 };
+    if (candles.length < 3) return { type: 'NONE', brokenLevel: 0, volumeRatio: 1 };
     
     const lastCandle = candles[candles.length - 1];
-    const prevCandle = candles[candles.length - 2];
 
     // Average volume of last 10 candles
     const sliceCount = Math.min(candles.length, 10);
     const avgVol = candles.slice(-sliceCount).reduce((acc, c) => acc + c.volume, 0) / sliceCount;
     const volumeRatio = avgVol > 0 ? Number((lastCandle.volume / avgVol).toFixed(2)) : 1;
 
-    // Detect bullish breakout (close above resistances)
+    // Identify recent swing high & swing low (Pivot points)
+    let recentPivotHigh = 0;
+    let recentPivotLow = Infinity;
+    const lookback = Math.min(candles.length - 1, 20);
+
+    for (let i = candles.length - lookback; i < candles.length - 1; i++) {
+      if (candles[i].high > recentPivotHigh) recentPivotHigh = candles[i].high;
+      if (candles[i].low < recentPivotLow) recentPivotLow = candles[i].low;
+    }
+
+    // Detect bullish breakout (close above clustered resistance OR recent swing high)
     for (const res of srLevels.resistanceLevels) {
-      if (prevCandle.close <= res && lastCandle.close > res) {
+      if (lastCandle.close > res && lastCandle.high > recentPivotHigh) {
         return { type: 'BOS_BULLISH', brokenLevel: res, volumeRatio };
       }
     }
 
-    // Detect bearish breakout (close below supports)
+    // Detect bearish breakout (close below clustered support OR recent swing low)
     for (const sup of srLevels.supportLevels) {
-      if (prevCandle.close >= sup && lastCandle.close < sup) {
+      if (lastCandle.close < sup && lastCandle.low < recentPivotLow) {
         return { type: 'BOS_BEARISH', brokenLevel: sup, volumeRatio };
       }
     }

@@ -117,11 +117,11 @@ IMPORTANT DECISION GUIDANCE:
 - NEVER default to NEUTRAL/HOLD unless ALL of the following are true: RSI is mid-range (45-55) AND flat, MACD histogram is flat near zero, price is equidistant between support and resistance, AND no divergence or BOS signal exists. If ANY directional signal exists, make a directional call with appropriate confidence.
 - The signal field accepts BUY / SELL / HOLD / NEUTRAL. Prefer BUY/SELL over HOLD when directional evidence exists. HOLD is reserved for no edge; NEUTRAL is reserved for truly mixed signals.
 
-DETERMINISTIC ATR-BASED TRADE THRESHOLDS (GUIDELINE LIMITS):
-* Long Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossLong} (Risk Buffer)
-* Long Position Target Limit: Take Profit should target around $${marketContext.technicalFacts.atrSuggestedTakeProfitLong} (2x ATR Move)
-* Short Position Invalidation Limit: Stop Loss should not be tighter than $${marketContext.technicalFacts.atrSuggestedStopLossShort} (Risk Buffer)
-* Short Position Target Limit: Take Profit should target around $${marketContext.technicalFacts.atrSuggestedTakeProfitShort} (2x ATR Move)
+DETERMINISTIC ATR-BASED RISK BUFFER GUIDELINES (USE AS NON-BINDING REFERENCE FOR SL/TP PLACEMENT):
+* Long Invalidation Risk Buffer: Ideal Stop Loss should consider the $${marketContext.technicalFacts.atrSuggestedStopLossLong} ATR floor, but place your actual SL beyond market liquidity sweeps or key order block invalidation.
+* Long Profit Target Guide: Projected 2x ATR Move = $${marketContext.technicalFacts.atrSuggestedTakeProfitLong}
+* Short Invalidation Risk Buffer: Ideal Stop Loss should consider the $${marketContext.technicalFacts.atrSuggestedStopLossShort} ATR ceiling, but place your actual SL above liquidity sweeps or key supply zones.
+* Short Profit Target Guide: Projected 2x ATR Move = $${marketContext.technicalFacts.atrSuggestedTakeProfitShort}
 ` : '';
 
   const recentSignals = marketContext.recentHistoricalSignals || [];
