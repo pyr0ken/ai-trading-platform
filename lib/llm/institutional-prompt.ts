@@ -129,14 +129,18 @@ function filterWarmupCandles(candles: Array<CandleData & { indicators: Calculate
   return candles.filter((c) => {
     const ind = c.indicators;
     if (!ind) return false;
-    const isWarmup =
+    const placeholderSignature =
       typeof ind.rsi_14 === 'number' &&
       ind.rsi_14 === 50 &&
       typeof ind.macd_hist === 'number' &&
       ind.macd_hist === 0 &&
       typeof ind.adx_14 === 'number' &&
       ind.adx_14 === 20;
-    return !isWarmup;
+    const hasNaNIndicator =
+      Number.isNaN(ind.sma_20) ||
+      Number.isNaN(ind.sma_50) ||
+      Number.isNaN(ind.sma_200);
+    return !placeholderSignature && !hasNaNIndicator;
   });
 }
 
@@ -171,8 +175,9 @@ IMPORTANT DECISION GUIDANCE:
 - The signal field accepts BUY / SELL / HOLD / NEUTRAL. Prefer BUY/SELL over HOLD when directional evidence exists. HOLD is reserved for no edge; NEUTRAL is reserved for truly mixed signals.
 
 DETERMINISTIC ATR-BASED RISK BUFFER GUIDELINES (USE AS NON-BINDING REFERENCE FOR SL/TP PLACEMENT):
-* Long Position: Ideal SL floor = $${marketContext.technicalFacts.atrSuggestedStopLossLong} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitLong} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioLong ?? 2.0}
-* Short Position: Ideal SL ceiling = $${marketContext.technicalFacts.atrSuggestedStopLossShort} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitShort} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioShort ?? 2.0}
+* Long Position: Ideal SL floor = $${marketContext.technicalFacts.atrSuggestedStopLossLong} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitLong} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioLong && marketContext.technicalFacts.riskRewardRatioLong >= 1.8 ? marketContext.technicalFacts.riskRewardRatioLong : 'INVALID (no valid nearby resistance >= 1:1.8)'}
+* Short Position: Ideal SL ceiling = $${marketContext.technicalFacts.atrSuggestedStopLossShort} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitShort} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioShort && marketContext.technicalFacts.riskRewardRatioShort >= 1.8 ? marketContext.technicalFacts.riskRewardRatioShort : 'INVALID (no valid nearby support >= 1:1.8)'}
+* IMPORTANT: A trade setup is ONLY VALID when the calculated R/R is at least 1:1.8. If either side shows INVALID, DO NOT take that side unless a higher timeframe gives a clearly reachable target with confirmed volume.
 ` : '';
 
   const recentSignals = marketContext.recentHistoricalSignals || [];

@@ -16,7 +16,7 @@ export class TechnicalIndicatorEngine {
       if (i >= period) windowSum -= data[i - period];
 
       if (i < period - 1) {
-        sma[i] = data[i];
+        sma[i] = NaN;
       } else {
         sma[i] = Number((windowSum / period).toFixed(2));
       }
@@ -348,9 +348,14 @@ export class TechnicalIndicatorEngine {
       if (isLow) rawSupports.push(currentLow);
     }
 
-    // 2. Clustering Helper Function (grouping levels within a threshold, e.g. 1.5%)
+    // Only keep support levels AT OR BELOW current price and resistance levels AT OR ABOVE current price.
+    // Levels on the wrong side are invalidated (price has already broken them) and must not be used as S/R.
+    const validSupports = rawSupports.filter((level) => level <= currentPrice);
+    const validResistances = rawResistances.filter((level) => level >= currentPrice);
+
+    // 2. Clustering Helper Function (grouping levels within a tighter threshold for precision)
     const averagePrice = currentPrice;
-    const threshold = averagePrice * 0.015;
+    const threshold = averagePrice * 0.008;
 
     const clusterLevels = (levels: number[], isSupport: boolean): number[] => {
       if (levels.length === 0) return [];
@@ -385,8 +390,8 @@ export class TechnicalIndicatorEngine {
         .sort((a, b) => a - b);
     };
 
-    const clusteredResistances = clusterLevels(rawResistances, false);
-    const clusteredSupports = clusterLevels(rawSupports, true);
+    const clusteredResistances = clusterLevels(validResistances, false);
+    const clusteredSupports = clusterLevels(validSupports, true);
 
     return {
       resistanceLevels: clusteredResistances,
@@ -462,6 +467,26 @@ export class TechnicalIndicatorEngine {
         indicators,
       };
     });
+  }
+
+  /**
+   * Determine whether a candle has moved past its indicator warm-up phase.
+   * Warm-up signatures:
+   *  - rsi_14 === 50 && macd_hist === 0 && adx_14 === 20 (placeholder values before windows fill)
+   *  - any long-period SMA is NaN (its window has not yet accumulated enough data)
+   */
+  public static isMatureCandle(candle: CandleData & { indicators: CalculatedIndicators }): boolean {
+    const ind = candle.indicators;
+    const placeholderSignature =
+      ind.rsi_14 === 50 &&
+      ind.macd_hist === 0 &&
+      typeof ind.adx_14 === 'number' &&
+      ind.adx_14 === 20;
+    const hasNaNIndicator =
+      Number.isNaN(ind.sma_20) ||
+      Number.isNaN(ind.sma_50) ||
+      Number.isNaN(ind.sma_200);
+    return !placeholderSignature && !hasNaNIndicator;
   }
 
   /**
@@ -554,17 +579,36 @@ export class TechnicalIndicatorEngine {
     const atrSuggestedStopLossShort = Number((currentPrice + 2.0 * latestAtr).toFixed(2));
     const atrSuggestedTakeProfitShort = Number((currentPrice - 2.0 * latestAtr).toFixed(2));
 
-    // Calculate Real-Time Risk-to-Reward Ratio (R:R) based on S&R Target vs ATR Risk Buffer
-    const nearestResistance = sr.resistanceLevels.length > 0 ? Math.min(...sr.resistanceLevels) : atrSuggestedTakeProfitLong;
-    const nearestSupport = sr.supportLevels.length > 0 ? Math.max(...sr.supportLevels) : atrSuggestedTakeProfitShort;
+    // Calculate Real-Time Risk-to-Reward Ratio (R:R) based on VALID S/R levels only.
+    // A support level above current price or a resistance level below current price is invalid
+    // (price has already broken it), so it must not be used as a target or stop.
+    const validResistances = sr.resistanceLevels.filter((r) => r > currentPrice);
+    const validSupports = sr.supportLevels.filter((s) => s < currentPrice);
 
-    const longRisk = Math.abs(currentPrice - atrSuggestedStopLossLong);
-    const longReward = Math.abs(nearestResistance - currentPrice);
-    const riskRewardRatioLong = longRisk > 0 ? Number((longReward / longRisk).toFixed(2)) : 2.0;
+    const nearestResistance = validResistances.length > 0 ? Math.min(...validResistances) : null;
+    const nearestSupport = validSupports.length > 0 ? Math.max(...validSupports) : null;
 
-    const shortRisk = Math.abs(atrSuggestedStopLossShort - currentPrice);
-    const shortReward = Math.abs(currentPrice - nearestSupport);
-    const riskRewardRatioShort = shortRisk > 0 ? Number((shortReward / shortRisk).toFixed(2)) : 2.0;
+    const MIN_RR = 1.8;
+
+    let riskRewardRatioLong: number;
+    if (nearestResistance === null) {
+      riskRewardRatioLong = 0;
+    } else {
+      const longRisk = Math.abs(currentPrice - atrSuggestedStopLossLong);
+      const longReward = Math.abs(nearestResistance - currentPrice);
+      const rawLongRR = longRisk > 0 ? longReward / longRisk : 0;
+      riskRewardRatioLong = rawLongRR >= MIN_RR ? Number(rawLongRR.toFixed(2)) : 0;
+    }
+
+    let riskRewardRatioShort: number;
+    if (nearestSupport === null) {
+      riskRewardRatioShort = 0;
+    } else {
+      const shortRisk = Math.abs(atrSuggestedStopLossShort - currentPrice);
+      const shortReward = Math.abs(currentPrice - nearestSupport);
+      const rawShortRR = shortRisk > 0 ? shortReward / shortRisk : 0;
+      riskRewardRatioShort = rawShortRR >= MIN_RR ? Number(rawShortRR.toFixed(2)) : 0;
+    }
 
     // Detect Break of Structure / Breakout
     const breakout = this.detectBreakout(candles, sr);
@@ -596,7 +640,9 @@ export class TechnicalIndicatorEngine {
   }
 
   /**
-   * Detect Break of Structure (BOS) or Breakout over S&R Levels
+   * Detect Break of Structure (BOS) or Breakout over VALID S&R Levels.
+   * A breakout is only confirmed when price closes beyond a clustered S/R level
+   * AND the candle volume is at least 1.5x the recent average.
    */
   public static detectBreakout(
     candles: CandleData[],
@@ -605,32 +651,28 @@ export class TechnicalIndicatorEngine {
     if (candles.length < 3) return { type: 'NONE', brokenLevel: 0, volumeRatio: 1 };
     
     const lastCandle = candles[candles.length - 1];
+    const currentPrice = lastCandle.close;
 
     // Average volume of last 10 candles
     const sliceCount = Math.min(candles.length, 10);
     const avgVol = candles.slice(-sliceCount).reduce((acc, c) => acc + c.volume, 0) / sliceCount;
     const volumeRatio = avgVol > 0 ? Number((lastCandle.volume / avgVol).toFixed(2)) : 1;
 
-    // Identify recent swing high & swing low (Pivot points)
-    let recentPivotHigh = 0;
-    let recentPivotLow = Infinity;
-    const lookback = Math.min(candles.length - 1, 20);
-
-    for (let i = candles.length - lookback; i < candles.length - 1; i++) {
-      if (candles[i].high > recentPivotHigh) recentPivotHigh = candles[i].high;
-      if (candles[i].low < recentPivotLow) recentPivotLow = candles[i].low;
+    // Require volume surge to validate a breakout — otherwise it's likely noise/inside candle.
+    if (volumeRatio < 1.5) {
+      return { type: 'NONE', brokenLevel: 0, volumeRatio };
     }
 
-    // Detect bullish breakout (close above clustered resistance OR recent swing high)
+    // Bullish breakout: close above a clustered resistance level
     for (const res of srLevels.resistanceLevels) {
-      if (lastCandle.close > res && lastCandle.high > recentPivotHigh) {
+      if (currentPrice > res) {
         return { type: 'BOS_BULLISH', brokenLevel: res, volumeRatio };
       }
     }
 
-    // Detect bearish breakout (close below clustered support OR recent swing low)
+    // Bearish breakout: close below a clustered support level
     for (const sup of srLevels.supportLevels) {
-      if (lastCandle.close < sup && lastCandle.low < recentPivotLow) {
+      if (currentPrice < sup) {
         return { type: 'BOS_BEARISH', brokenLevel: sup, volumeRatio };
       }
     }
@@ -660,9 +702,11 @@ export class TechnicalIndicatorEngine {
     const peaks: { index: number; price: number; rsiVal: number; macdHistVal: number }[] = [];
     const troughs: { index: number; price: number; rsiVal: number; macdHistVal: number }[] = [];
 
-    // Adaptive pivot scan range based on available candles
+    // Adaptive pivot scan range based on available candles.
+    // Start the scan only after RSI has a real value (period = 14) so warm-up
+    // placeholder readings (rsi=50) do not generate false divergences.
     const windowSpan = candles.length < 40 ? 1 : 2;
-    const startIdx = Math.max(windowSpan, candles.length - 45);
+    const startIdx = Math.max(windowSpan + 14, candles.length - 45);
     const endIdx = candles.length - (windowSpan + 1);
 
     for (let i = startIdx; i <= endIdx; i++) {

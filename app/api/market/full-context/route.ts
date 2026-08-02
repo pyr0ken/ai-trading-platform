@@ -105,14 +105,21 @@ export async function GET(request: Request) {
             : await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange, ticker.price);
 
           const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
-          const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
+
+          // Drop warm-up candles whose indicators are still placeholder values.
+          // They are valid for chart display but must not feed trend/BOS/divergence detection.
+          const matureCandles = processedCandles.filter((c) =>
+            TechnicalIndicatorEngine.isMatureCandle(c)
+          );
+
+          const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(matureCandles);
           const latestClose =
-            processedCandles.length > 0
-              ? processedCandles[processedCandles.length - 1].close
+            matureCandles.length > 0
+              ? matureCandles[matureCandles.length - 1].close
               : ticker!.price || 0;
           const latestIndicators =
-            processedCandles.length > 0
-              ? processedCandles[processedCandles.length - 1].indicators
+            matureCandles.length > 0
+              ? matureCandles[matureCandles.length - 1].indicators
               : ({} as CalculatedIndicators);
 
           const tfData: ProcessedTimeframeData = {
@@ -121,7 +128,7 @@ export async function GET(request: Request) {
             latestClose,
             indicators: latestIndicators,
             keyLevels,
-            candles: processedCandles,
+            candles: processedCandles, // keep full set for prompt candle tables
           };
           return [tf, tfData] as const;
         } catch (e) {
@@ -144,9 +151,12 @@ export async function GET(request: Request) {
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];
-    // Ensure we run extractTechnicalFacts on the EXACT primary timeframe requested by user
-    const technicalFacts = primaryTfData?.candles?.length
-      ? TechnicalIndicatorEngine.extractTechnicalFacts(primaryTfData.candles, primaryTfData.indicators)
+    // Run extractTechnicalFacts on mature candles only (warm-up placeholders removed).
+    const maturePrimaryCandles = primaryTfData?.candles?.length
+      ? primaryTfData.candles.filter((c) => TechnicalIndicatorEngine.isMatureCandle(c))
+      : [];
+    const technicalFacts = maturePrimaryCandles.length
+      ? TechnicalIndicatorEngine.extractTechnicalFacts(maturePrimaryCandles, primaryTfData.indicators)
       : undefined;
 
     // Only calculate BTC correlation for crypto symbols
