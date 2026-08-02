@@ -148,14 +148,8 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
       ref={topBarRef}
       className="bg-[#040406]/95 backdrop-blur-md border border-[#1c1d22] rounded-[10px] p-2 text-[#e2e3e9] shadow-xl flex flex-wrap items-center justify-between gap-2.5 select-none relative z-30"
     >
-      {/* Left: Asset Chip · Venue · Timeframe · Horizon Mode */}
+      {/* Left: Venue · Timeframe · Horizon Mode */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {/* Symbol Chip */}
-        <div className="flex items-center gap-1.5 bg-[#121317] border border-[#1c1d22] px-2.5 py-1 rounded-[6px]">
-          <span className="w-2 h-2 rounded-full bg-[#cc9166]" />
-          <span className="font-mono font-bold text-xs text-[#ffffff]">{selectedSymbol}</span>
-        </div>
-
         {/* Exchange Selector */}
         <div className="flex items-center gap-0.5 bg-[#121317] border border-[#1c1d22] p-0.5 rounded-[6px]">
           {exchanges.map((ex) => {
@@ -403,12 +397,6 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
           </div>
         )}
 
-        <WatchlistManager
-          onSelectCoin={onSymbolChange}
-          selectedSymbol={selectedSymbol}
-          openExternal={watchlistOpen}
-          onOpened={onWatchlistOpened}
-        />
         <AnalysisReplayModal onReplayAnalysis={onReplayAnalysis} />
 
         {/* Run AI Quant CTA */}
