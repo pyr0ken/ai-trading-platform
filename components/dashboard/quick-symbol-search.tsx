@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, TrendingUp, X, Sparkles, Check, ArrowRight, DollarSign, Globe, Layers, Cpu, ShieldAlert } from 'lucide-react';
 import { ALL_MARKET_SYMBOLS, MarketSymbolItem } from '@/lib/constants/market-symbols';
+import { CoinIcon } from '@/components/common/coin-icon';
 
 interface QuickSymbolSearchProps {
   isOpen: boolean;
@@ -248,19 +249,21 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
                 >
                   <div className="flex items-center gap-3">
                     {/* Icon / Flag Avatar Badge */}
-                    <div
-                      className={`w-8 h-8 rounded-[8px] flex items-center justify-center font-mono text-sm font-bold shrink-0 ${
-                        isCurrent
-                          ? 'bg-[#cc9166]/20 text-[#cc9166] border border-[#cc9166]'
-                          : isCrypto
-                          ? 'bg-[#121317] text-[#cc9166] border border-[#1c1d22]'
-                          : isForex
-                          ? 'bg-[#121317] text-sky-400 border border-sky-500/30'
-                          : 'bg-[#121317] text-amber-400 border border-amber-500/30'
-                      }`}
-                    >
-                      {item.flag || item.icon || item.symbol.substring(0, 3)}
-                    </div>
+                    {isCrypto ? (
+                      <CoinIcon symbol={item.symbol} size={32} className="shrink-0 shadow-sm" />
+                    ) : (
+                      <div
+                        className={`w-8 h-8 rounded-[8px] flex items-center justify-center font-mono text-sm font-bold shrink-0 ${
+                          isCurrent
+                            ? 'bg-[#cc9166]/20 text-[#cc9166] border border-[#cc9166]'
+                            : isForex
+                            ? 'bg-[#121317] text-sky-400 border border-sky-500/30'
+                            : 'bg-[#121317] text-amber-400 border border-amber-500/30'
+                        }`}
+                      >
+                        {item.flag || item.icon || item.symbol.substring(0, 3)}
+                      </div>
+                    )}
 
                     <div>
                       <div className="flex items-center gap-2">
