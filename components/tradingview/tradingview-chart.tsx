@@ -197,9 +197,6 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
           <span className="eyebrow-copper">
             TRADINGVIEW ADVANCED LIVE CHART
           </span>
-          <span className="text-xs font-sans text-[#9194a1] hidden sm:inline">
-            • Real-Time Live Exchange WebSocket &amp; Technical Analysis Suite
-          </span>
         </div>
 
         <div className="flex items-center gap-2">
