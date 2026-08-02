@@ -147,14 +147,17 @@ export function useLLMAnalysis() {
       const symbolAnalyses = allAnalyses
         .filter((rec) => rec.symbol.toUpperCase() === currentSymbol.toUpperCase())
         .slice(0, 5)
-        .map((rec) => ({
-          signal: rec.signal,
-          confidence: rec.confidence,
-          price: rec.price,
-          created_at: rec.created_at,
-          status: rec.accuracy_evaluation?.status || 'PENDING',
-          pnl_percentage: rec.accuracy_evaluation?.pnl_percentage ?? 0,
-        }));
+        .map((rec) => {
+          const isNonTradeSignal = rec.signal === 'NEUTRAL' || rec.signal === 'HOLD';
+          return {
+            signal: rec.signal,
+            confidence: rec.confidence,
+            price: rec.price,
+            created_at: rec.created_at,
+            status: isNonTradeSignal ? 'NO_TRADE' : (rec.accuracy_evaluation?.status || 'PENDING'),
+            pnl_percentage: isNonTradeSignal ? 0 : (rec.accuracy_evaluation?.pnl_percentage ?? 0),
+          };
+        });
 
       const enrichedPayload = {
         ...contextPayload,
