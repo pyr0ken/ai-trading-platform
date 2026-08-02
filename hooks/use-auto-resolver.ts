@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { AppStorageEngine } from '@/lib/storage/app-db';
+import { useEffect } from 'react';
+import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { CandleData } from '@/types/market';
 
 /**
@@ -7,8 +7,8 @@ import { CandleData } from '@/types/market';
  */
 let consecutiveFailures = 0;
 let circuitOpenUntil = 0;
-const MAX_FAILURES = 3;
-const BACKOFF_MS = 60_000; // 1 minute
+const MAX_FAILURES = 5;
+const BACKOFF_MS = 30_000; // 30 seconds
 
 function isCircuitOpen(): boolean {
   return Date.now() < circuitOpenUntil;
@@ -27,166 +27,203 @@ function recordSuccess(): void {
   circuitOpenUntil = 0;
 }
 
-export function useAutoResolver() {
-  const resolvedRef = useRef(false);
+/**
+ * Core function to evaluate all pending historical signals against market candle data.
+ */
+export async function resolvePendingSignals(): Promise<number> {
+  if (isCircuitOpen()) {
+    console.warn('[AutoResolver] Circuit open, skipping resolution cycle');
+    return 0;
+  }
 
-  useEffect(() => {
-    if (resolvedRef.current) return;
-    resolvedRef.current = true;
+  const analyses = AppStorageEngine.getAnalyses();
+  const pending = analyses.filter(
+    (rec) =>
+      !rec.accuracy_evaluation ||
+      rec.accuracy_evaluation.status === 'PENDING'
+  );
 
-    const resolvePendingSignals = async () => {
-      // Circuit breaker check
-      if (isCircuitOpen()) {
-        const remaining = Math.ceil((circuitOpenUntil - Date.now()) / 1000);
-        console.warn(`[AutoResolver] Circuit open, waiting ${remaining}s`);
-        return;
-      }
+  if (pending.length === 0) return 0;
 
-      const analyses = AppStorageEngine.getAnalyses();
-      const pending = analyses.filter(
-        (rec) =>
-          !rec.accuracy_evaluation ||
-          rec.accuracy_evaluation.status === 'PENDING'
+  console.log(`[AutoResolver] Resolving ${pending.length} pending signals...`);
+  let resolvedCount = 0;
+
+  for (let i = 0; i < pending.length; i++) {
+    const rec = pending[i];
+
+    if (isCircuitOpen()) {
+      console.warn('[AutoResolver] Circuit opened mid-loop, stopping');
+      break;
+    }
+
+    try {
+      if (i > 0) await new Promise((r) => setTimeout(r, 400));
+
+      const since = new Date(rec.created_at).getTime();
+      const ageInMs = Date.now() - since;
+      const ageInHours = ageInMs / (1000 * 60 * 60);
+
+      // Choose optimal timeframe & candle limit depending on signal age
+      // Use 1h for signals > 24 hours old so we cover up to 20 days (500 candles)
+      const timeframe = ageInHours > 24 ? '1h' : '15m';
+      const limit = 500;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+      const response = await fetch(
+        `/api/market/history-ohlcv?symbol=${encodeURIComponent(rec.symbol)}&exchange=${rec.exchange}&timeframe=${timeframe}&since=${since}&limit=${limit}`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeoutId);
 
-      if (pending.length === 0) return;
-
-      console.log(`[AutoResolver] Resolving ${pending.length} pending signals`);
-
-      for (let i = 0; i < pending.length; i++) {
-        const rec = pending[i];
-        
-        // Check circuit before each request
-        if (isCircuitOpen()) {
-          console.warn('[AutoResolver] Circuit opened mid-loop, stopping');
+      if (!response.ok) {
+        if (response.status >= 500) {
+          recordFailure();
+          console.warn(`[AutoResolver] Server error ${response.status} for ${rec.symbol}, stopping batch`);
           break;
         }
+        continue;
+      }
 
-        try {
-          // Small delay between signals
-          if (i > 0) await new Promise((r) => setTimeout(r, 1000)); // 1s delay (was 300ms)
+      recordSuccess();
+      const data = await response.json();
+      const candles: CandleData[] = data.candles || [];
 
-          const since = new Date(rec.created_at).getTime();
-          
-          // Use AbortController to cancel timed-out requests
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8_000); // 8s timeout
+      if (candles.length === 0) {
+        // If signal is older than 48 hours and no candles returned, mark as invalidated
+        if (ageInHours > 48) {
+          AppStorageEngine.updateAnalysisRecordStatus(rec.id, 'INVALIDATED', rec.price, 0);
+          resolvedCount++;
+        }
+        continue;
+      }
 
-          const response = await fetch(
-            `/api/market/history-ohlcv?symbol=${encodeURIComponent(rec.symbol)}&exchange=${rec.exchange}&timeframe=15m&since=${since}&limit=100`,
-            { signal: controller.signal }
-          );
-          clearTimeout(timeoutId);
+      const setup = rec.json_output?.trade_setup;
+      if (!setup) {
+        AppStorageEngine.updateAnalysisRecordStatus(rec.id, 'INVALIDATED', rec.price, 0);
+        resolvedCount++;
+        continue;
+      }
 
-          if (!response.ok) {
-            if (response.status >= 500) {
-              recordFailure();
-              console.warn(`[AutoResolver] Server error ${response.status}, stopping`);
+      const entryRangeMin = Math.min(setup.entry_range?.[0] || rec.price, setup.entry_range?.[1] || rec.price);
+      const entryRangeMax = Math.max(setup.entry_range?.[0] || rec.price, setup.entry_range?.[1] || rec.price);
+      const stopLoss = setup.stop_loss;
+      const tp1 = setup.take_profit_1;
+      const isLong = setup.position === 'LONG';
+
+      // Default entered to true if signal price was already inside/near entry range or if market setup
+      let entered =
+        !setup.entry_range ||
+        (rec.price >= entryRangeMin * 0.998 && rec.price <= entryRangeMax * 1.002);
+
+      let resolvedStatus: 'WIN' | 'LOSS' | 'PENDING' | 'INVALIDATED' = 'PENDING';
+      let finalPrice = rec.price;
+
+      for (const candle of candles) {
+        if (!entered) {
+          // Check if candle high/low crossed entry range
+          if (candle.low <= entryRangeMax && candle.high >= entryRangeMin) {
+            entered = true;
+          }
+        }
+
+        if (entered) {
+          if (isLong) {
+            // Check Stop Loss first for conservative risk assessment
+            if (candle.low <= stopLoss) {
+              resolvedStatus = 'LOSS';
+              finalPrice = stopLoss;
               break;
             }
-            continue;
-          }
-
-          recordSuccess();
-          const data = await response.json();
-          const candles: CandleData[] = data.candles || [];
-          if (candles.length === 0) continue;
-
-          const setup = rec.json_output?.trade_setup;
-          if (!setup) {
-            AppStorageEngine.updateAnalysisRecordStatus(rec.id, 'INVALIDATED', rec.price, 0);
-            continue;
-          }
-
-          const entryMin = setup.entry_range?.[0] || rec.price * 0.999;
-          const entryMax = setup.entry_range?.[1] || rec.price * 1.001;
-          const stopLoss = setup.stop_loss;
-          const tp1 = setup.take_profit_1;
-          const isLong = setup.position === 'LONG';
-
-          let entered = false;
-          let resolvedStatus: 'WIN' | 'LOSS' | 'PENDING' | 'INVALIDATED' = 'PENDING';
-          let finalPrice = rec.price;
-
-          for (const candle of candles) {
-            if (!entered) {
-              if (
-                (candle.low <= entryMax && candle.high >= entryMin) ||
-                (candle.close >= entryMin && candle.close <= entryMax)
-              ) {
-                entered = true;
-              }
+            if (candle.high >= tp1) {
+              resolvedStatus = 'WIN';
+              finalPrice = tp1;
+              break;
             }
-
-            if (entered) {
-              if (isLong) {
-                if (candle.low <= stopLoss) {
-                  resolvedStatus = 'LOSS';
-                  finalPrice = stopLoss;
-                  break;
-                }
-                if (candle.high >= tp1) {
-                  resolvedStatus = 'WIN';
-                  finalPrice = tp1;
-                  break;
-                }
-              } else {
-                if (candle.high >= stopLoss) {
-                  resolvedStatus = 'LOSS';
-                  finalPrice = stopLoss;
-                  break;
-                }
-                if (candle.low <= tp1) {
-                  resolvedStatus = 'WIN';
-                  finalPrice = tp1;
-                  break;
-                }
-              }
-            }
-          }
-
-          // Invalidate signals older than 3 days
-          const ageInMs = Date.now() - since;
-          const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-          if (resolvedStatus === 'PENDING' && ageInMs > threeDaysInMs) {
-            resolvedStatus = 'INVALIDATED';
-          }
-
-          if (resolvedStatus !== 'PENDING') {
-            const pnl = entered
-              ? isLong
-                ? ((finalPrice - rec.price) / rec.price) * 100
-                : ((rec.price - finalPrice) / rec.price) * 100
-              : 0;
-
-            AppStorageEngine.updateAnalysisRecordStatus(
-              rec.id,
-              resolvedStatus,
-              finalPrice,
-              Number(pnl.toFixed(2))
-            );
-            console.log(`[AutoResolver] ${rec.symbol}: ${resolvedStatus} (PnL: ${pnl.toFixed(2)}%)`);
-          }
-        } catch (e) {
-          if (e instanceof Error && e.name === 'AbortError') {
-            console.warn(`[AutoResolver] Request for ${rec.symbol} timed out (8s limit)`);
           } else {
-            console.error(`[AutoResolver] Error:`, e);
-          }
-          recordFailure();
-          
-          // Stop on circuit open
-          if (isCircuitOpen()) {
-            console.warn('[AutoResolver] Circuit opened due to error');
-            break;
+            // Short position
+            if (candle.high >= stopLoss) {
+              resolvedStatus = 'LOSS';
+              finalPrice = stopLoss;
+              break;
+            }
+            if (candle.low <= tp1) {
+              resolvedStatus = 'WIN';
+              finalPrice = tp1;
+              break;
+            }
           }
         }
       }
-    };
 
-    // Start initial check after 2 seconds, then re-check every 30 seconds
-    const timer = setTimeout(() => resolvePendingSignals(), 2_000);
-    const interval = setInterval(() => resolvePendingSignals(), 30_000);
+      // If still pending after checking candles:
+      if (resolvedStatus === 'PENDING') {
+        if (!entered && ageInHours > 24) {
+          // Entry price was never reached within 24 hours
+          resolvedStatus = 'INVALIDATED';
+        } else if (ageInHours > 48) {
+          // Signal active for 48+ hours without hitting TP or SL -> evaluate latest candle price
+          const lastCandle = candles[candles.length - 1];
+          finalPrice = lastCandle ? lastCandle.close : rec.price;
+
+          const pnl = isLong
+            ? ((finalPrice - rec.price) / rec.price) * 100
+            : ((rec.price - finalPrice) / rec.price) * 100;
+
+          if (pnl > 0.5) {
+            resolvedStatus = 'WIN';
+          } else if (pnl < -0.5) {
+            resolvedStatus = 'LOSS';
+          } else {
+            resolvedStatus = 'INVALIDATED';
+          }
+        }
+      }
+
+      if (resolvedStatus !== 'PENDING') {
+        const pnl = isLong
+          ? ((finalPrice - rec.price) / rec.price) * 100
+          : ((rec.price - finalPrice) / rec.price) * 100;
+
+        AppStorageEngine.updateAnalysisRecordStatus(
+          rec.id,
+          resolvedStatus,
+          finalPrice,
+          Number(pnl.toFixed(2))
+        );
+        resolvedCount++;
+        console.log(`[AutoResolver] Resolved ${rec.symbol} (${rec.id}) -> ${resolvedStatus} (PnL: ${pnl.toFixed(2)}%)`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.warn(`[AutoResolver] Request for ${rec.symbol} timed out`);
+      } else {
+        console.error(`[AutoResolver] Error evaluating ${rec.symbol}:`, e);
+      }
+      recordFailure();
+    }
+  }
+
+  return resolvedCount;
+}
+
+export function useAutoResolver() {
+  useEffect(() => {
+    // Initial resolution check on mount
+    const timer = setTimeout(() => {
+      resolvePendingSignals().catch((err) =>
+        console.warn('[AutoResolver] Execution error:', err)
+      );
+    }, 1500);
+
+    // Periodic re-check every 20 seconds for active pending signals
+    const interval = setInterval(() => {
+      resolvePendingSignals().catch((err) =>
+        console.warn('[AutoResolver] Execution error:', err)
+      );
+    }, 20_000);
+
     return () => {
       clearTimeout(timer);
       clearInterval(interval);

@@ -4,11 +4,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppSidebar, NavTab } from '@/components/layout/app-sidebar';
 import { DashboardTickerTape } from '@/components/dashboard/dashboard-ticker-tape';
 import { CoinSelector } from '@/components/market/coin-selector';
+import { DashboardLayoutToolbar } from '@/components/dashboard/dashboard-layout-toolbar';
+import { QuickSymbolSearch } from '@/components/dashboard/quick-symbol-search';
+import { WidgetCard } from '@/components/dashboard/widget-card';
 import { TradingViewChart } from '@/components/tradingview/tradingview-chart';
 import { PersianAnalysisCard as AnalysisCard } from '@/components/analysis/persian-analysis-card';
 import { MarketStatsCard } from '@/components/market/market-stats-card';
 import { IndicatorTable } from '@/components/market/indicator-table';
-import { NewsTicker } from '@/components/news/news-ticker';
 import { NewsTabPage } from '@/components/news/news-tab-page';
 import { BreakingNewsBanner } from '@/components/news/breaking-news-banner';
 import { MultiTimeframeMatrix } from '@/components/terminal/multi-timeframe-matrix';
@@ -24,14 +26,15 @@ import { BacktestSimulator } from '@/components/terminal/backtest-simulator';
 import { PaperPortfolio } from '@/components/terminal/paper-portfolio';
 import { ToastContainer, showToast } from '@/components/terminal/toast';
 import { WhalePopupContainer } from '@/components/whale/whale-popup';
+import { PreflightFactsPanel } from '@/components/terminal/preflight-facts-panel';
 
 import { useMarketData } from '@/hooks/use-market-data';
 import { useTickerPoll } from '@/hooks/use-ticker-poll';
 import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
 import { useAutoResolver } from '@/hooks/use-auto-resolver';
-import { PreflightFactsPanel } from '@/components/terminal/preflight-facts-panel';
 import { StructuredLLMOutput } from '@/types/terminal';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
+import { DashboardLayoutConfig, WidgetId } from '@/types/layout';
 
 export default function DashboardPage() {
   useAutoResolver();
@@ -59,6 +62,12 @@ export default function DashboardPage() {
     return session.analysisMode || 'swing';
   });
   const [watchlistOpen, setWatchlistOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Dashboard Layout Config State
+  const [layoutConfig, setLayoutConfig] = useState<DashboardLayoutConfig>(() => {
+    return AppStorageEngine.getLayoutConfig();
+  });
 
   useEffect(() => {
     queueMicrotask(() => setMounted(true));
@@ -75,6 +84,30 @@ export default function DashboardPage() {
       });
     }
   }, [selectedSymbol, selectedExchange, selectedTimeframe, analysisMode, sidebarCollapsed, mounted]);
+
+  useEffect(() => {
+    if (mounted) {
+      AppStorageEngine.saveLayoutConfig(layoutConfig);
+    }
+  }, [layoutConfig, mounted]);
+
+  // Global Keyboard listener for quick symbol search (e.g. '/' or 'Ctrl+K' or 'Cmd+K')
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key === 'k')) {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const {
     data: marketContext,
@@ -98,7 +131,6 @@ export default function DashboardPage() {
     resetAnalysis,
   } = useLLMAnalysis();
 
-  // Reset analysis when symbol/exchange/timeframe changes from user interaction (not replay)
   const handleSymbolChange = useCallback((newSymbol: string) => {
     setSelectedSymbol(newSymbol);
     resetAnalysis();
@@ -126,16 +158,13 @@ export default function DashboardPage() {
   };
 
   const handleReplayAnalysis = (record: StoredAnalysisRecord) => {
-    // Clear all current analysis state first to ensure no leakage
     resetAnalysis();
     setHasRun(false);
     
-    // Set new context
     setSelectedSymbol(record.symbol);
     setSelectedExchange(record.exchange);
     setSelectedTimeframe(record.timeframe);
     
-    // Load saved data on next tick
     queueMicrotask(() => {
       setHasRun(true);
       if (record.markdown_report) {
@@ -143,6 +172,16 @@ export default function DashboardPage() {
       }
     });
     showToast(`⏪ Replaying ${record.symbol} · ${record.signal} @ ${record.confidence}%`);
+  };
+
+  const handleHideWidget = (id: WidgetId) => {
+    setLayoutConfig((prev) => ({
+      ...prev,
+      visibleWidgets: {
+        ...prev.visibleWidgets,
+        [id]: false,
+      },
+    }));
   };
 
   const parsedJson: StructuredLLMOutput | null = useMemo(() => {
@@ -161,11 +200,13 @@ export default function DashboardPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#08080a] text-[#e2e3e9] flex items-center justify-center text-[13px] tracking-wide uppercase">
-        Initializing...
+      <div className="min-h-screen bg-[#08080a] text-[#e2e3e9] flex items-center justify-center text-[13px] tracking-wide uppercase font-mono">
+        Initializing Workstation...
       </div>
     );
   }
+
+  const isVisible = (wId: WidgetId) => layoutConfig.visibleWidgets[wId] !== false;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#08080a] text-[#e2e3e9]" suppressHydrationWarning>
@@ -174,7 +215,7 @@ export default function DashboardPage() {
         price={liveTicker?.price ?? marketContext?.ticker?.price}
         change24h={liveTicker?.change24h ?? marketContext?.ticker?.change24h}
         change24hPercentage={liveTicker?.change24hPercentage ?? marketContext?.ticker?.change24hPercentage}
-        onSymbolClick={() => setWatchlistOpen(true)}
+        onSymbolClick={() => setIsSearchOpen(true)}
       />
 
       <div className="flex-1 flex w-full">
@@ -186,30 +227,48 @@ export default function DashboardPage() {
         />
 
         <div className="flex-1 flex flex-col min-w-0 bg-[#08080a]">
-            <BreakingNewsBanner />
-            <WhalePopupContainer />
-            <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
+          <BreakingNewsBanner />
+          <WhalePopupContainer />
+          <QuickSymbolSearch
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+            onSelectSymbol={handleSymbolChange}
+            currentSymbol={selectedSymbol}
+          />
+
+          <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
             {activeTab === 'dashboard' && (
               <>
-                <CoinSelector
-                  selectedSymbol={selectedSymbol}
-                  selectedExchange={selectedExchange}
-                  selectedTimeframe={selectedTimeframe}
-                  analysisMode={analysisMode}
-                  onModeChange={setAnalysisMode}
-                  onSymbolChange={handleSymbolChange}
-                  onExchangeChange={handleExchangeChange}
-                  onTimeframeChange={handleTimeframeChange}
-                  onRunAnalysis={handleRunAnalysis}
-                  onStopAnalysis={stopAnalysis}
-                  isRunning={isMarketLoading || isMarketFetching || isStreaming}
-                  onReplayAnalysis={handleReplayAnalysis}
-                  watchlistOpen={watchlistOpen}
-                  onWatchlistOpened={() => setWatchlistOpen(false)}
-                />
+                {/* Workstation Header Bar */}
+                <div className="space-y-3">
+                  <CoinSelector
+                    selectedSymbol={selectedSymbol}
+                    selectedExchange={selectedExchange}
+                    selectedTimeframe={selectedTimeframe}
+                    analysisMode={analysisMode}
+                    onModeChange={setAnalysisMode}
+                    onSymbolChange={handleSymbolChange}
+                    onExchangeChange={handleExchangeChange}
+                    onTimeframeChange={handleTimeframeChange}
+                    onRunAnalysis={handleRunAnalysis}
+                    onStopAnalysis={stopAnalysis}
+                    isRunning={isMarketLoading || isMarketFetching || isStreaming}
+                    onReplayAnalysis={handleReplayAnalysis}
+                    watchlistOpen={watchlistOpen}
+                    onWatchlistOpened={() => setWatchlistOpen(false)}
+                  />
 
+                  {/* Dashboard Layout System Toolbar */}
+                  <DashboardLayoutToolbar
+                    config={layoutConfig}
+                    onChangeConfig={setLayoutConfig}
+                    isStreaming={isStreaming}
+                  />
+                </div>
+
+                {/* Error Banners */}
                 {marketError && (
-                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-none text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
+                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-[10px] text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
                     <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-xs">
                       <span className="text-xl">⚠️</span> Data Engine Failure
                     </div>
@@ -220,107 +279,271 @@ export default function DashboardPage() {
                 )}
 
                 {analysisError && (
-                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-none text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
+                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-[10px] text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
                     <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-xs">
                       <span className="text-xl">⚠️</span> Analysis System Failure
                     </div>
-                    <div className="leading-relaxed">
-                      {analysisError}
+                    <div className="leading-relaxed">{analysisError}</div>
+                  </div>
+                )}
+
+                {/* MINIMAL & REFINED DASHBOARD LAYOUT SYSTEM */}
+                {/* 1. STANDARD & PRO TRADER LAYOUTS (Main Workstation + Sticky AI Right Panel) */}
+                {(layoutConfig.preset === 'standard' || layoutConfig.preset === 'pro_trader') && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" suppressHydrationWarning>
+                    {/* Main Technical Panels Column */}
+                    <div className="lg:col-span-8 space-y-4">
+                      {isVisible('preflight') && (
+                        <WidgetCard id="preflight" onHideWidget={handleHideWidget} noPadding>
+                          <PreflightFactsPanel
+                            marketContext={marketContext}
+                            isLoading={isMarketLoading || isMarketFetching}
+                          />
+                        </WidgetCard>
+                      )}
+
+                      {isVisible('chart') && (
+                        <WidgetCard id="chart" onHideWidget={handleHideWidget} noPadding>
+                          <TradingViewChart
+                            symbol={selectedSymbol}
+                            exchange={selectedExchange}
+                            timeframe={selectedTimeframe}
+                            currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
+                            onTimeframeChange={handleTimeframeChange}
+                            setup={
+                              parsedJson?.trade_setup ||
+                              (marketContext?.ticker?.price
+                                ? {
+                                    position: 'NEUTRAL',
+                                    entry_range: [marketContext.ticker.price, marketContext.ticker.price],
+                                    stop_loss: marketContext.ticker.price,
+                                    take_profit_1: marketContext.ticker.price,
+                                    take_profit_2: marketContext.ticker.price,
+                                    take_profit_3: marketContext.ticker.price,
+                                    risk_reward_ratio: 0,
+                                    recommended_leverage: '1x',
+                                    invalidation_point: 0,
+                                    strategy_name: 'Analyzing...',
+                                  }
+                                : null)
+                            }
+                          />
+                        </WidgetCard>
+                      )}
+
+                      {isVisible('matrix') && (
+                        <WidgetCard id="matrix" onHideWidget={handleHideWidget} noPadding>
+                          <MultiTimeframeMatrix marketContext={marketContext} isLoading={isMarketLoading} />
+                        </WidgetCard>
+                      )}
+
+                      {isVisible('radar') && (
+                        <WidgetCard id="radar" onHideWidget={handleHideWidget} noPadding>
+                          <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isStreaming} />
+                        </WidgetCard>
+                      )}
+
+                      {isVisible('meter_scenarios') && (
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                          <div className="md:col-span-5">
+                            <BuySellMeter
+                              buyPct={parsedJson?.probabilities?.bullish}
+                              sellPct={parsedJson?.probabilities?.bearish}
+                              microstructure={marketContext?.microstructure}
+                              isLoading={isStreaming}
+                            />
+                          </div>
+                          <div className="md:col-span-7">
+                            <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isStreaming} />
+                          </div>
+                        </div>
+                      )}
+
+                      {isVisible('stats') && (
+                        <WidgetCard id="stats" onHideWidget={handleHideWidget} noPadding>
+                          <MarketStatsCard
+                            ticker={marketContext?.ticker}
+                            derivatives={marketContext?.derivatives}
+                            microstructure={marketContext?.microstructure}
+                            macroSentiment={marketContext?.macroSentiment}
+                            isLoading={isMarketLoading}
+                          />
+                        </WidgetCard>
+                      )}
+
+                      {isVisible('indicators_news') && (
+                        <WidgetCard id="indicators_news" onHideWidget={handleHideWidget} noPadding>
+                          <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
+                        </WidgetCard>
+                      )}
+
+                      {isVisible('history') && (
+                        <WidgetCard id="history" onHideWidget={handleHideWidget} noPadding>
+                          <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
+                        </WidgetCard>
+                      )}
+                    </div>
+
+                    {/* AI Intelligence Side Panel */}
+                    {isVisible('ai_card') && (
+                      <div className="lg:col-span-4 sticky top-20 max-h-[calc(100vh-100px)] overflow-y-auto pr-1 space-y-6">
+                        <AnalysisCard
+                          content={analysisText}
+                          isStreaming={isStreaming}
+                          isLoading={isMarketLoading || isAnalysisLoading}
+                          symbol={selectedSymbol}
+                          exchange={selectedExchange}
+                          timeframe={selectedTimeframe}
+                          analysisMode={analysisMode}
+                          error={analysisError}
+                          logSteps={logSteps}
+                          hasRun={hasRun}
+                          onRunAnalysis={handleRunAnalysis}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. AI QUANT FOCUS LAYOUT (50/50 Balanced Split View) */}
+                {layoutConfig.preset === 'ai_quant' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left 6 Columns: Deep AI Quant Report Card */}
+                    {isVisible('ai_card') && (
+                      <div className="lg:col-span-6 space-y-6">
+                        <AnalysisCard
+                          content={analysisText}
+                          isStreaming={isStreaming}
+                          isLoading={isMarketLoading || isAnalysisLoading}
+                          symbol={selectedSymbol}
+                          exchange={selectedExchange}
+                          timeframe={selectedTimeframe}
+                          analysisMode={analysisMode}
+                          error={analysisError}
+                          logSteps={logSteps}
+                          hasRun={hasRun}
+                          onRunAnalysis={handleRunAnalysis}
+                        />
+                      </div>
+                    )}
+
+                    {/* Right 6 Columns: Radar + Scenarios + Preflight + Chart */}
+                    <div className="lg:col-span-6 space-y-4">
+                      {isVisible('radar') && (
+                        <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isStreaming} />
+                      )}
+
+                      {isVisible('preflight') && (
+                        <PreflightFactsPanel
+                          marketContext={marketContext}
+                          isLoading={isMarketLoading || isMarketFetching}
+                        />
+                      )}
+
+                      {isVisible('chart') && (
+                        <TradingViewChart
+                          symbol={selectedSymbol}
+                          exchange={selectedExchange}
+                          timeframe={selectedTimeframe}
+                          currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
+                          onTimeframeChange={handleTimeframeChange}
+                          setup={parsedJson?.trade_setup}
+                        />
+                      )}
+
+                      {isVisible('meter_scenarios') && (
+                        <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isStreaming} />
+                      )}
+
+                      {isVisible('matrix') && (
+                        <MultiTimeframeMatrix marketContext={marketContext} isLoading={isMarketLoading} />
+                      )}
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start" suppressHydrationWarning>
-                <div className="lg:col-span-8 space-y-4">
-                  <PreflightFactsPanel
-                    marketContext={marketContext}
-                    isLoading={isMarketLoading || isMarketFetching}
-                  />
-
-                  <TradingViewChart
-                    symbol={selectedSymbol}
-                    exchange={selectedExchange}
-                    timeframe={selectedTimeframe}
-                    currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
-                    onTimeframeChange={handleTimeframeChange}
-                    setup={parsedJson?.trade_setup || (marketContext?.ticker?.price ? {
-                      position: 'NEUTRAL',
-                      entry_range: [marketContext.ticker.price, marketContext.ticker.price],
-                      stop_loss: marketContext.ticker.price,
-                      take_profit_1: marketContext.ticker.price,
-                      take_profit_2: marketContext.ticker.price,
-                      take_profit_3: marketContext.ticker.price,
-                      risk_reward_ratio: 0,
-                      recommended_leverage: '1x',
-                      invalidation_point: 0,
-                      strategy_name: 'Analyzing...'
-                    } : null)}
-                  />
-
-                  <MultiTimeframeMatrix
-                    marketContext={marketContext}
-                    isLoading={isMarketLoading}
-                  />
-
-                  <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isMarketLoading} />
-
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div className="md:col-span-5">
-                      <BuySellMeter
-                        buyPct={parsedJson?.probabilities?.bullish}
-                        sellPct={parsedJson?.probabilities?.bearish}
-                        microstructure={marketContext?.microstructure}
-                        isLoading={isMarketLoading || isStreaming}
-                      />
+                {/* 3. COMPACT DASHBOARD LAYOUT (High-Density Multi-Card View) */}
+                {layoutConfig.preset === 'compact' && (
+                  <div className="space-y-4">
+                    {/* Top Row: Preflight + Buy/Sell Meter */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      <div className="lg:col-span-7">
+                        {isVisible('preflight') && (
+                          <PreflightFactsPanel
+                            marketContext={marketContext}
+                            isLoading={isMarketLoading || isMarketFetching}
+                          />
+                        )}
+                      </div>
+                      <div className="lg:col-span-5">
+                        {isVisible('meter_scenarios') && (
+                          <BuySellMeter
+                            buyPct={parsedJson?.probabilities?.bullish}
+                            sellPct={parsedJson?.probabilities?.bearish}
+                            microstructure={marketContext?.microstructure}
+                            isLoading={isStreaming}
+                          />
+                        )}
+                      </div>
                     </div>
-                    <div className="md:col-span-7">
-                      <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isMarketLoading || isStreaming} />
+
+                    {/* Middle Row: Chart & AI Report Side-by-Side */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      <div className="lg:col-span-7">
+                        {isVisible('chart') && (
+                          <TradingViewChart
+                            symbol={selectedSymbol}
+                            exchange={selectedExchange}
+                            timeframe={selectedTimeframe}
+                            currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
+                            onTimeframeChange={handleTimeframeChange}
+                            setup={parsedJson?.trade_setup}
+                          />
+                        )}
+                      </div>
+                      <div className="lg:col-span-5">
+                        {isVisible('ai_card') && (
+                          <AnalysisCard
+                            content={analysisText}
+                            isStreaming={isStreaming}
+                            isLoading={isMarketLoading || isAnalysisLoading}
+                            symbol={selectedSymbol}
+                            exchange={selectedExchange}
+                            timeframe={selectedTimeframe}
+                            analysisMode={analysisMode}
+                            error={analysisError}
+                            logSteps={logSteps}
+                            hasRun={hasRun}
+                            onRunAnalysis={handleRunAnalysis}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Lower Grid: Matrix, Radar, Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {isVisible('matrix') && (
+                        <MultiTimeframeMatrix marketContext={marketContext} isLoading={isMarketLoading} />
+                      )}
+                      {isVisible('radar') && (
+                        <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isStreaming} />
+                      )}
+                      {isVisible('stats') && (
+                        <MarketStatsCard
+                          ticker={marketContext?.ticker}
+                          derivatives={marketContext?.derivatives}
+                          microstructure={marketContext?.microstructure}
+                          macroSentiment={marketContext?.macroSentiment}
+                          isLoading={isMarketLoading}
+                        />
+                      )}
                     </div>
                   </div>
+                )}
+              </>
+            )}
 
-                  <MarketStatsCard
-                    ticker={marketContext?.ticker}
-                    derivatives={marketContext?.derivatives}
-                    microstructure={marketContext?.microstructure}
-                    macroSentiment={marketContext?.macroSentiment}
-                    isLoading={isMarketLoading}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    <div className="md:col-span-7">
-                      <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
-                    </div>
-                    <div className="md:col-span-5">
-                      <NewsTicker
-                        articles={marketContext?.news?.articles}
-                        isLoading={isMarketLoading}
-                        onViewAll={() => setActiveTab('news')}
-                      />
-                    </div>
-                  </div>
-
-                  <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
-                </div>
-
-                <div className="lg:col-span-4 sticky top-24 max-h-[calc(100vh-120px)] overflow-y-auto pr-1 space-y-6">
-                  <AnalysisCard
-                    content={analysisText}
-                    isStreaming={isStreaming}
-                    isLoading={isMarketLoading || isAnalysisLoading}
-                    symbol={selectedSymbol}
-                    exchange={selectedExchange}
-                    timeframe={selectedTimeframe}
-                    analysisMode={analysisMode}
-                    error={analysisError}
-                    logSteps={logSteps}
-                    hasRun={hasRun}
-                    onRunAnalysis={handleRunAnalysis}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
+            {/* Other Workspace Tabs */}
             {activeTab === 'ai_assistant' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-7 space-y-6">
