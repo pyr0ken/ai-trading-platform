@@ -1,4 +1,5 @@
 import { FullMarketContextPayload, HistoricalSignalFeedback } from '@/types/analysis';
+import { CandleData, CalculatedIndicators } from '@/types/market';
 
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
@@ -87,6 +88,50 @@ Must strictly include these exact headers:
 - Final Recommendation & Institutional Rationale`;
 }
 
+/**
+ * Format timestamp into compact UTC time MM-DD HH:mm
+ */
+function formatCandleTime(c: { timestamp?: number; gregorianDate?: string }): string {
+  if (c.gregorianDate) {
+    const match = c.gregorianDate.match(/\d{4}-(\d{2}-\d{2})[T\s](\d{2}:\d{2})/);
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+  }
+  if (c.timestamp) {
+    const d = new Date(c.timestamp);
+    if (!isNaN(d.getTime())) {
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const min = String(d.getUTCMinutes()).padStart(2, '0');
+      return `${mm}-${dd} ${hh}:${min}`;
+    }
+  }
+  return 'N/A';
+}
+
+/**
+ * Filter out warm-up candles carrying synthetic placeholder indicators.
+ * Warm-up signature: sma_20 === sma_50 && sma_50 === sma_200.
+ */
+function filterWarmupCandles(candles: Array<CandleData & { indicators: CalculatedIndicators }>) {
+  return candles.filter((c) => {
+    const ind = c.indicators;
+    if (!ind) return false;
+    if (
+      typeof ind.sma_20 === 'number' &&
+      typeof ind.sma_50 === 'number' &&
+      typeof ind.sma_200 === 'number' &&
+      ind.sma_20 === ind.sma_50 &&
+      ind.sma_50 === ind.sma_200
+    ) {
+      return false; // Skip warm-up candle
+    }
+    return true;
+  });
+}
+
 export function buildInstitutionalUserPrompt(
   symbol: string,
   exchange: string,
@@ -142,52 +187,92 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
   const newsSentimentIndex = marketContext.news?.newsSentimentIndex ?? 0.0;
   const newsSentimentLabel = newsSentimentIndex > 0.3 ? 'BULLISH' : newsSentimentIndex < -0.3 ? 'BEARISH' : 'NEUTRAL';
 
+  const newsSummaryText = marketContext.news?.summaryForPrompt || (
+    marketContext.news?.articles?.length
+      ? marketContext.news.articles.map((a, i) =>
+          `[News ${i + 1}] (${a.source}) [${a.category?.toUpperCase() || 'GENERAL'}]: ${a.title} - ${a.summary || 'No summary available.'} (Sentiment: ${a.sentimentScore ?? 0})`
+        ).join('\n')
+      : 'No recent market news available.'
+  );
+
+  const ob = marketContext.microstructure?.orderBookDepth;
+  const cvd = marketContext.microstructure?.volumeDeltaCvd;
+  const obText = ob && typeof ob.bestBid === 'number'
+    ? `Bid/Ask=$${ob.bestBid}/$${ob.bestAsk} | Spread=$${ob.spread} (${ob.spreadPercentage}%) | Bid Depth Top 20=${ob.bidDepthVolumeTop20} | Ask Depth Top 20=${ob.askDepthVolumeTop20} | Imbalance=${ob.imbalanceRatio} (${ob.orderBookPressure})`
+    : `Orderbook Pressure=${ob?.orderBookPressure ?? 'NEUTRAL'} | Imbalance=${ob?.imbalanceRatio ?? 1.0}`;
+  const cvdText = cvd && typeof cvd.takerBuyVolume === 'number'
+    ? `CVD Signal=${cvd.cvdSignal} | Delta=${cvd.volumeDelta} | Taker Buy/Sell=${cvd.takerBuyVolume}/${cvd.takerSellVolume} (Ratio: ${cvd.buySellRatio}) | Trades=${cvd.sampleTradesCount}`
+    : `CVD Signal=${cvd?.cvdSignal ?? 'BALANCED'} | Volume Delta=${cvd?.volumeDelta ?? 0}`;
+  const liqText = marketContext.microstructure?.liquidationsStatus ? ` | Liquidations=${marketContext.microstructure.liquidationsStatus}` : '';
+
   const modeInstruction = mode === 'scalp'
     ? 'CRITICAL MODE CONSTRAINT: You are in SCALP MODE. Output ONLY Section 1 (the JSON block starting with ```json and ending with ```). DO NOT write any report or markdown text after the JSON block.'
     : 'You are in SWING MODE. Output Section 1 (JSON block) first, followed by Section 2 (Exhaustive Institutional Markdown Report).';
+
+  const mtfText = Object.entries(marketContext.timeframes || {})
+    .map(([tf, td]) => {
+      const ind = td?.indicators;
+      if (!ind) return `- ${tf}: no data`;
+      const candles = td.candles || [];
+
+      // Warm-up candle filtering (R2)
+      const validCandles = filterWarmupCandles(candles);
+
+      // Select last 30 candles for primary timeframe, last 10 for secondary timeframes (R1)
+      const isPrimary = tf.toLowerCase() === timeframe.toLowerCase();
+      const targetCount = isPrimary ? 30 : 10;
+      const selectedCandles = validCandles.slice(-targetCount);
+
+      // Calculate Volume Surge Ratio
+      const slice20 = candles.slice(-20);
+      const avgVol20 = slice20.length > 0 ? slice20.reduce((acc, c) => acc + c.volume, 0) / slice20.length : 1;
+      const latestVol = candles.length > 0 ? candles[candles.length - 1].volume : 0;
+      const volumeSurgeRatio = avgVol20 > 0 ? Number((latestVol / avgVol20).toFixed(2)) : 1.0;
+
+      const summaryLine = `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | VolSurge=${volumeSurgeRatio}x | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels`;
+
+      if (selectedCandles.length === 0) {
+        return `${summaryLine}\n  [${tf}] columns: time_utc | O | H | L | C | V | body% | topwick% | botwick% | rsi14 | macd_hist\n  (No valid candles available after warm-up filtering)`;
+      }
+
+      const tableHeader = `  [${tf}] columns: time_utc | O | H | L | C | V | body% | topwick% | botwick% | rsi14 | macd_hist`;
+      const tableRows = selectedCandles.map((c) => {
+        const timeUtc = formatCandleTime(c);
+        const range = c.high - c.low;
+        const bodyPct = range > 0 ? Math.round((Math.abs(c.close - c.open) / range) * 100) : 100;
+        const topWickPct = range > 0 ? Math.round(((c.high - Math.max(c.open, c.close)) / range) * 100) : 0;
+        const botWickPct = range > 0 ? Math.round(((Math.min(c.open, c.close) - c.low) / range) * 100) : 0;
+        const rsi14 = c.indicators?.rsi_14 !== undefined ? Number(c.indicators.rsi_14.toFixed(1)) : 'N/A';
+        const macdHist = c.indicators?.macd_hist !== undefined ? Number(c.indicators.macd_hist.toFixed(1)) : 'N/A';
+
+        return `  ${timeUtc} | ${c.open} | ${c.high} | ${c.low} | ${c.close} | ${c.volume} | ${bodyPct} | ${topWickPct} | ${botWickPct} | ${rsi14} | ${macdHist}`;
+      }).join('\n');
+
+      return `${summaryLine}\n${tableHeader}\n${tableRows}`;
+    })
+    .join('\n\n');
 
   return `TARGET ASSET: ${symbol} (${timeframe})
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
 ${technicalFactsText}
 ${economicWarningsText}
-- Aggregate News Sentiment Index: ${newsSentimentIndex} (${newsSentimentLabel})
 ${recentSignalsText}
 ${modeInstruction}
 
-RAW QUANTITATIVE MARKET DATA PAYLOAD (SUMMARIZED — USE THE DETERMINISTIC FACTS ABOVE AS YOUR PRIMARY BASIS):
+RAW QUANTITATIVE MARKET DATA PAYLOAD:
 - Ticker: Price=$${price} | 24h Change=${change24h}% | High/Low/Volume: $${marketContext.ticker?.high24h ?? 'N/A'}/$${marketContext.ticker?.low24h ?? 'N/A'}/$${marketContext.ticker?.volume24h ?? 'N/A'}
 - Derivatives: Funding=${marketContext.derivatives?.fundingRate ?? 'N/A'} | OI=${marketContext.derivatives?.openInterest ?? 'N/A'} | Basis=${marketContext.derivatives?.basisPremiumPct ?? 0}%
-- Microstructure: Orderbook Pressure=${marketContext.microstructure?.orderBookDepth?.orderBookPressure ?? 'NEUTRAL'} | Imbalance=${marketContext.microstructure?.orderBookDepth?.imbalanceRatio ?? 1.0} | CVD Signal=${marketContext.microstructure?.volumeDeltaCvd?.cvdSignal ?? 'BALANCED'} | Volume Delta=${marketContext.microstructure?.volumeDeltaCvd?.volumeDelta ?? 0}
+- Microstructure: ${obText} | ${cvdText}${liqText}
 - Macro: Fear&Greed=${marketContext.macroSentiment?.fearAndGreed?.value ?? 'N/A'} (${marketContext.macroSentiment?.fearAndGreed?.classification ?? 'N/A'}) | Stablecoin Mcap=$${marketContext.macroSentiment?.stablecoinLiquidity?.totalStablecoinMarketCapUsd ?? 'N/A'}
-- News Sentiment Index: ${marketContext.news?.newsSentimentIndex ?? 0} (${newsSentimentLabel})
+
+MARKET NEWS & INTELLIGENCE HEADLINES:
+- Aggregate News Sentiment Index: ${newsSentimentIndex} (${newsSentimentLabel})
+${newsSummaryText}
 
 MULTI-TIMEFRAME INDICATORS & PRICE ACTION ANATOMY:
-${Object.entries(marketContext.timeframes || {})
-  .map(([tf, td]) => {
-    const ind = td?.indicators;
-    if (!ind) return `- ${tf}: no data`;
-    const candles = td.candles || [];
-    const recent5 = candles.slice(-5);
-    
-    // Calculate Volume Surge Ratio
-    const slice20 = candles.slice(-20);
-    const avgVol20 = slice20.length > 0 ? slice20.reduce((acc, c) => acc + c.volume, 0) / slice20.length : 1;
-    const latestVol = candles.length > 0 ? candles[candles.length - 1].volume : 0;
-    const volumeSurgeRatio = avgVol20 > 0 ? Number((latestVol / avgVol20).toFixed(2)) : 1.0;
-
-    const candleText = recent5.length > 0
-      ? `  Recent 5 Candles Anatomy (O/H/L/C/V): [${recent5.map(c => {
-          const range = c.high - c.low;
-          const bodyPct = range > 0 ? Math.round((Math.abs(c.close - c.open) / range) * 100) : 100;
-          const upperWickPct = range > 0 ? Math.round(((c.high - Math.max(c.open, c.close)) / range) * 100) : 0;
-          const lowerWickPct = range > 0 ? Math.round(((Math.min(c.open, c.close) - c.low) / range) * 100) : 0;
-          return `O:$${c.open}/H:$${c.high}/L:$${c.low}/C:$${c.close}/V:${c.volume} (Body:${bodyPct}%|TopWick:${upperWickPct}%|BotWick:${lowerWickPct}%)`;
-        }).join(' | ')}]`
-      : '';
-    return `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | VolSurge=${volumeSurgeRatio}x | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels\n${candleText}`;
-  })
-  .join('\n')}
+${mtfText}
 
 Provide the Output matching the mode constraints.`;
 }
+
