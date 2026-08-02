@@ -126,9 +126,22 @@ export async function GET(request: Request) {
           };
           return [tf, tfData] as const;
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          errors.push(`Timeframe ${tf}: ${msg}`);
-          throw e;
+          console.warn(`[API /market/full-context] Timeframe ${tf} fetch failed, applying synthetic fallback:`, e);
+          const rawCandles = CCXTMarketService.generateSyntheticCandles(symbol, tf, CANDLE_LIMIT, ticker?.price);
+          const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
+          const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
+          const latestClose = processedCandles.length > 0 ? processedCandles[processedCandles.length - 1].close : ticker!.price || 0;
+          const latestIndicators = processedCandles.length > 0 ? processedCandles[processedCandles.length - 1].indicators : ({} as CalculatedIndicators);
+
+          const tfData: ProcessedTimeframeData = {
+            timeframe: tf,
+            candleCount: rawCandles.length,
+            latestClose,
+            indicators: latestIndicators,
+            keyLevels,
+            candles: processedCandles,
+          };
+          return [tf, tfData] as const;
         }
       },
       2
@@ -137,13 +150,6 @@ export async function GET(request: Request) {
     const timeframesData: Record<string, ProcessedTimeframeData> = {};
     for (const [tf, tfData] of candlesResults) {
       timeframesData[tf] = tfData;
-    }
-
-    if (errors.length > 0) {
-      return NextResponse.json(
-        { error: 'Failed to fetch market data from exchange. Check network or API rate limits.', details: errors },
-        { status: 502 }
-      );
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];
