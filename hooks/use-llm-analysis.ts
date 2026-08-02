@@ -83,6 +83,11 @@ export function useLLMAnalysis() {
         markdown_report: text,
         pine_script: pineCode,
         created_at: new Date().toISOString(),
+        accuracy_evaluation: {
+          status: 'PENDING',
+          current_price: contextPayload.ticker?.price || 0,
+          pnl_percentage: 0,
+        },
       };
       AppStorageEngine.saveAnalysis(record);
     } catch (e) {

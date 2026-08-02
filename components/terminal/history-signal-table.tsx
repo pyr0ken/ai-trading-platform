@@ -160,8 +160,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                   </td>
                   <td className="py-3 px-3">
                     {(() => {
-                      const evalData = record.accuracy_evaluation;
-                      if (!evalData) return <span className="text-[#5e616e] italic">Not Evaluated</span>;
+                      const evalData = record.accuracy_evaluation || { status: 'PENDING', pnl_percentage: 0 };
                       const status = evalData.status;
                       const pnl = evalData.pnl_percentage ?? 0;
                       if (status === 'PENDING') {

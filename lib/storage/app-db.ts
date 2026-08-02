@@ -192,7 +192,15 @@ export class AppStorageEngine {
     if (this.cachedAnalyses) return this.cachedAnalyses;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.ANALYSES);
-      this.cachedAnalyses = data ? JSON.parse(data) : [];
+      const parsed: StoredAnalysisRecord[] = data ? JSON.parse(data) : [];
+      this.cachedAnalyses = parsed.map((rec) => ({
+        ...rec,
+        accuracy_evaluation: rec.accuracy_evaluation || {
+          status: 'PENDING',
+          current_price: rec.price,
+          pnl_percentage: 0,
+        },
+      }));
     } catch {
       this.cachedAnalyses = [];
     }
@@ -202,7 +210,14 @@ export class AppStorageEngine {
   public static saveAnalyses(list: StoredAnalysisRecord[]): void {
     if (typeof window === 'undefined') return;
     try {
-      const capped = list.slice(0, 100);
+      const capped = list.map((rec) => ({
+        ...rec,
+        accuracy_evaluation: rec.accuracy_evaluation || {
+          status: 'PENDING',
+          current_price: rec.price,
+          pnl_percentage: 0,
+        },
+      })).slice(0, 100);
       this.cachedAnalyses = capped;
       localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(capped));
     } catch (e) {
@@ -213,6 +228,13 @@ export class AppStorageEngine {
   public static saveAnalysis(record: StoredAnalysisRecord): void {
     if (typeof window === 'undefined') return;
     try {
+      if (!record.accuracy_evaluation) {
+        record.accuracy_evaluation = {
+          status: 'PENDING',
+          current_price: record.price,
+          pnl_percentage: 0,
+        };
+      }
       const list = this.getAnalyses();
       const updated = [record, ...list.filter((a) => a.id !== record.id)].slice(0, 100);
       this.saveAnalyses(updated);
