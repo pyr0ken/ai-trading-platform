@@ -3,7 +3,20 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowRight, ChevronDown, ChevronUp, FileText, Compass, Sparkles, Copy, Check, Share2, Code2 } from 'lucide-react';
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Sparkles,
+  Copy,
+  Check,
+  Zap,
+  Target,
+  ShieldCheck,
+  Code2,
+  Cpu,
+} from 'lucide-react';
 import { AnalysisSkeleton } from './analysis-skeleton';
 import { LogStep } from './live-status-logger';
 import { StructuredLLMOutput } from '@/types/terminal';
@@ -71,63 +84,89 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
 
   if (!hasRun && !content) {
     return (
-      <div className="bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] rounded-[12px] p-6 md:p-8 min-h-[720px] flex flex-col justify-between relative overflow-hidden shadow-2xl transition-all duration-300">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#cc9166]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] rounded-[10px] p-6 min-h-[580px] flex flex-col justify-between relative overflow-hidden shadow-2xl transition-all duration-300">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#cc9166]/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Top Feature Tag */}
-        <div className="space-y-6 relative z-10">
-          <div className="flex items-center justify-between border-b border-[#1c1d22] pb-4">
+        {/* Card Header */}
+        <div className="space-y-5 relative z-10">
+          <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3.5">
             <div className="flex items-center gap-2 text-xs font-mono text-[#cc9166]">
-              <Sparkles className="w-4 h-4" />
-              <span>AI QUANT SIGNAL TERMINAL</span>
+              <Cpu className="w-4 h-4 text-[#cc9166]" />
+              <span className="font-bold tracking-wide uppercase">AI QUANT SIGNAL TERMINAL</span>
             </div>
-            <span className="text-[10px] font-mono bg-[#121317] border border-[#1c1d22] px-2.5 py-1 rounded-[6px] text-[#9194a1] uppercase">
-              {analysisMode} Horizon
-            </span>
+            <div className="flex items-center gap-2 font-mono text-[10px]">
+              <span className="bg-[#121317] border border-[#1c1d22] px-2.5 py-0.5 rounded-[4px] text-[#9194a1]">
+                {symbol}
+              </span>
+              <span className="bg-[#121317] border border-[#1c1d22] px-2.5 py-0.5 rounded-[4px] text-[#cc9166] uppercase">
+                {exchange.toUpperCase()} ({timeframe})
+              </span>
+            </div>
           </div>
 
-          <div className="space-y-2 pt-2">
-            <span className="text-[11px] font-mono text-[#cc9166] uppercase tracking-wider block">
-              Autonomous Deep Intelligence
-            </span>
-            <h2 className="font-ivy-presto text-[32px] md:text-[42px] font-normal text-[#ffffff] leading-tight">
-              AI Signal Engine
+          {/* Title & Description */}
+          <div className="space-y-1.5">
+            <h2 className="font-ivy-presto text-[28px] md:text-[36px] font-normal text-[#ffffff] leading-tight">
+              Autonomous AI Signal Engine
             </h2>
-            <p className="text-xs text-[#9194a1] leading-relaxed max-w-md font-sans">
-              Synthesizing multi-timeframe OHLCV, server-side indicators, order book microstructure, and macro sentiment into an executive trade setup with visual level mapping and Pine Script v5 export.
+            <p className="text-xs text-[#9194a1] leading-relaxed max-w-lg font-sans">
+              Synthesizing multi-timeframe OHLCV, server-side indicators, order book microstructure, and macro sentiment into an executive trade setup with Pine Script v5 export.
             </p>
           </div>
 
-          {/* Key Intelligence Pillars */}
-          <div className="grid grid-cols-1 gap-2.5 pt-2 text-xs font-mono">
-            <div className="flex items-center gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-[8px]">
-              <span className="w-2 h-2 rounded-full bg-[#cc9166]" />
-              <span className="text-[#e2e3e9]">Multi-Timeframe Trend &amp; Confluence Radar</span>
+          {/* Minimal 2x2 Feature Matrix */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs font-mono">
+            <div className="bg-[#121317] border border-[#1c1d22] p-3 rounded-[8px] space-y-1">
+              <div className="flex items-center gap-1.5 text-[#cc9166] font-bold text-[11px]">
+                <Zap className="w-3.5 h-3.5 text-[#cc9166]" />
+                <span>Multi-Timeframe Radar</span>
+              </div>
+              <p className="text-[10px] text-[#9194a1] font-sans">
+                Scans 5m, 15m, 1h, 4h &amp; 1D confluence across trend and momentum
+              </p>
             </div>
-            <div className="flex items-center gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-[8px]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-[#e2e3e9]">Deterministic Preflight Fact-Checking</span>
+
+            <div className="bg-[#121317] border border-[#1c1d22] p-3 rounded-[8px] space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px]">
+                <Target className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Trade Setup Calculator</span>
+              </div>
+              <p className="text-[10px] text-[#9194a1] font-sans">
+                Optimal Entry range, Stop Loss, Take Profit 1–3 &amp; Leverage bounds
+              </p>
             </div>
-            <div className="flex items-center gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-[8px]">
-              <span className="w-2 h-2 rounded-full bg-rose-400" />
-              <span className="text-[#e2e3e9]">Risk &amp; Leverage Position Calculator</span>
+
+            <div className="bg-[#121317] border border-[#1c1d22] p-3 rounded-[8px] space-y-1">
+              <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[11px]">
+                <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
+                <span>Risk &amp; Invalidation Scan</span>
+              </div>
+              <p className="text-[10px] text-[#9194a1] font-sans">
+                Orderbook delta, CVD &amp; liquidity pool fact-checking before execution
+              </p>
+            </div>
+
+            <div className="bg-[#121317] border border-[#1c1d22] p-3 rounded-[8px] space-y-1">
+              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[11px]">
+                <Code2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pine Script v5 Export</span>
+              </div>
+              <p className="text-[10px] text-[#9194a1] font-sans">
+                Generates copyable TradingView indicator script for visual charting
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Execution Action */}
-        <div className="w-full space-y-4 pt-6 border-t border-[#1c1d22] relative z-10">
-          <div className="flex items-center justify-between text-xs font-mono text-[#5e616e]">
-            <span>Symbol: <strong className="text-[#e2e3e9]">{symbol}</strong></span>
-            <span>Venue: <strong className="text-[#cc9166]">{exchange.toUpperCase()} ({timeframe})</strong></span>
-          </div>
-
+        {/* Action Footer */}
+        <div className="pt-6 border-t border-[#1c1d22] relative z-10 space-y-2">
           <button
             onClick={onRunAnalysis}
-            className="w-full py-3.5 px-6 rounded-[9999px] bg-gradient-to-r from-[#cc9166] via-[#ae9357] to-[#cc9166] text-[#08080a] text-xs font-bold font-sans tracking-wide hover:brightness-110 active:scale-98 transition-all cursor-pointer shadow-[0_0_20px_rgba(204,145,102,0.3)] flex items-center justify-center gap-2"
+            className="w-full py-3.5 px-6 rounded-[9999px] bg-gradient-to-r from-[#cc9166] via-[#ae9357] to-[#cc9166] text-[#08080a] text-xs font-bold font-sans tracking-wide hover:brightness-110 active:scale-98 transition-all cursor-pointer shadow-[0_0_20px_rgba(204,145,102,0.35)] flex items-center justify-center gap-2"
           >
             <Sparkles className="w-4 h-4 fill-[#08080a]" />
-            <span>Run AI Quant Analysis ({symbol})</span>
+            <span>Execute AI Quant Analysis ({symbol})</span>
             <ArrowRight className="w-4 h-4 ml-1" />
           </button>
         </div>

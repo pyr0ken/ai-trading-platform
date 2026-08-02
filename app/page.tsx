@@ -250,13 +250,8 @@ export default function DashboardPage() {
                     onReplayAnalysis={handleReplayAnalysis}
                     watchlistOpen={watchlistOpen}
                     onWatchlistOpened={() => setWatchlistOpen(false)}
-                  />
-
-                  {/* Dashboard Layout System Toolbar */}
-                  <DashboardLayoutToolbar
-                    config={layoutConfig}
-                    onChangeConfig={setLayoutConfig}
-                    isStreaming={isStreaming}
+                    layoutConfig={layoutConfig}
+                    onChangeLayoutConfig={setLayoutConfig}
                   />
                 </div>
 
