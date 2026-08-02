@@ -211,52 +211,7 @@ export class NewsService {
 
     await Promise.allSettled(fetchPromises);
 
-    // Premium fallback articles if all RSS feeds failed
-    if (articles.length === 0) {
-      articles.push(
-        {
-          title: 'Federal Reserve Signals Interest Rate Policy Benchmark Update',
-          summary: 'Global financial liquidity expectations shift as central banks adjust macroeconomic frameworks amid shifting inflation dynamics.',
-          source: 'Market Intelligence',
-          url: 'https://cointelegraph.com',
-          published_at: new Date().toISOString(),
-          sentimentScore: 0.0,
-          category: 'macro',
-          articleId: 'news_fallback_1',
-        },
-        {
-          title: 'Bitcoin Institutional Inflows Reach Monthly High Across Major ETFs',
-          summary: 'Institutional asset managers continue accumulating spot Bitcoin allocations at the fastest pace in three months.',
-          source: 'Crypto Market',
-          url: 'https://coindesk.com',
-          published_at: new Date().toISOString(),
-          sentimentScore: 0.5,
-          category: 'market',
-          articleId: 'news_fallback_2',
-        },
-        {
-          title: 'Ethereum Layer-2 Ecosystem TVL Surpasses $50B Milestone',
-          summary: 'The combined total value secured across major Ethereum scaling solutions reaches a new all-time high.',
-          source: 'Crypto Market',
-          url: 'https://theblockcrypto.com',
-          published_at: new Date().toISOString(),
-          sentimentScore: 0.25,
-          category: 'protocol',
-          articleId: 'news_fallback_3',
-        },
-        {
-          title: 'SEC Announces Extended Review Period for Multiple Spot Crypto ETFs',
-          summary: 'Market participants await regulatory clarity as the commission extends its deliberation window.',
-          source: 'Market Intelligence',
-          url: 'https://cointelegraph.com',
-          published_at: new Date().toISOString(),
-          sentimentScore: -0.25,
-          category: 'regulatory',
-          articleId: 'news_fallback_4',
-        }
-      );
-    }
-
+    // Return empty array if all RSS feeds failed — NEVER return fake hardcoded articles
     return articles.sort(
       (a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
     );

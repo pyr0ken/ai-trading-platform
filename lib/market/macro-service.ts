@@ -57,9 +57,10 @@ export class MacroSentimentService {
       // Ignored
     }
 
+    // Return nulls if API fails — NEVER return fake hardcoded "58 Greed"
     return {
-      value: 58,
-      classification: 'Greed',
+      value: null as unknown as number,
+      classification: 'Data Unavailable (N/A)',
       timestamp: String(Math.floor(Date.now() / 1000)),
     };
   }
@@ -77,21 +78,23 @@ export class MacroSentimentService {
           0
         );
 
-        return {
-          totalStablecoinMarketCapUsd: totalCap ? Number(totalCap.toFixed(2)) : 162500000000,
-          topStablecoins: {},
-          timestampUtc: new Date().toISOString(),
-        };
+        if (totalCap && totalCap > 0) {
+          return {
+            totalStablecoinMarketCapUsd: Number(totalCap.toFixed(2)),
+            topStablecoins: {},
+            timestampUtc: new Date().toISOString(),
+          };
+        }
       }
     } catch {
       // Ignored
     }
 
+    // Return null if API fails — NEVER return fake hardcoded 162.5B
     return {
-      totalStablecoinMarketCapUsd: 162500000000,
+      totalStablecoinMarketCapUsd: null as unknown as number,
       topStablecoins: {},
       timestampUtc: new Date().toISOString(),
     };
   }
 }
-

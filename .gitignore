@@ -43,3 +43,9 @@ next-env.d.ts
 # hermes agent configs & plans
 .hermes/
 
+# llm prompt logs
+/logs/
+/logs/*
+logs/
+
+

@@ -12,7 +12,7 @@ Your task is to analyze the provided cryptocurrency market payload (OHLCV candle
 CRITICAL DISCIPLINE & RULES:
 1. NEVER invent or hallucinate price levels, data, or indicators. Rely strictly on the quantitative payload provided.
 2. DO NOT output generic chatbot conversational filler. Start directly with Section 1.
-3. CRITICAL RISK RULE: You must respect the deterministic ATR-based trade thresholds provided in the user prompt. Do not set stop losses that violate the risk buffers unless you provide a clear, detailed technical justification (such as structure break or key order block invalidation).
+3. CRITICAL RISK RULE: You must structure trades with a minimum Risk-to-Reward ratio of 1:1.8. Place Stop Loss beyond market liquidity sweeps or key order block invalidations. Do not place tight stop losses that are easily hunted by noise.
 4. CLOSED-LOOP LEARNING: Review any provided historical performance logs of your recent predictions for the target asset. If recent predictions resulted in losses or invalidations, identify what went wrong (e.g., trading against trend, entering inside ranges) and adjust your strategy to maximize win rate.
 5. Structure your response into EXACTLY TWO SECTIONS:
 
@@ -164,16 +164,30 @@ RAW QUANTITATIVE MARKET DATA PAYLOAD (SUMMARIZED — USE THE DETERMINISTIC FACTS
 - Macro: Fear&Greed=${marketContext.macroSentiment?.fearAndGreed?.value ?? 'N/A'} (${marketContext.macroSentiment?.fearAndGreed?.classification ?? 'N/A'}) | Stablecoin Mcap=$${marketContext.macroSentiment?.stablecoinLiquidity?.totalStablecoinMarketCapUsd ?? 'N/A'}
 - News Sentiment Index: ${marketContext.news?.newsSentimentIndex ?? 0} (${newsSentimentLabel})
 
-MULTI-TIMEFRAME INDICATORS & RECENT CANDLES:
+MULTI-TIMEFRAME INDICATORS & PRICE ACTION ANATOMY:
 ${Object.entries(marketContext.timeframes || {})
   .map(([tf, td]) => {
     const ind = td?.indicators;
     if (!ind) return `- ${tf}: no data`;
-    const recent5 = (td.candles || []).slice(-5);
+    const candles = td.candles || [];
+    const recent5 = candles.slice(-5);
+    
+    // Calculate Volume Surge Ratio
+    const slice20 = candles.slice(-20);
+    const avgVol20 = slice20.length > 0 ? slice20.reduce((acc, c) => acc + c.volume, 0) / slice20.length : 1;
+    const latestVol = candles.length > 0 ? candles[candles.length - 1].volume : 0;
+    const volumeSurgeRatio = avgVol20 > 0 ? Number((latestVol / avgVol20).toFixed(2)) : 1.0;
+
     const candleText = recent5.length > 0
-      ? `  Recent 5 Candles (OHLCV): [${recent5.map(c => `O:$${c.open}/H:$${c.high}/L:$${c.low}/C:$${c.close}/V:${c.volume}`).join(' | ')}]`
+      ? `  Recent 5 Candles Anatomy (O/H/L/C/V): [${recent5.map(c => {
+          const range = c.high - c.low;
+          const bodyPct = range > 0 ? Math.round((Math.abs(c.close - c.open) / range) * 100) : 100;
+          const upperWickPct = range > 0 ? Math.round(((c.high - Math.max(c.open, c.close)) / range) * 100) : 0;
+          const lowerWickPct = range > 0 ? Math.round(((Math.min(c.open, c.close) - c.low) / range) * 100) : 0;
+          return `O:$${c.open}/H:$${c.high}/L:$${c.low}/C:$${c.close}/V:${c.volume} (Body:${bodyPct}%|TopWick:${upperWickPct}%|BotWick:${lowerWickPct}%)`;
+        }).join(' | ')}]`
       : '';
-    return `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | BB Upper/Lower=$${ind.bb_upper}/$${ind.bb_lower} | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels\n${candleText}`;
+    return `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | VolSurge=${volumeSurgeRatio}x | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels\n${candleText}`;
   })
   .join('\n')}
 
