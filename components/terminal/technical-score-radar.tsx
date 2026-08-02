@@ -10,7 +10,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from 'recharts';
-import { Award } from 'lucide-react';
+import { Award, Sparkles, RotateCw } from 'lucide-react';
 
 interface TechnicalScoreRadarProps {
   scores?: RadarScores | null;
@@ -21,11 +21,32 @@ export const TechnicalScoreRadar: React.FC<TechnicalScoreRadarProps> = ({
   scores,
   isLoading,
 }) => {
-  if (isLoading || !scores) {
+  if (isLoading) {
     return (
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] animate-pulse min-h-[300px]">
-        <div className="h-5 w-40 bg-[#121317] rounded-[9999px] mb-4" />
-        <div className="h-48 bg-[#121317] rounded-[10px]" />
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] flex flex-col items-center justify-center min-h-[220px] space-y-3">
+        <RotateCw className="w-6 h-6 text-[#cc9166] animate-spin" />
+        <span className="text-xs font-mono text-[#9194a1]">Calculating Quantitative Technical Scores...</span>
+      </div>
+    );
+  }
+
+  if (!scores) {
+    // Clean empty state when analysis hasn't been run yet
+    return (
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-3">
+        <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3">
+          <div className="flex items-center gap-2">
+            <Award className="w-4 h-4 text-[#cc9166]" />
+            <span className="eyebrow-copper">QUANT SCORES & RADAR</span>
+          </div>
+          <span className="text-xs text-[#5e616e] font-mono">Radar Matrix</span>
+        </div>
+        <div className="p-4 bg-[#121317]/50 border border-[#1c1d22] rounded-[8px] flex items-center justify-between text-xs">
+          <span className="text-[#9194a1]">Quant multi-axis radar score ready for calculation.</span>
+          <span className="text-[11px] font-mono text-[#cc9166] flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Press &quot;Run AI Quant&quot;
+          </span>
+        </div>
       </div>
     );
   }
@@ -91,4 +112,3 @@ export const TechnicalScoreRadar: React.FC<TechnicalScoreRadarProps> = ({
     </div>
   );
 };
-

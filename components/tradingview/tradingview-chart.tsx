@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { TradeSetup, StructuredLLMOutput } from '@/types/terminal';
-import { ShieldAlert, CheckCircle2, Copy, Check, PauseCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Copy, Check, PauseCircle, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
 import { getPipInfo } from '@/lib/constants/forex-pairs';
 
@@ -10,7 +10,9 @@ interface TradingViewChartProps {
   symbol: string;
   exchange: string;
   timeframe: string;
+  currentPrice?: number;
   setup?: TradeSetup | null;
+  onTimeframeChange?: (tf: string) => void;
 }
 
 export const TradingViewChart: React.FC<TradingViewChartProps> = ({
@@ -21,6 +23,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const mapResolution = useCallback((tf: string): string => {
     switch (tf) {
@@ -51,7 +54,12 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       return pipInfo.tradingViewSymbol; // e.g. OANDA:EURUSD, OANDA:XAUUSD
     }
 
-    return `${ex}:${cleanSymbol}`;
+    if (ex === 'KUCOIN') return `KUCOIN:${cleanSymbol}`;
+    if (ex === 'BINANCE') return `BINANCE:${cleanSymbol}`;
+    if (ex === 'BYBIT') return `BYBIT:${cleanSymbol}`;
+    if (ex === 'OKX') return `OKX:${cleanSymbol}`;
+
+    return `BINANCE:${cleanSymbol}`;
   }, []);
 
   useEffect(() => {
@@ -60,56 +68,107 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
     container.innerHTML = '';
 
+    const tvSymbol = formatTVSymbol(symbol, exchange);
+    const resolution = mapResolution(timeframe);
     const containerId = 'tv_chart_container_' + Math.random().toString(36).substring(2, 9);
-    const chartDiv = document.createElement('div');
-    chartDiv.id = containerId;
-    chartDiv.style.width = '100%';
-    chartDiv.style.height = '850px';
-    container.appendChild(chartDiv);
 
-    const initWidget = () => {
-      const win = window as unknown as { TradingView?: { widget: new (config: Record<string, unknown>) => unknown } };
-      if (typeof window !== 'undefined' && win.TradingView && containerRef.current?.contains(chartDiv)) {
-        new win.TradingView.widget({
-          autosize: false,
-          width: '100%',
-          height: 850,
-          symbol: formatTVSymbol(symbol, exchange),
-          interval: mapResolution(timeframe),
-          timezone: 'Etc/UTC',
-          theme: 'dark',
-          style: '1',
-          locale: 'en',
-          toolbar_bg: '#040406',
-          enable_publishing: false,
-          allow_symbol_change: true,
-          container_id: containerId,
-          hide_side_toolbar: false,
-        });
-      }
+    let widgetCreated = false;
+
+    const renderIframeFallback = () => {
+      if (widgetCreated || !containerRef.current) return;
+      containerRef.current.innerHTML = '';
+      const iframe = document.createElement('iframe');
+      const tvSymbolEsc = encodeURIComponent(tvSymbol);
+      iframe.src = `https://s3.tradingview.com/widgetembed/?frameElementId=tv_chart_iframe&symbol=${tvSymbolEsc}&interval=${resolution}&symboledit=1&saveimage=1&toolbarbg=040406&theme=dark&style=1&timezone=Etc%2FUTC&locale=en`;
+      iframe.style.width = '100%';
+      iframe.style.height = '510px';
+      iframe.style.border = 'none';
+      iframe.title = `TradingView Chart for ${tvSymbol}`;
+      containerRef.current.appendChild(iframe);
     };
 
-    const win = window as unknown as { TradingView?: unknown };
-    if (win.TradingView) {
-      initWidget();
-    } else {
+    const tryInitWidget = () => {
+      const win = window as unknown as { TradingView?: { widget: new (config: Record<string, unknown>) => unknown } };
+      if (typeof window !== 'undefined' && win.TradingView && containerRef.current) {
+        try {
+          containerRef.current.innerHTML = '';
+          const chartDiv = document.createElement('div');
+          chartDiv.id = containerId;
+          chartDiv.style.width = '100%';
+          chartDiv.style.height = '510px';
+          containerRef.current.appendChild(chartDiv);
+
+          new win.TradingView.widget({
+            autosize: true,
+            symbol: tvSymbol,
+            interval: resolution,
+            timezone: 'Etc/UTC',
+            theme: 'dark',
+            style: '1',
+            locale: 'en',
+            toolbar_bg: '#040406',
+            enable_publishing: false,
+            allow_symbol_change: true,
+            container_id: containerId,
+            hide_side_toolbar: false,
+          });
+          widgetCreated = true;
+          return true;
+        } catch {
+          renderIframeFallback();
+          return false;
+        }
+      }
+      return false;
+    };
+
+    if (!tryInitWidget()) {
       let script = document.querySelector('script[src="https://s3.tradingview.com/tv.js"]') as HTMLScriptElement | null;
       if (!script) {
         script = document.createElement('script');
         script.src = 'https://s3.tradingview.com/tv.js';
         script.async = true;
+        script.onload = () => tryInitWidget();
+        script.onerror = () => renderIframeFallback();
         document.head.appendChild(script);
+      } else {
+        script.addEventListener('load', () => tryInitWidget());
       }
-      script.addEventListener('load', initWidget, { once: true });
+
+      const pollTimer = setInterval(() => {
+        if (tryInitWidget()) {
+          clearInterval(pollTimer);
+        }
+      }, 150);
+
+      const fallbackTimer = setTimeout(() => {
+        clearInterval(pollTimer);
+        if (!widgetCreated) {
+          renderIframeFallback();
+        }
+      }, 2000);
+
+      return () => {
+        clearInterval(pollTimer);
+        clearTimeout(fallbackTimer);
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
+      };
     }
 
     return () => {
-      container.innerHTML = '';
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
     };
-  }, [symbol, exchange, timeframe, mapResolution, formatTVSymbol]);
+  }, [symbol, exchange, timeframe, refreshKey, mapResolution, formatTVSymbol]);
 
   const handleCopyPine = async () => {
-    const code = generateAdvancedPineScriptCode(setup ? ({ trade_setup: setup } as unknown as StructuredLLMOutput) : null, symbol);
+    const code = generateAdvancedPineScriptCode(
+      setup ? ({ trade_setup: setup } as unknown as StructuredLLMOutput) : null,
+      symbol
+    );
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
@@ -117,10 +176,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     } catch {}
   };
 
-  // ─── Position styling helpers ────────────────────────────────────────────────
-  const isLong     = setup?.position === 'LONG';
-  const isShort    = setup?.position === 'SHORT';
-  const isNeutral  = !setup || setup.position === 'NEUTRAL';
+  const isLong = setup?.position === 'LONG';
+  const isShort = setup?.position === 'SHORT';
+  const isNeutral = !setup || setup.position === 'NEUTRAL';
 
   const positionBadgeStyle = isLong
     ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
@@ -128,11 +186,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     ? 'bg-rose-950/80 text-rose-400 border border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.2)]'
     : 'bg-amber-950/60 text-amber-400 border border-amber-600/60';
 
-  const PositionIcon = isLong
-    ? TrendingUp
-    : isShort
-    ? TrendingDown
-    : PauseCircle;
+  const PositionIcon = isLong ? TrendingUp : isShort ? TrendingDown : PauseCircle;
 
   return (
     <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-4 flex flex-col w-full space-y-3">
@@ -141,34 +195,42 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-none bg-emerald-400 animate-pulse" />
           <span className="eyebrow-copper">
-            QUANT RECHARTS TARGET MAP
-          </span>
-          <span className="text-xs font-sans text-[#9194a1] hidden sm:inline">
-            • Pure Target Level Channels (Entry Zone, SL &amp; Take Profit Targets)
+            TRADINGVIEW ADVANCED LIVE CHART
           </span>
         </div>
 
-        <button
-          onClick={handleCopyPine}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-none text-xs font-mono transition-all cursor-pointer ${
-            copied
-              ? 'bg-emerald-400 text-[#08080a] font-bold'
-              : 'bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166] text-[#e2e3e9]'
-          }`}
-        >
-          {copied ? <Check className="w-3.5 h-3.5 text-[#08080a]" /> : <Copy className="w-3.5 h-3.5 text-[#cc9166]" />}
-          <span>{copied ? 'Pine Copied!' : 'Copy Pine Script for TV'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRefreshKey((prev) => prev + 1)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-mono bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166] text-[#9194a1] hover:text-[#e2e3e9] transition-all cursor-pointer"
+            title="Reload Chart Widget"
+          >
+            <RefreshCw className="w-3 h-3 text-[#cc9166]" />
+            <span>Reload Chart</span>
+          </button>
+
+          <button
+            onClick={handleCopyPine}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-none text-xs font-mono transition-all cursor-pointer ${
+              copied
+                ? 'bg-emerald-400 text-[#08080a] font-bold'
+                : 'bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166] text-[#e2e3e9]'
+            }`}
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-[#08080a]" /> : <Copy className="w-3.5 h-3.5 text-[#cc9166]" />}
+            <span>{copied ? 'Pine Copied!' : 'Copy Pine Script for TV'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* ── Floating Level Overlay Banner ─────────────────────────────────────── */}
+      {/* Floating Level Overlay Banner */}
       {setup && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-[#121317] border border-[#1c1d22] p-2.5 rounded-none text-xs font-mono">
-
-          {/* Position + Leverage badge — colour tied to direction */}
           <div className={`flex items-center gap-1.5 font-bold px-3 py-1 rounded-none ${positionBadgeStyle}`}>
             <PositionIcon className="w-3.5 h-3.5" />
-            <span>{setup.position} {setup.recommended_leverage && !isNeutral ? `(${setup.recommended_leverage})` : ''}</span>
+            <span>
+              {setup.position} {setup.recommended_leverage && !isNeutral ? `(${setup.recommended_leverage})` : ''}
+            </span>
             {!isNeutral && (
               <>
                 <span className="text-[#5e616e]">|</span>
@@ -177,7 +239,6 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
             )}
           </div>
 
-          {/* NEUTRAL: show a calm "no trade" notice instead of SL/TP/Entry */}
           {isNeutral ? (
             <div className="flex items-center gap-2 text-amber-400 bg-amber-950/40 border border-amber-800/50 px-3 py-1 rounded-none font-mono text-xs">
               <PauseCircle className="w-3.5 h-3.5" />
@@ -214,8 +275,8 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       {/* TradingView Widget Box */}
       <div
         ref={containerRef}
-        className="w-full h-[850px] rounded-none overflow-hidden shrink-0 border border-[#1c1d22]"
-        style={{ height: '850px', minHeight: '850px' }}
+        className="w-full h-[510px] rounded-none overflow-hidden shrink-0 border border-[#1c1d22] bg-[#040406]"
+        style={{ height: '510px', minHeight: '510px' }}
       />
     </div>
   );

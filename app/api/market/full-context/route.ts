@@ -103,7 +103,7 @@ export async function GET(request: Request) {
         try {
           const rawCandles: CandleData[] = isForex
             ? await ForexMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT)
-            : await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange);
+            : await CCXTMarketService.fetchOHLCV(symbol, tf, CANDLE_LIMIT, exchange, ticker.price);
 
           const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
           const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);

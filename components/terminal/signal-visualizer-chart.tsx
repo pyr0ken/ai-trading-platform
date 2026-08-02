@@ -1,211 +1,369 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { StructuredLLMOutput } from '@/types/terminal';
-import { Target, ArrowUpRight, ArrowDownRight, Zap, PauseCircle, Eye } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, PauseCircle, Zap, RefreshCw, BarChart2 } from 'lucide-react';
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Cell,
-  Tooltip,
-  LabelList,
-} from 'recharts';
+  createChart,
+  ColorType,
+  LineStyle,
+  CrosshairMode,
+  CandlestickSeries,
+  IChartApi,
+  ISeriesApi,
+  Time,
+} from 'lightweight-charts';
 
 interface SignalVisualizerChartProps {
   data?: StructuredLLMOutput | null;
   currentPrice?: number;
+  symbol?: string;
+  exchange?: string;
+  timeframe?: string;
 }
 
 export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
   data,
   currentPrice = 67420.5,
+  symbol = 'BTC/USDT',
+  exchange = 'kucoin',
+  timeframe = '15m',
 }) => {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+
+  const [isLoadingCandles, setIsLoadingCandles] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const setup = data?.trade_setup;
-  const isLong    = setup?.position === 'LONG';
-  const isShort   = setup?.position === 'SHORT';
+  const isLong = setup?.position === 'LONG';
+  const isShort = setup?.position === 'SHORT';
   const isNeutral = !setup || setup.position === 'NEUTRAL';
 
-  // ─── Badge styling per position ─────────────────────────────────────────────
+  // Position badge style
   const positionBadgeStyle = isLong
-    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+    ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
     : isShort
-    ? 'bg-rose-950 text-rose-300 border border-rose-800'
-    : 'bg-amber-950/60 text-amber-300 border border-amber-700/60';
+    ? 'bg-red-950/90 text-red-400 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
+    : 'bg-amber-950/60 text-amber-400 border border-amber-600/60';
 
   const PositionIcon = isLong ? ArrowUpRight : isShort ? ArrowDownRight : PauseCircle;
-  const positionLabel = isLong
-    ? 'BULLISH LONG'
-    : isShort
-    ? 'BEARISH SHORT'
-    : 'NEUTRAL / HOLD';
+  const positionLabel = isLong ? 'BULLISH LONG' : isShort ? 'BEARISH SHORT' : 'NEUTRAL / HOLD';
 
-  // ─── Derived chart values (computed before early return to satisfy Rules of Hooks) ──
-  const rawMin  = setup?.entry_range?.[0]  ?? (isLong ? currentPrice * 0.995 : currentPrice * 1.005);
-  const rawMax  = setup?.entry_range?.[1]  ?? (isLong ? currentPrice * 1.005 : currentPrice * 0.995);
-  const rawSL   = setup?.stop_loss         ?? (isLong ? currentPrice * 0.97  : currentPrice * 1.03);
-  const rawTP1  = setup?.take_profit_1     ?? (isLong ? currentPrice * 1.02  : currentPrice * 0.98);
-  const rawTP2  = setup?.take_profit_2     ?? (isLong ? currentPrice * 1.04  : currentPrice * 0.96);
-  const rawTP3  = setup?.take_profit_3     ?? (isLong ? currentPrice * 1.06  : currentPrice * 0.94);
+  // Derived setup values
+  const currP = Number(currentPrice);
+  const rawMin = setup?.entry_range?.[0] ?? (isLong ? currP * 0.995 : currP * 1.005);
+  const rawMax = setup?.entry_range?.[1] ?? (isLong ? currP * 1.005 : currP * 0.995);
+  const rawSL = setup?.stop_loss ?? (isLong ? currP * 0.97 : currP * 1.03);
+  const rawTP1 = setup?.take_profit_1 ?? (isLong ? currP * 1.02 : currP * 0.98);
+  const rawTP2 = setup?.take_profit_2 ?? (isLong ? currP * 1.04 : currP * 0.96);
+  const rawTP3 = setup?.take_profit_3 ?? (isLong ? currP * 1.06 : currP * 0.94);
 
   const entryMin = Number(rawMin);
   const entryMax = Number(rawMax);
   const stopLoss = Number(rawSL);
-  const tp1      = Number(rawTP1);
-  const tp2      = Number(rawTP2);
-  const tp3      = Number(rawTP3);
-  const currP    = Number(currentPrice);
+  const tp1 = Number(rawTP1);
+  const tp2 = Number(rawTP2);
+  const tp3 = Number(rawTP3);
 
-  const getPctDiff = useCallback((targetPrice: number) => {
-    const diff = ((targetPrice - currP) / currP) * 100;
-    return (diff >= 0 ? '+' : '') + diff.toFixed(2) + '%';
+  const getPctDiff = useCallback(
+    (targetPrice: number) => {
+      const diff = ((targetPrice - currP) / currP) * 100;
+      return (diff >= 0 ? '+' : '') + diff.toFixed(2) + '%';
+    },
+    [currP]
+  );
+
+  // Generate fallback candles if network fails or while loading
+  const generateFallbackCandles = useCallback(() => {
+    const candles = [];
+    const now = Math.floor(Date.now() / 1000);
+    const intervalSeconds = 15 * 60;
+    let base = currP * 0.98;
+
+    for (let i = 50; i >= 0; i--) {
+      const time = (now - i * intervalSeconds) as Time;
+      const volatility = base * 0.004;
+      const open = base + (Math.random() - 0.48) * volatility;
+      const high = open + Math.random() * volatility;
+      const low = open - Math.random() * volatility;
+      const close = (open + high + low) / 3;
+      base = close;
+
+      candles.push({
+        time,
+        open: Number(open.toFixed(2)),
+        high: Number(high.toFixed(2)),
+        low: Number(low.toFixed(2)),
+        close: Number(close.toFixed(2)),
+      });
+    }
+    return candles;
   }, [currP]);
 
-  const chartRows = useMemo(() => [
-    { level: 'TP3 Target', price: tp3,      color: '#84cc16', badge: getPctDiff(tp3) },
-    { level: 'TP2 Target', price: tp2,      color: '#14b8a6', badge: getPctDiff(tp2) },
-    { level: 'TP1 Target', price: tp1,      color: '#10b981', badge: getPctDiff(tp1) },
-    { level: 'Entry Range', price: entryMax, color: '#3b82f6', badge: `$${entryMin} - $${entryMax}` },
-    { level: 'Stop Loss',  price: stopLoss,  color: '#f43f5e', badge: getPctDiff(stopLoss) },
-  ], [tp3, tp2, tp1, entryMax, entryMin, stopLoss, getPctDiff]);
+  // Initialize TradingView Lightweight Chart
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
 
-  const minVal = useMemo(
-    () => Math.floor(Math.min(stopLoss, entryMin, tp1, tp2, tp3) * 0.98),
-    [stopLoss, entryMin, tp1, tp2, tp3]
-  );
-  const maxVal = useMemo(
-    () => Math.ceil(Math.max(stopLoss, entryMax, tp1, tp2, tp3) * 1.02),
-    [stopLoss, entryMax, tp1, tp2, tp3]
-  );
+    container.innerHTML = '';
 
-  // ─── NEUTRAL: render a minimal "no-trade" panel instead of the chart ───────
-  if (isNeutral) {
-    return (
-      <div className="bg-[#18181b]/95 border border-[#27272a] backdrop-blur-xl rounded-[24px] p-6 text-[#f5f5f4] shadow-2xl space-y-5 hover:border-[#fbe1d1]/40 transition-all duration-300">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#27272a] pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-950/40 border border-amber-700/50 flex items-center justify-center">
-              <Eye className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <h3 className="font-serif text-base font-semibold text-[#f5f5f4]">
-                QUANT RECHARTS TARGET MAP
-              </h3>
-              <span className="text-xs text-[#71717a] font-mono">
-                No trade levels to display — Observation mode active
-              </span>
-            </div>
-          </div>
+    const chart = createChart(container, {
+      layout: {
+        background: { type: ColorType.Solid, color: '#040406' },
+        textColor: '#9194a1',
+        fontSize: 11,
+        fontFamily: 'monospace',
+      },
+      grid: {
+        vertLines: { color: '#121317' },
+        horzLines: { color: '#121317' },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: '#cc9166', width: 1, style: LineStyle.Dashed },
+        horzLine: { color: '#cc9166', width: 1, style: LineStyle.Dashed },
+      },
+      rightPriceScale: {
+        borderColor: '#1c1d22',
+        scaleMargins: {
+          top: 0.15,
+          bottom: 0.15,
+        },
+      },
+      timeScale: {
+        borderColor: '#1c1d22',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      width: container.clientWidth,
+      height: 250,
+    });
 
-          <span className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-xs shadow-md ${positionBadgeStyle}`}>
-            <PauseCircle className="w-4 h-4" />
-            {positionLabel}
-          </span>
-        </div>
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#10b981',
+      downColor: '#ef4444',
+      borderVisible: false,
+      wickUpColor: '#10b981',
+      wickDownColor: '#ef4444',
+    });
 
-        {/* Neutral body */}
-        <div className="h-[200px] bg-[#0c0a09] border border-[#27272a] rounded-[20px] flex flex-col items-center justify-center gap-3 text-center px-6">
-          <PauseCircle className="w-8 h-8 text-amber-500/60" />
-          <p className="text-sm font-semibold text-amber-300">No Entry Signal Detected</p>
-          <p className="text-xs text-[#71717a] max-w-sm leading-relaxed">
-            The AI has returned a <strong className="text-amber-400">NEUTRAL / HOLD</strong> signal.
-            There are no active Entry, Stop Loss, or Take Profit levels to visualise.
-            Run a new analysis once market structure confirms a directional bias.
-          </p>
-        </div>
-      </div>
-    );
-  }
+    chartRef.current = chart;
+    seriesRef.current = candlestickSeries;
 
-  // ─── LONG / SHORT: full target-level chart ──────────────────────────────────
+    // Fetch real candles from API
+    let isSubscribed = true;
+    setIsLoadingCandles(true);
+
+    const fetchCandles = async () => {
+      try {
+        const since = Date.now() - 50 * 15 * 60 * 1000;
+        const res = await fetch(
+          `/api/market/history-ohlcv?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&timeframe=${timeframe}&since=${since}&limit=100`
+        );
+        if (!res.ok) throw new Error('API fetch failed');
+        const json = await res.json();
+        if (json.candles && json.candles.length > 0) {
+          const formatted = json.candles.map((c: { timestamp: number; open: number; high: number; low: number; close: number }) => ({
+            time: Math.floor(c.timestamp / 1000) as Time,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }));
+          // Remove duplicates and sort by time
+          const uniqueTimes = new Map();
+          formatted.forEach((item: { time: Time }) => uniqueTimes.set(item.time, item));
+          const sorted = Array.from(uniqueTimes.values()).sort((a, b) => (a.time as number) - (b.time as number));
+
+          if (isSubscribed && seriesRef.current) {
+            seriesRef.current.setData(sorted);
+            chart.timeScale().fitContent();
+          }
+        } else {
+          throw new Error('Empty candles');
+        }
+      } catch {
+        if (isSubscribed && seriesRef.current) {
+          const fallback = generateFallbackCandles();
+          seriesRef.current.setData(fallback);
+          chart.timeScale().fitContent();
+        }
+      } finally {
+        if (isSubscribed) setIsLoadingCandles(false);
+      }
+    };
+
+    fetchCandles();
+
+    // Add Trade Setup Price Lines to Series
+    if (setup && !isNeutral) {
+      // Entry Min & Max
+      candlestickSeries.createPriceLine({
+        price: entryMin,
+        color: '#3b82f6',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Entry Min: $${entryMin}`,
+      });
+
+      candlestickSeries.createPriceLine({
+        price: entryMax,
+        color: '#3b82f6',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Entry Max: $${entryMax}`,
+      });
+
+      // Stop Loss
+      candlestickSeries.createPriceLine({
+        price: stopLoss,
+        color: '#f43f5e',
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: `SL: $${stopLoss}`,
+      });
+
+      // Take Profits
+      candlestickSeries.createPriceLine({
+        price: tp1,
+        color: '#10b981',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `TP1: $${tp1}`,
+      });
+
+      candlestickSeries.createPriceLine({
+        price: tp2,
+        color: '#14b8a6',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `TP2: $${tp2}`,
+      });
+
+      candlestickSeries.createPriceLine({
+        price: tp3,
+        color: '#84cc16',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `TP3: $${tp3}`,
+      });
+    }
+
+    // Resize observer for dynamic layout adjustment
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!entries || entries.length === 0) return;
+      const { width } = entries[0].contentRect;
+      if (width > 0 && chartRef.current) {
+        chartRef.current.applyOptions({ width });
+      }
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      isSubscribed = false;
+      resizeObserver.disconnect();
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+    };
+  }, [symbol, exchange, timeframe, refreshKey, setup, isNeutral, entryMin, entryMax, stopLoss, tp1, tp2, tp3, generateFallbackCandles]);
+
   return (
-    <div className="bg-[#18181b]/95 border border-[#27272a] backdrop-blur-xl rounded-[24px] p-6 text-[#f5f5f4] shadow-2xl space-y-5 hover:border-[#fbe1d1]/40 transition-all duration-300">
+    <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-5 flex flex-col w-full space-y-4 shadow-2xl">
       {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#27272a] pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1c1d22]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#2a140d] border border-[#5d2a1a] flex items-center justify-center text-[#fbe1d1]">
-            <Target className="w-5 h-5 text-[#fbe1d1]" />
+          <div className="w-8 h-8 bg-[#121317] border border-[#1c1d22] flex items-center justify-center text-[#cc9166]">
+            <BarChart2 className="w-4 h-4 text-[#cc9166]" />
           </div>
           <div>
-            <h3 className="font-serif text-base font-semibold text-[#f5f5f4]">
-              QUANT RECHARTS TARGET MAP
-            </h3>
-            <span className="text-xs text-[#71717a] font-mono">
-              Pure Target Level Channels • Entry Zone, SL &amp; Take Profit Targets
+            <div className="flex items-center gap-2">
+              <h3 className="font-mono text-sm font-bold text-[#ffffff] uppercase tracking-wider">
+                TradingView Lightweight Target Map
+              </h3>
+              <span className="px-2 py-0.5 text-[10px] font-mono bg-[#121317] border border-[#1c1d22] text-[#9194a1]">
+                {symbol} • {exchange.toUpperCase()} • {timeframe}
+              </span>
+            </div>
+            <span className="text-xs text-[#5e616e] font-mono">
+              Live HTML5 Canvas Candlestick Chart with Dynamic Entry, SL &amp; TP Target Overlay
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">
-          {/* Position badge — colour is now direction-aware */}
-          <span className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-xs shadow-md ${positionBadgeStyle}`}>
-            <PositionIcon className="w-4 h-4" />
-            {positionLabel} {setup?.recommended_leverage ? `(${setup.recommended_leverage})` : ''}
+          <span className={`flex items-center gap-1.5 px-3 py-1 font-bold text-xs ${positionBadgeStyle}`}>
+            <PositionIcon className="w-3.5 h-3.5" />
+            {positionLabel} {setup?.recommended_leverage && !isNeutral ? `(${setup.recommended_leverage})` : ''}
           </span>
 
-          <div className="flex items-center gap-1 bg-[#121214] border border-[#27272a] px-3.5 py-1.5 rounded-full text-[#a1a1aa]">
-            <Zap className="w-4 h-4 text-[#fbe1d1]" />
-            <span>R:R <strong className="text-[#f5f5f4]">{setup?.risk_reward_ratio || '2.8'}R</strong></span>
-          </div>
+          {!isNeutral && (
+            <div className="flex items-center gap-1 bg-[#121317] border border-[#1c1d22] px-3 py-1 text-[#9194a1]">
+              <Zap className="w-3.5 h-3.5 text-[#cc9166]" />
+              <span>R:R <strong className="text-[#ffffff]">{setup?.risk_reward_ratio || '2.5'}R</strong></span>
+            </div>
+          )}
+
+          <button
+            onClick={() => setRefreshKey((prev) => prev + 1)}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166] text-[#9194a1] hover:text-[#e2e3e9] transition-all cursor-pointer"
+            title="Refresh Chart Data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#cc9166] ${isLoadingCandles ? 'animate-spin' : ''}`} />
+            <span>Reload</span>
+          </button>
         </div>
       </div>
 
-      {/* Recharts Target Bar Canvas */}
-      <div className="h-[380px] bg-[#0c0a09] border border-[#27272a] rounded-[20px] p-5 font-mono text-xs relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            layout="vertical"
-            data={chartRows}
-            margin={{ top: 20, right: 140, left: 20, bottom: 10 }}
-            barCategoryGap="25%"
-          >
-            <XAxis
-              type="number"
-              domain={[minVal, maxVal]}
-              stroke="#71717a"
-              tick={{ fill: '#a1a1aa', fontSize: 11 }}
-              tickFormatter={(val) => `$${val.toLocaleString()}`}
-            />
-            <YAxis
-              type="category"
-              dataKey="level"
-              stroke="#71717a"
-              tick={{ fill: '#f5f5f4', fontSize: 12, fontWeight: 'bold' }}
-              width={100}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#18181b',
-                borderColor: '#27272a',
-                borderRadius: '14px',
-                color: '#f5f5f4',
-                fontSize: '12px',
-                padding: '12px',
-              }}
-              formatter={(val) => {
-                if (val === undefined || val === null) return ['', 'Price Level'];
-                return [`$${Number(val).toLocaleString()}`, 'Price Level'];
-              }}
-            />
-            <Bar dataKey="price" radius={[0, 10, 10, 0]} barSize={28}>
-              {chartRows.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-              <LabelList
-                dataKey="price"
-                position="right"
-                formatter={(val) => {
-                  if (val === undefined || val === null) return '';
-                  return `$${Number(val).toLocaleString()}`;
-                }}
-                style={{ fill: '#f5f5f4', fontSize: '11px', fontWeight: 'bold' }}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Target Level Pills Summary */}
+      {setup && !isNeutral && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+          <div className="bg-[#121317] border border-blue-900/40 p-2 text-center">
+            <span className="text-[#5e616e] block text-[10px] uppercase">Entry Zone</span>
+            <span className="text-blue-400 font-bold">${entryMin} - ${entryMax}</span>
+          </div>
+
+          <div className="bg-[#121317] border border-rose-900/40 p-2 text-center">
+            <span className="text-[#5e616e] block text-[10px] uppercase">Stop Loss ({getPctDiff(stopLoss)})</span>
+            <span className="text-rose-400 font-bold">${stopLoss}</span>
+          </div>
+
+          <div className="bg-[#121317] border border-emerald-900/40 p-2 text-center">
+            <span className="text-[#5e616e] block text-[10px] uppercase">TP1 Target ({getPctDiff(tp1)})</span>
+            <span className="text-emerald-400 font-bold">${tp1}</span>
+          </div>
+
+          <div className="bg-[#121317] border border-teal-900/40 p-2 text-center">
+            <span className="text-[#5e616e] block text-[10px] uppercase">TP2 Target ({getPctDiff(tp2)})</span>
+            <span className="text-teal-400 font-bold">${tp2}</span>
+          </div>
+
+          <div className="bg-[#121317] border border-lime-900/40 p-2 text-center col-span-2 sm:col-span-1">
+            <span className="text-[#5e616e] block text-[10px] uppercase">TP3 Target ({getPctDiff(tp3)})</span>
+            <span className="text-lime-400 font-bold">${tp3}</span>
+          </div>
+        </div>
+      )}
+
+      {/* TradingView Lightweight Chart Container */}
+      <div className="relative w-full border border-[#1c1d22] bg-[#040406] overflow-hidden">
+        {isLoadingCandles && (
+          <div className="absolute inset-0 bg-[#040406]/70 backdrop-blur-xs flex items-center justify-center z-10 font-mono text-xs text-[#cc9166]">
+            <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+            <span>Loading TradingView Lightweight Chart...</span>
+          </div>
+        )}
+        <div ref={chartContainerRef} className="w-full h-[250px]" />
       </div>
     </div>
   );

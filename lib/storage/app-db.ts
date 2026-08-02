@@ -1,5 +1,6 @@
 import { StructuredLLMOutput } from '@/types/terminal';
 import { PaperPosition, PaperAccount } from '@/types/paper-trading';
+import { DashboardLayoutConfig, DEFAULT_LAYOUT_CONFIG } from '@/types/layout';
 
 /**
  * Browser Storage Engine for Local Persistence (IndexedDB + LocalStorage Wrapper)
@@ -64,6 +65,7 @@ const STORAGE_KEYS = {
   PINE_SCRIPTS: 'steep_quant_pinescripts_v2',
   PAPER_POSITIONS: 'steep_quant_paper_positions_v2',
   PAPER_ACCOUNT: 'steep_quant_paper_account_v2',
+  LAYOUT: 'steep_quant_layout_v1',
 };
 
 const DEFAULT_SESSION: SessionState = {
@@ -94,6 +96,30 @@ export class AppStorageEngine {
   private static cachedChats: StoredChatMessage[] | null = null;
   private static cachedPaperAccount: PaperAccount | null = null;
   private static cachedPaperPositions: PaperPosition[] | null = null;
+  private static cachedLayout: DashboardLayoutConfig | null = null;
+
+  // --- Layout Configuration Persistence ---
+  public static getLayoutConfig(): DashboardLayoutConfig {
+    if (typeof window === 'undefined') return DEFAULT_LAYOUT_CONFIG;
+    if (this.cachedLayout) return this.cachedLayout;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.LAYOUT);
+      this.cachedLayout = data ? { ...DEFAULT_LAYOUT_CONFIG, ...JSON.parse(data) } : DEFAULT_LAYOUT_CONFIG;
+    } catch {
+      this.cachedLayout = DEFAULT_LAYOUT_CONFIG;
+    }
+    return this.cachedLayout || DEFAULT_LAYOUT_CONFIG;
+  }
+
+  public static saveLayoutConfig(config: DashboardLayoutConfig): void {
+    if (typeof window === 'undefined') return;
+    try {
+      this.cachedLayout = config;
+      localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(config));
+    } catch (e) {
+      console.warn('LocalStorage saveLayoutConfig error:', e);
+    }
+  }
 
   // --- Session Restoration ---
   public static getSession(): SessionState {
@@ -192,7 +218,15 @@ export class AppStorageEngine {
     if (this.cachedAnalyses) return this.cachedAnalyses;
     try {
       const data = localStorage.getItem(STORAGE_KEYS.ANALYSES);
-      this.cachedAnalyses = data ? JSON.parse(data) : [];
+      const parsed: StoredAnalysisRecord[] = data ? JSON.parse(data) : [];
+      this.cachedAnalyses = parsed.map((rec) => ({
+        ...rec,
+        accuracy_evaluation: rec.accuracy_evaluation || {
+          status: 'PENDING',
+          current_price: rec.price,
+          pnl_percentage: 0,
+        },
+      }));
     } catch {
       this.cachedAnalyses = [];
     }
@@ -202,7 +236,14 @@ export class AppStorageEngine {
   public static saveAnalyses(list: StoredAnalysisRecord[]): void {
     if (typeof window === 'undefined') return;
     try {
-      const capped = list.slice(0, 100);
+      const capped = list.map((rec) => ({
+        ...rec,
+        accuracy_evaluation: rec.accuracy_evaluation || {
+          status: 'PENDING',
+          current_price: rec.price,
+          pnl_percentage: 0,
+        },
+      })).slice(0, 100);
       this.cachedAnalyses = capped;
       localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(capped));
     } catch (e) {
@@ -213,6 +254,13 @@ export class AppStorageEngine {
   public static saveAnalysis(record: StoredAnalysisRecord): void {
     if (typeof window === 'undefined') return;
     try {
+      if (!record.accuracy_evaluation) {
+        record.accuracy_evaluation = {
+          status: 'PENDING',
+          current_price: record.price,
+          pnl_percentage: 0,
+        };
+      }
       const list = this.getAnalyses();
       const updated = [record, ...list.filter((a) => a.id !== record.id)].slice(0, 100);
       this.saveAnalyses(updated);

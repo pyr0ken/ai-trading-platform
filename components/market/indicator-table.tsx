@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ProcessedTimeframeData } from '@/types/market';
+import { Sliders, Sparkles, RotateCw } from 'lucide-react';
 
 interface IndicatorTableProps {
   timeframeData?: ProcessedTimeframeData;
@@ -9,33 +10,57 @@ interface IndicatorTableProps {
 }
 
 export const IndicatorTable: React.FC<IndicatorTableProps> = ({ timeframeData, isLoading }) => {
-  if (isLoading || !timeframeData) {
+  if (isLoading) {
     return (
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] animate-pulse min-h-[220px]">
-        <div className="h-5 w-48 bg-[#121317] rounded-none mb-4" />
-        <div className="h-32 bg-[#121317] rounded-none" />
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] flex flex-col items-center justify-center min-h-[160px] space-y-2">
+        <RotateCw className="w-5 h-5 text-[#cc9166] animate-spin" />
+        <span className="text-xs font-mono text-[#9194a1]">Calculating Technical Indicators (EMA, RSI, MACD, ATR, ADX)...</span>
+      </div>
+    );
+  }
+
+  if (!timeframeData) {
+    return (
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-3">
+        <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-[#cc9166]" />
+            <span className="eyebrow-copper">QUANTITATIVE INDICATORS</span>
+          </div>
+          <span className="text-xs text-[#5e616e] font-mono">Technical Matrix</span>
+        </div>
+        <div className="p-3 bg-[#121317]/50 border border-[#1c1d22] rounded-[8px] flex items-center justify-between text-xs">
+          <span className="text-[#9194a1]">Technical indicator matrix (EMA, RSI, MACD, Key Levels) ready.</span>
+          <span className="text-[11px] font-mono text-[#cc9166] flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Press &quot;Run AI Quant&quot;
+          </span>
+        </div>
       </div>
     );
   }
 
   const ind = timeframeData.indicators;
   const keyLevels = timeframeData.keyLevels;
+  const res1 = keyLevels?.resistanceLevels?.[0] ?? 0;
+  const res2 = keyLevels?.resistanceLevels?.[1] ?? keyLevels?.resistanceLevels?.[0] ?? 0;
+  const sup1 = keyLevels?.supportLevels?.[0] ?? 0;
+  const sup2 = keyLevels?.supportLevels?.[1] ?? keyLevels?.supportLevels?.[0] ?? 0;
 
   return (
-    <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9]">
+    <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9]">
       <div className="flex items-center justify-between border-b border-[#1c1d22] pb-4 mb-5">
         <div>
           <span className="eyebrow-copper block mb-1">QUANTITATIVE INDICATORS</span>
           <h3 className="text-xl font-ivy-presto text-[#ffffff]">Technical Indicators ({timeframeData.timeframe})</h3>
         </div>
-        <span className="font-mono text-[11px] bg-[#121317] text-[#e2e3e9] border border-[#1c1d22] px-3 py-1 rounded-none">
-          CLOSE: ${timeframeData.latestClose}
+        <span className="font-mono text-[11px] bg-[#121317] text-[#e2e3e9] border border-[#1c1d22] px-3 py-1 rounded-[6px]">
+          CLOSE: ${timeframeData.latestClose?.toLocaleString()}
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
-        {/* Moving Averages - ZERO BORDER RADIUS */}
-        <div className="bg-[#121317] border border-[#1c1d22] rounded-none p-4 space-y-2.5">
+        {/* Moving Averages */}
+        <div className="bg-[#121317] border border-[#1c1d22] rounded-[8px] p-4 space-y-2.5">
           <h4 className="eyebrow-fog text-[10px] border-b border-[#1c1d22] pb-2 uppercase">
             EXPONENTIAL MOVING AVERAGES
           </h4>
@@ -57,80 +82,72 @@ export const IndicatorTable: React.FC<IndicatorTableProps> = ({ timeframeData, i
           </div>
         </div>
 
-        {/* RSI & MACD - ZERO BORDER RADIUS */}
-        <div className="bg-[#121317] border border-[#1c1d22] rounded-none p-4 space-y-2.5">
+        {/* RSI & MACD */}
+        <div className="bg-[#121317] border border-[#1c1d22] rounded-[8px] p-4 space-y-2.5">
           <h4 className="eyebrow-fog text-[10px] border-b border-[#1c1d22] pb-2 uppercase">
-            MOMENTUM (RSI & MACD)
+            OSCILLATORS & MOMENTUM
           </h4>
           <div className="flex justify-between">
             <span className="text-[#9194a1]">RSI (14):</span>
-            <span className="font-mono text-[#e2e3e9]">{ind.rsi_14} ({ind.rsi_condition})</span>
+            <span className="font-mono text-[#cc9166] font-bold">{ind.rsi_14}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-[#9194a1]">MACD LINE:</span>
             <span className="font-mono text-[#e2e3e9]">{ind.macd_line}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#9194a1]">MACD HIST:</span>
-            <span className="font-mono text-[#e2e3e9]">{ind.macd_hist}</span>
+            <span className="text-[#9194a1]">SIGNAL LINE:</span>
+            <span className="font-mono text-[#9194a1]">{ind.macd_signal}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#9194a1]">MACD SIGNAL:</span>
-            <span className="font-mono text-emerald-400 font-bold">{ind.macd_condition}</span>
+            <span className="text-[#9194a1]">CONDITION:</span>
+            <span className="font-mono text-emerald-400 font-bold text-[10px]">{ind.macd_condition}</span>
           </div>
         </div>
 
-        {/* Volatility & VWAP - ZERO BORDER RADIUS */}
-        <div className="bg-[#121317] border border-[#1c1d22] rounded-none p-4 space-y-2.5">
+        {/* Volatility & Trend */}
+        <div className="bg-[#121317] border border-[#1c1d22] rounded-[8px] p-4 space-y-2.5">
           <h4 className="eyebrow-fog text-[10px] border-b border-[#1c1d22] pb-2 uppercase">
-            VOLATILITY & VWAP
+            VOLATILITY & STRENGTH
           </h4>
-          <div className="flex justify-between">
-            <span className="text-[#9194a1]">BB UPPER:</span>
-            <span className="font-mono text-rose-400 font-bold">${ind.bb_upper}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-[#9194a1]">BB LOWER:</span>
-            <span className="font-mono text-emerald-400 font-bold">${ind.bb_lower}</span>
-          </div>
           <div className="flex justify-between">
             <span className="text-[#9194a1]">ATR (14):</span>
             <span className="font-mono text-[#e2e3e9]">${ind.atr_14}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[#9194a1]">VWAP:</span>
-            <span className="font-mono text-[#cc9166] font-bold">${ind.vwap ?? 'N/A'}</span>
+            <span className="text-[#9194a1]">ADX (TREND):</span>
+            <span className="font-mono text-[#cc9166] font-bold">{ind.adx_14 ?? 'N/A'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#9194a1]">BOLLINGER HIGH:</span>
+            <span className="font-mono text-emerald-400">${ind.bb_upper}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#9194a1]">BOLLINGER LOW:</span>
+            <span className="font-mono text-rose-400">${ind.bb_lower}</span>
           </div>
         </div>
 
-        {/* Support & Resistance Levels - ZERO BORDER RADIUS */}
-        <div className="bg-[#121317] border border-[#1c1d22] rounded-none p-4 space-y-2.5">
+        {/* Key Pivot Support & Resistance */}
+        <div className="bg-[#121317] border border-[#1c1d22] rounded-[8px] p-4 space-y-2.5">
           <h4 className="eyebrow-fog text-[10px] border-b border-[#1c1d22] pb-2 uppercase">
-            KEY S&R LEVELS
+            PIVOT LEVELS & ZONES
           </h4>
-          <div>
-            <span className="text-rose-400 font-bold block mb-1">RESISTANCES:</span>
-            <div className="flex flex-wrap gap-1">
-              {keyLevels.resistanceLevels.length > 0
-                ? keyLevels.resistanceLevels.map((r, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-none bg-[#08080a] text-rose-400 border border-rose-900/50 text-[10px] font-bold">
-                      ${r}
-                    </span>
-                  ))
-                : 'None'}
-            </div>
+          <div className="flex justify-between">
+            <span className="text-[#9194a1]">RESISTANCE 2:</span>
+            <span className="font-mono text-rose-400 font-bold">${res2}</span>
           </div>
-          <div className="pt-1">
-            <span className="text-emerald-400 font-bold block mb-1">SUPPORTS:</span>
-            <div className="flex flex-wrap gap-1">
-              {keyLevels.supportLevels.length > 0
-                ? keyLevels.supportLevels.map((s, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-none bg-[#08080a] text-emerald-400 border border-emerald-900/50 text-[10px] font-bold">
-                      ${s}
-                    </span>
-                  ))
-                : 'None'}
-            </div>
+          <div className="flex justify-between">
+            <span className="text-[#9194a1]">RESISTANCE 1:</span>
+            <span className="font-mono text-rose-300 font-bold">${res1}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#9194a1]">SUPPORT 1:</span>
+            <span className="font-mono text-emerald-300 font-bold">${sup1}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#9194a1]">SUPPORT 2:</span>
+            <span className="font-mono text-emerald-400 font-bold">${sup2}</span>
           </div>
         </div>
       </div>

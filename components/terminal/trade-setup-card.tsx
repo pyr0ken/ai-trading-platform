@@ -13,6 +13,8 @@ import {
   Eye,
   AlertTriangle,
   BarChart2,
+  Sparkles,
+  RotateCw,
 } from 'lucide-react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 
@@ -22,54 +24,47 @@ interface TradeSetupCardProps {
   symbol?: string;
 }
 
-// ─── Neutral / Hold Panel ────────────────────────────────────────────────────
 const NeutralWatchPanel: React.FC<{ setup: TradeSetup }> = ({ setup }) => (
-  <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] space-y-5">
-    {/* Header */}
+  <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-5">
     <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3">
       <div className="flex items-center gap-2">
         <Eye className="w-4 h-4 text-amber-400" />
         <span className="eyebrow-copper">MARKET WATCH — NO ACTIVE TRADE</span>
       </div>
-      <span className="text-xs text-amber-400 font-mono bg-amber-950/40 border border-amber-700/50 px-3 py-1 rounded-none">
+      <span className="text-xs text-amber-400 font-mono bg-amber-950/40 border border-amber-700/50 px-3 py-1 rounded-[6px]">
         HOLD / NEUTRAL
       </span>
     </div>
 
-    {/* Neutral explanation banner */}
-    <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-700/40 p-4 rounded-none">
+    <div className="flex items-start gap-3 bg-amber-950/20 border border-amber-700/40 p-4 rounded-[8px]">
       <PauseCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
       <div className="space-y-1">
         <p className="text-xs font-sans font-semibold text-amber-300">
           No Entry Signal — Observation Mode Active
         </p>
         <p className="text-[11px] text-[#9194a1] leading-relaxed font-sans">
-          The AI has determined that current market conditions do not present a
-          high-probability entry. No Stop Loss, Take Profit, or Entry Range are
-          applicable. Monitor the key levels below and wait for a confirmed
-          structural trigger before committing capital.
+          Current market structure does not present a high-probability trade entry. Monitor key levels and wait for confirmed structural triggers before opening positions.
         </p>
       </div>
     </div>
 
-    {/* Invalidation point + strategy name — the only two useful fields */}
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
       {setup.invalidation_point > 0 && (
-        <div className="bg-[#121317] border border-[#1c1d22] p-3.5 space-y-1">
+        <div className="bg-[#121317] border border-[#1c1d22] p-3.5 rounded-[8px] space-y-1">
           <span className="eyebrow-fog text-[10px] block uppercase text-rose-400 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" /> WATCH INVALIDATION LEVEL
           </span>
           <span className="text-rose-400 font-bold text-sm block">
-            ${setup.invalidation_point}
+            ${setup.invalidation_point.toLocaleString()}
           </span>
           <span className="text-[10px] text-[#5e616e] block">
-            A close beyond this price would invalidate the current thesis
+            Close beyond this price invalidates thesis
           </span>
         </div>
       )}
 
       {setup.strategy_name && (
-        <div className="bg-[#121317] border border-[#1c1d22] p-3.5 space-y-1">
+        <div className="bg-[#121317] border border-[#1c1d22] p-3.5 rounded-[8px] space-y-1">
           <span className="eyebrow-fog text-[10px] block uppercase text-[#cc9166] flex items-center gap-1">
             <BarChart2 className="w-3 h-3" /> SCENARIO CONTEXT
           </span>
@@ -82,54 +77,47 @@ const NeutralWatchPanel: React.FC<{ setup: TradeSetup }> = ({ setup }) => (
         </div>
       )}
     </div>
-
-    {/* Checklist reminder */}
-    <div className="bg-[#121317] border border-[#1c1d22] p-3.5 rounded-none text-[11px] text-[#9194a1] font-sans space-y-2">
-      <p className="font-semibold text-[#cc9166] text-[10px] uppercase tracking-wide">
-        Recommended Next Steps
-      </p>
-      <ul className="space-y-1.5 list-none">
-        {[
-          'Wait for a clear Break of Structure (BOS) on the primary timeframe',
-          'Confirm volume expansion above the 20-period SMA',
-          'Re-run analysis after the next 1–4 candle closes',
-        ].map((item, i) => (
-          <li key={i} className="flex items-start gap-2">
-            <span className="text-amber-400 mt-0.5">•</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
   </div>
 );
 
-// ─── Main component ──────────────────────────────────────────────────────────
 export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading, symbol }) => {
   const [balance, setBalance] = useState(1000);
   const [riskPct, setRiskPct] = useState(1);
   const [executed, setExecuted] = useState(false);
 
-  if (isLoading || !setup) {
+  if (isLoading) {
     return (
-      <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] animate-pulse space-y-4">
-        <div className="h-5 w-44 bg-[#121317] rounded-none" />
-        <div className="h-28 bg-[#121317] rounded-none" />
-        <div className="grid grid-cols-3 gap-3">
-          <div className="h-16 bg-[#121317] rounded-none" />
-          <div className="h-16 bg-[#121317] rounded-none" />
-          <div className="h-16 bg-[#121317] rounded-none" />
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] flex flex-col items-center justify-center min-h-[160px] space-y-2">
+        <RotateCw className="w-5 h-5 text-[#cc9166] animate-spin" />
+        <span className="text-xs font-mono text-[#9194a1]">Calculating Risk/Reward & Trade Setup...</span>
+      </div>
+    );
+  }
+
+  if (!setup) {
+    return (
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-3">
+        <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-[#cc9166]" />
+            <span className="eyebrow-copper">QUANTITATIVE TRADE SETUP</span>
+          </div>
+          <span className="text-xs text-[#5e616e] font-mono">Execution Parameters</span>
+        </div>
+        <div className="p-3 bg-[#121317]/50 border border-[#1c1d22] rounded-[8px] flex items-center justify-between text-xs">
+          <span className="text-[#9194a1]">Trade entry range, Stop Loss, and Take Profit targets ready.</span>
+          <span className="text-[11px] font-mono text-[#cc9166] flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Press &quot;Run AI Quant&quot;
+          </span>
         </div>
       </div>
     );
   }
 
-  // ── Delegate NEUTRAL/HOLD to the dedicated watch panel ────────────────────
   if (setup.position === 'NEUTRAL') {
     return <NeutralWatchPanel setup={setup} />;
   }
 
-  // ── LONG / SHORT active trade setup ───────────────────────────────────────
   const isLong = setup.position === 'LONG';
 
   const handleExecutePaper = () => {
@@ -148,7 +136,7 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
 
     AppStorageEngine.openPaperPosition({
       symbol: symbol || 'BTC/USDT',
-      exchange: 'binance',
+      exchange: 'kucoin',
       side: isLong ? 'LONG' : 'SHORT',
       entryPrice: entryVal,
       quantity,
@@ -163,38 +151,35 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
   };
 
   return (
-    <div className="bg-[#040406] border border-[#1c1d22] rounded-none p-6 text-[#e2e3e9] space-y-5">
+    <div className="bg-[#040406] border border-[#1c1d22] hover:border-[#cc9166]/40 rounded-[10px] p-6 text-[#e2e3e9] space-y-5 transition-all duration-300 shadow-xl">
       {/* Card Header */}
       <div className="flex items-center justify-between border-b border-[#1c1d22] pb-3">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4 text-[#cc9166]" />
-          <span className="eyebrow-copper">
-            QUANTITATIVE TRADE SETUP
-          </span>
+          <span className="eyebrow-copper">QUANTITATIVE TRADE SETUP</span>
         </div>
-        <span className="text-xs text-[#9194a1] font-sans bg-[#121317] border border-[#1c1d22] px-3 py-1 rounded-none">
+        <span className="text-xs text-[#9194a1] font-sans bg-[#121317] border border-[#1c1d22] px-3 py-1 rounded-[6px]">
           {setup.strategy_name || 'Multi-Factor Strategy'}
         </span>
       </div>
 
       {/* Position & Entry Range Box */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#121317] border border-[#1c1d22] p-4 rounded-none">
-        {/* Position Direction Pill */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#121317] border border-[#1c1d22] p-4 rounded-[8px]">
         <div className="md:col-span-5 flex flex-col justify-center border-b md:border-b-0 md:border-r border-[#1c1d22] pb-3 md:pb-0 md:pr-4">
-          <span className="eyebrow-fog text-[10px] block mb-1">
-            POSITION DIRECTION
-          </span>
+          <span className="eyebrow-fog text-[10px] block mb-1">POSITION DIRECTION</span>
           <div className="flex items-center gap-2">
             <span
-              className={`flex items-center gap-1 text-base font-bold px-4 py-1 rounded-none font-sans ${
+              className={`flex items-center gap-1 text-base font-bold px-4 py-1.5 rounded-[6px] font-sans ${
                 isLong
-                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500'
-                  : 'bg-rose-950/80 text-rose-400 border border-rose-500'
+                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                  : 'bg-red-950/90 text-red-400 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
               }`}
             >
-              {isLong
-                ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-                : <ArrowDownRight className="w-4 h-4 text-rose-400" />}
+              {isLong ? (
+                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <ArrowDownRight className="w-4 h-4 text-red-400" />
+              )}
               {setup.position}
             </span>
             <span className="text-xs text-[#9194a1] font-sans">
@@ -203,19 +188,17 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
           </div>
         </div>
 
-        {/* Entry Range */}
         <div className="md:col-span-7 flex flex-col justify-center">
-          <span className="eyebrow-fog text-[10px] block mb-1">
-            OPTIMAL ENTRY RANGE
-          </span>
+          <span className="eyebrow-fog text-[10px] block mb-1">OPTIMAL ENTRY RANGE</span>
           <div className="text-lg md:text-xl font-bold font-mono text-[#ffffff]">
-            ${setup.entry_range?.[0] ?? 0} <span className="text-[#5e616e]">-</span> ${setup.entry_range?.[1] ?? 0}
+            ${setup.entry_range?.[0]?.toLocaleString() ?? 0}{' '}
+            <span className="text-[#5e616e]">-</span> ${setup.entry_range?.[1]?.toLocaleString() ?? 0}
           </div>
         </div>
       </div>
 
       {/* Position Sizing Calculator */}
-      <div className="bg-[#121317] border border-[#1c1d22] p-4 rounded-none space-y-3 font-sans text-xs">
+      <div className="bg-[#121317] border border-[#1c1d22] p-4 rounded-[8px] space-y-3 font-sans text-xs">
         <div className="flex items-center justify-between gap-4">
           <span className="font-bold text-[#cc9166] uppercase tracking-wide">Risk &amp; Position Calculator</span>
           <div className="flex items-center gap-3">
@@ -225,7 +208,7 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
                 type="number"
                 value={balance}
                 onChange={(e) => setBalance(Number(e.target.value))}
-                className="w-16 bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] px-1.5 py-0.5 font-mono text-[11px] text-center"
+                className="w-16 bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] px-1.5 py-0.5 font-mono text-[11px] text-center rounded-[4px]"
               />
             </div>
             <div className="flex items-center gap-1.5">
@@ -234,7 +217,7 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
                 type="number"
                 value={riskPct}
                 onChange={(e) => setRiskPct(Number(e.target.value))}
-                className="w-12 bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] px-1.5 py-0.5 font-mono text-[11px] text-center"
+                className="w-12 bg-[#040406] border border-[#1c1d22] text-[#e2e3e9] px-1.5 py-0.5 font-mono text-[11px] text-center rounded-[4px]"
               />
             </div>
           </div>
@@ -275,45 +258,49 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
 
       {/* Take Profit & Stop Loss Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
-        <div className="bg-[#121317] border border-rose-900/50 rounded-none p-3 space-y-1">
+        <div className="bg-[#121317] border border-rose-900/50 rounded-[8px] p-3 space-y-1">
           <span className="eyebrow-fog text-[10px] block uppercase text-rose-400">STOP LOSS (SL)</span>
           <span className="text-rose-400 font-bold text-sm block">
-            ${setup.stop_loss}
+            ${setup.stop_loss?.toLocaleString()}
           </span>
         </div>
 
-        <div className="bg-[#121317] border border-emerald-900/50 rounded-none p-3 space-y-1">
+        <div className="bg-[#121317] border border-emerald-900/50 rounded-[8px] p-3 space-y-1">
           <span className="eyebrow-fog text-[10px] block uppercase text-emerald-400">TAKE PROFIT 1</span>
           <span className="text-emerald-400 font-bold text-sm block">
-            ${setup.take_profit_1}
+            ${setup.take_profit_1?.toLocaleString()}
           </span>
         </div>
 
-        <div className="bg-[#121317] border border-emerald-900/50 rounded-none p-3 space-y-1">
+        <div className="bg-[#121317] border border-emerald-900/50 rounded-[8px] p-3 space-y-1">
           <span className="eyebrow-fog text-[10px] block uppercase text-emerald-400">TAKE PROFIT 2</span>
           <span className="text-emerald-400 font-bold text-sm block">
-            ${setup.take_profit_2}
+            ${setup.take_profit_2?.toLocaleString()}
           </span>
         </div>
 
-        <div className="bg-[#121317] border border-emerald-900/50 rounded-none p-3 space-y-1">
+        <div className="bg-[#121317] border border-emerald-900/50 rounded-[8px] p-3 space-y-1">
           <span className="eyebrow-fog text-[10px] block uppercase text-emerald-400">TAKE PROFIT 3</span>
           <span className="text-emerald-400 font-bold text-sm block">
-            ${setup.take_profit_3}
+            ${setup.take_profit_3?.toLocaleString()}
           </span>
         </div>
       </div>
 
       {/* R:R Ratio & Invalidation Point Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono bg-[#121317] border border-[#1c1d22] px-4 py-2.5 rounded-none">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono bg-[#121317] border border-[#1c1d22] px-4 py-2.5 rounded-[8px]">
         <div className="flex items-center gap-1.5 text-[#9194a1]">
           <Gauge className="w-4 h-4 text-[#cc9166]" />
-          <span>Risk-to-Reward: <strong className="text-emerald-400 font-bold">{setup.risk_reward_ratio} R</strong></span>
+          <span>
+            Risk-to-Reward: <strong className="text-emerald-400 font-bold">{setup.risk_reward_ratio} R</strong>
+          </span>
         </div>
 
         <div className="flex items-center gap-1.5 text-[#9194a1]">
           <ShieldCheck className="w-4 h-4 text-rose-400" />
-          <span>Invalidation: <strong className="text-rose-400 font-bold">${setup.invalidation_point}</strong></span>
+          <span>
+            Invalidation: <strong className="text-rose-400 font-bold">${setup.invalidation_point?.toLocaleString()}</strong>
+          </span>
         </div>
       </div>
 
@@ -322,16 +309,16 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
         <button
           onClick={handleExecutePaper}
           disabled={executed}
-          className={`px-4 py-2 border font-sans font-bold text-[11px] tracking-wider uppercase transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+          className={`px-4 py-2 border font-sans font-bold text-[11px] tracking-wider uppercase rounded-[6px] transition-all cursor-pointer inline-flex items-center gap-1.5 ${
             executed
               ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/40'
-              : 'bg-[#cc9166] text-[#08080a] border-[#cc9166] hover:bg-[#d6a27e]'
+              : 'bg-[#cc9166] text-[#08080a] border-[#cc9166] hover:bg-[#d6a27e] shadow-md'
           }`}
         >
           {executed ? (
             <>
               <Check className="w-3.5 h-3.5" />
-              Order Placed
+              Order Placed in Portfolio
             </>
           ) : (
             'Copy to Paper Portfolio'
