@@ -295,33 +295,49 @@ export class CCXTMarketService {
     const liveTicker = await this.fetchTicker(symbol, exchangeId);
     const markPrice = liveTicker?.price ?? 0;
     let indexPrice = markPrice;
+    let fundingRate: number | null = null;
+    let openInterest: number | null = null;
 
     try {
       const exchange = await this.getExchange(exchangeId);
+      
+      // Fetch funding rate if supported
       if (exchange.has['fetchFundingRate']) {
-        const frData = await exchange.fetchFundingRate(swapSymbol);
-        indexPrice = frData.indexPrice || markPrice;
-        const basisPremiumPct = Number((((markPrice - indexPrice) / indexPrice) * 100).toFixed(4));
-
-        return {
-          swapSymbol,
-          fundingRate: frData.fundingRate ? Number(frData.fundingRate.toFixed(6)) : 0.00015,
-          openInterest: 125000000,
-          markPrice: Number(markPrice.toFixed(2)),
-          indexPrice: Number(indexPrice.toFixed(2)),
-          basisPremiumPct,
-        };
+        try {
+          const frData = await exchange.fetchFundingRate(swapSymbol);
+          indexPrice = frData.indexPrice || markPrice;
+          fundingRate = frData.fundingRate ? Number(frData.fundingRate.toFixed(6)) : null;
+        } catch {}
       }
-    } catch {}
 
-    return {
-      swapSymbol,
-      fundingRate: 0.00012,
-      openInterest: 145000000,
-      markPrice,
-      indexPrice: markPrice,
-      basisPremiumPct: 0.012,
-    };
+      // Fetch real open interest if supported
+      if (exchange.has['fetchOpenInterest']) {
+        try {
+          const oiData = await exchange.fetchOpenInterest(swapSymbol);
+          openInterest = oiData?.openInterestAmount ? Number(oiData.openInterestAmount) : (oiData?.openInterestValue ? Number(oiData.openInterestValue) : null);
+        } catch {}
+      }
+
+      const basisPremiumPct = indexPrice > 0 ? Number((((markPrice - indexPrice) / indexPrice) * 100).toFixed(4)) : 0;
+
+      return {
+        swapSymbol,
+        fundingRate,
+        openInterest,
+        markPrice: Number(markPrice.toFixed(2)),
+        indexPrice: Number(indexPrice.toFixed(2)),
+        basisPremiumPct,
+      };
+    } catch {
+      return {
+        swapSymbol,
+        fundingRate: null,
+        openInterest: null,
+        markPrice,
+        indexPrice: markPrice,
+        basisPremiumPct: 0,
+      };
+    }
   }
 
   public static async fetchMicrostructure(
@@ -335,64 +351,107 @@ export class CCXTMarketService {
     const bestBid = Number((price * 0.9996).toFixed(decimalPlaces));
     const bestAsk = Number((price * 1.0004).toFixed(decimalPlaces));
 
+    let orderBookDepth: {
+      bestBid: number;
+      bestAsk: number;
+      spread: number;
+      spreadPercentage: number;
+      bidDepthVolumeTop20: number;
+      askDepthVolumeTop20: number;
+      imbalanceRatio: number;
+      orderBookPressure: 'BUY_PRESSURE' | 'SELL_PRESSURE' | 'NEUTRAL';
+    } = {
+      bestBid,
+      bestAsk,
+      spread: Number((bestAsk - bestBid).toFixed(decimalPlaces)),
+      spreadPercentage: 0.08,
+      bidDepthVolumeTop20: 0,
+      askDepthVolumeTop20: 0,
+      imbalanceRatio: 1.0,
+      orderBookPressure: 'NEUTRAL',
+    };
+
+    let volumeDeltaCvd: {
+      sampleTradesCount: number;
+      takerBuyVolume: number;
+      takerSellVolume: number;
+      volumeDelta: number;
+      buySellRatio: number;
+      cvdSignal: 'NET_BUYING_CVD' | 'NET_SELLING_CVD' | 'BALANCED';
+    } = {
+      sampleTradesCount: 0,
+      takerBuyVolume: 0,
+      takerSellVolume: 0,
+      volumeDelta: 0,
+      buySellRatio: 1.0,
+      cvdSignal: 'BALANCED',
+    };
+
     try {
       const exchange = await this.getExchange(exchangeId);
-      const orderBook = await exchange.fetchOrderBook(symbol, 20);
-      const bids = orderBook.bids || [];
-      const asks = orderBook.asks || [];
 
-      if (bids.length > 0 && asks.length > 0 && bids[0]?.[0] !== undefined && asks[0]?.[0] !== undefined) {
-        const bBid = bids[0][0];
-        const bAsk = asks[0][0];
-        const spread = Number((bAsk - bBid).toFixed(4));
-        const totalBidVol = bids.reduce((acc, b) => acc + (b[1] || 0), 0);
-        const totalAskVol = asks.reduce((acc, a) => acc + (a[1] || 0), 0);
-        const imbalance = totalAskVol > 0 ? Number((totalBidVol / totalAskVol).toFixed(2)) : 1.0;
+      // 1. Fetch Order Book Depth
+      if (exchange.has['fetchOrderBook']) {
+        try {
+          const orderBook = await exchange.fetchOrderBook(symbol, 20);
+          const bids = orderBook.bids || [];
+          const asks = orderBook.asks || [];
 
-        return {
-          orderBookDepth: {
-            bestBid: Number(bBid.toFixed(decimalPlaces)),
-            bestAsk: Number(bAsk.toFixed(decimalPlaces)),
-            spread,
-            spreadPercentage: Number(((spread / bAsk) * 100).toFixed(4)),
-            bidDepthVolumeTop20: Number(totalBidVol.toFixed(2)),
-            askDepthVolumeTop20: Number(totalAskVol.toFixed(2)),
-            imbalanceRatio: imbalance,
-            orderBookPressure: imbalance >= 1.25 ? 'BUY_PRESSURE' : imbalance <= 0.75 ? 'SELL_PRESSURE' : 'NEUTRAL',
-          },
-          volumeDeltaCvd: {
-            sampleTradesCount: 150,
-            takerBuyVolume: 420.5,
-            takerSellVolume: 310.2,
-            volumeDelta: 110.3,
-            buySellRatio: 1.35,
-            cvdSignal: 'NET_BUYING_CVD',
-          },
-          liquidationsStatus: 'Active',
-        };
+          if (bids.length > 0 && asks.length > 0 && bids[0]?.[0] !== undefined && asks[0]?.[0] !== undefined) {
+            const bBid = bids[0][0];
+            const bAsk = asks[0][0];
+            const spread = Number((bAsk - bBid).toFixed(4));
+            const totalBidVol = bids.reduce((acc, b) => acc + (b[1] || 0), 0);
+            const totalAskVol = asks.reduce((acc, a) => acc + (a[1] || 0), 0);
+            const imbalance = totalAskVol > 0 ? Number((totalBidVol / totalAskVol).toFixed(2)) : 1.0;
+
+            orderBookDepth = {
+              bestBid: Number(bBid.toFixed(decimalPlaces)),
+              bestAsk: Number(bAsk.toFixed(decimalPlaces)),
+              spread,
+              spreadPercentage: Number(((spread / bAsk) * 100).toFixed(4)),
+              bidDepthVolumeTop20: Number(totalBidVol.toFixed(2)),
+              askDepthVolumeTop20: Number(totalAskVol.toFixed(2)),
+              imbalanceRatio: imbalance,
+              orderBookPressure: (imbalance >= 1.25 ? 'BUY_PRESSURE' : imbalance <= 0.75 ? 'SELL_PRESSURE' : 'NEUTRAL') as 'BUY_PRESSURE' | 'SELL_PRESSURE' | 'NEUTRAL',
+            };
+          }
+        } catch {}
+      }
+
+      // 2. Fetch Live Trades for REAL Cumulative Volume Delta (CVD)
+      if (exchange.has['fetchTrades']) {
+        try {
+          const trades = await exchange.fetchTrades(symbol, undefined, 50);
+          if (trades && trades.length > 0) {
+            let buyVol = 0;
+            let sellVol = 0;
+            for (const t of trades) {
+              const amount = t.amount || 0;
+              if (t.side === 'buy') buyVol += amount;
+              else if (t.side === 'sell') sellVol += amount;
+            }
+            const delta = buyVol - sellVol;
+            const ratio = sellVol > 0 ? Number((buyVol / sellVol).toFixed(2)) : 1.0;
+            const cvdSignal = delta > 0 ? ('NET_BUYING_CVD' as const) : delta < 0 ? ('NET_SELLING_CVD' as const) : ('BALANCED' as const);
+
+            volumeDeltaCvd = {
+              sampleTradesCount: trades.length,
+              takerBuyVolume: Number(buyVol.toFixed(2)),
+              takerSellVolume: Number(sellVol.toFixed(2)),
+              volumeDelta: Number(delta.toFixed(2)),
+              buySellRatio: ratio,
+              cvdSignal,
+            };
+          }
+        } catch {}
       }
     } catch {}
 
     return {
-      orderBookDepth: {
-        bestBid,
-        bestAsk,
-        spread: Number((bestAsk - bestBid).toFixed(decimalPlaces)),
-        spreadPercentage: 0.08,
-        bidDepthVolumeTop20: 340.5,
-        askDepthVolumeTop20: 290.2,
-        imbalanceRatio: 1.17,
-        orderBookPressure: 'BUY_PRESSURE',
-      },
-      volumeDeltaCvd: {
-        sampleTradesCount: 120,
-        takerBuyVolume: 512.4,
-        takerSellVolume: 430.1,
-        volumeDelta: 82.3,
-        buySellRatio: 1.19,
-        cvdSignal: 'NET_BUYING_CVD',
-      },
-      liquidationsStatus: 'Balanced',
+      orderBookDepth,
+      volumeDeltaCvd,
+      liquidationsStatus: 'Active',
     };
   }
 }

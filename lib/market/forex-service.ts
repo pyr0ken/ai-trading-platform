@@ -99,32 +99,10 @@ export class ForexMarketService {
         }
       }
     } catch {
-      // Network failure — fall through to fallback
+      // Network failure — throw error instead of returning fake hardcoded price
     }
 
-    const fallbackPrices: Record<string, number> = {
-      'EUR/USD': 1.0850, 'GBP/USD': 1.2720, 'USD/JPY': 155.40,
-      'USD/CHF': 0.8980, 'AUD/USD': 0.6650, 'USD/CAD': 1.3680,
-      'NZD/USD': 0.6120, 'EUR/GBP': 0.8530, 'EUR/JPY': 168.60,
-      'GBP/JPY': 197.60, 'XAU/USD': 2350.50, 'XAG/USD': 30.20,
-      'WTI/USD': 78.50,  'DXY': 104.80,      'US30': 38850.0,
-      'SPX500': 5350.0,  'NAS100': 18600.0,
-    };
-
-    const basePrice = fallbackPrices[upper] || 1.0;
-    const fallbackPip = getPipInfo(symbol).pipSize;
-    return {
-      symbol: upper,
-      exchange: 'forex',
-      price: Number(basePrice.toFixed(decimals)),
-      change24h: 0.0012,
-      change24hPercentage: 0.11,
-      high24h: Number((basePrice * 1.003).toFixed(decimals)),
-      low24h: Number((basePrice * 0.997).toFixed(decimals)),
-      volume24h: 85000,
-      bid: Number((basePrice - fallbackPip).toFixed(decimals)),
-      ask: Number((basePrice + fallbackPip).toFixed(decimals)),
-    };
+    throw new Error(`Failed to fetch live Forex ticker for ${symbol}. Market data is unavailable.`);
   }
 
   /**
