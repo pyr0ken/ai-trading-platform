@@ -58,7 +58,7 @@ export const ExecutiveSignalCard: React.FC<ExecutiveSignalCardProps> = ({ data, 
   const signalBadgeStyle = isBuy
     ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
     : isSell
-    ? 'bg-rose-950/90 text-rose-300 border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
+    ? 'bg-red-950/90 text-red-400 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.35)]'
     : 'bg-amber-950/80 text-amber-300 border-amber-500/60 shadow-[0_0_15px_rgba(245,158,11,0.2)]';
 
   const SignalIcon = isBuy ? TrendingUp : isSell ? TrendingDown : PauseCircle;
@@ -69,7 +69,7 @@ export const ExecutiveSignalCard: React.FC<ExecutiveSignalCardProps> = ({ data, 
       {/* Glow highlight */}
       <div
         className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-10 ${
-          isBuy ? 'bg-emerald-500' : isSell ? 'bg-rose-500' : 'bg-amber-500'
+          isBuy ? 'bg-emerald-500' : isSell ? 'bg-red-500' : 'bg-amber-500'
         }`}
       />
 

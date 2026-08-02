@@ -158,19 +158,13 @@ export default function DashboardPage() {
   };
 
   const handleReplayAnalysis = (record: StoredAnalysisRecord) => {
-    resetAnalysis();
-    setHasRun(false);
-    
     setSelectedSymbol(record.symbol);
     setSelectedExchange(record.exchange);
     setSelectedTimeframe(record.timeframe);
-    
-    queueMicrotask(() => {
-      setHasRun(true);
-      if (record.markdown_report) {
-        setAnalysisText(record.markdown_report);
-      }
-    });
+    setHasRun(true);
+    if (record.markdown_report) {
+      setAnalysisText(record.markdown_report);
+    }
     showToast(`⏪ Replaying ${record.symbol} · ${record.signal} @ ${record.confidence}%`);
   };
 

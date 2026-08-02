@@ -45,7 +45,7 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
   const positionBadgeStyle = isLong
     ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
     : isShort
-    ? 'bg-rose-950/80 text-rose-400 border border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.2)]'
+    ? 'bg-red-950/90 text-red-400 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
     : 'bg-amber-950/60 text-amber-400 border border-amber-600/60';
 
   const PositionIcon = isLong ? ArrowUpRight : isShort ? ArrowDownRight : PauseCircle;

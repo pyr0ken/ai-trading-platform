@@ -189,7 +189,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                   <td className="py-3 px-3">
                     <span
                       className={`inline-flex items-center gap-1 font-bold ${
-                        isLong ? 'text-emerald-400' : 'text-rose-400'
+                        isLong ? 'text-emerald-400' : 'text-red-400'
                       }`}
                     >
                       {isLong ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}

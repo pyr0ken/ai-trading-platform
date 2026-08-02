@@ -171,14 +171,14 @@ export const TradeSetupCard: React.FC<TradeSetupCardProps> = ({ setup, isLoading
             <span
               className={`flex items-center gap-1 text-base font-bold px-4 py-1.5 rounded-[6px] font-sans ${
                 isLong
-                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500'
-                  : 'bg-rose-950/80 text-rose-400 border border-rose-500'
+                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                  : 'bg-red-950/90 text-red-400 border border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.25)]'
               }`}
             >
               {isLong ? (
                 <ArrowUpRight className="w-4 h-4 text-emerald-400" />
               ) : (
-                <ArrowDownRight className="w-4 h-4 text-rose-400" />
+                <ArrowDownRight className="w-4 h-4 text-red-400" />
               )}
               {setup.position}
             </span>
