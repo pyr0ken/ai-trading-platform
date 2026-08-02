@@ -168,7 +168,11 @@ export function useAutoResolver() {
             console.log(`[AutoResolver] ${rec.symbol}: ${resolvedStatus} (PnL: ${pnl.toFixed(2)}%)`);
           }
         } catch (e) {
-          console.error(`[AutoResolver] Error:`, e);
+          if (e instanceof Error && e.name === 'AbortError') {
+            console.warn(`[AutoResolver] Request for ${rec.symbol} timed out (8s limit)`);
+          } else {
+            console.error(`[AutoResolver] Error:`, e);
+          }
           recordFailure();
           
           // Stop on circuit open

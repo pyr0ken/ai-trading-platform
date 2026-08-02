@@ -73,6 +73,9 @@ export class CCXTMarketService {
     const exchange = new exchangeClass({
       enableRateLimit: true,
       timeout: 3000,
+      options: {
+        fetchCurrencies: false,
+      },
     }) as Exchange;
 
     cacheExchange(id, exchange);
@@ -298,37 +301,46 @@ export class CCXTMarketService {
     // Try ONLY the requested exchange — no fallback chain to avoid memory pileup
     // from orphaned HTTP requests. exchange.timeout (3000ms) handles timeout natively.
     const exId = exchangeId.toLowerCase();
+    const parseOHLCV = (ohlcv: (number | undefined)[][]): CandleData[] => {
+      return ohlcv.map((c) => {
+        const timestamp = Number(c[0]);
+        const dt = new Date(timestamp);
+        const priceVal = Number(c[4] || 0);
+        const decimalPlaces = priceVal < 1 ? (priceVal < 0.001 ? 7 : 4) : 2;
+
+        return {
+          timestamp,
+          gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
+          open: Number((c[1] || 0).toFixed(decimalPlaces)),
+          high: Number((c[2] || 0).toFixed(decimalPlaces)),
+          low: Number((c[3] || 0).toFixed(decimalPlaces)),
+          close: Number(priceVal.toFixed(decimalPlaces)),
+          volume: Number((c[5] || 0).toFixed(2)),
+        };
+      });
+    };
+
     try {
       const exchange = await this.getExchange(exId);
       const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
-
       if (ohlcv && ohlcv.length > 0) {
-        return ohlcv.map((c) => {
-          const timestamp = Number(c[0]);
-          const dt = new Date(timestamp);
-          const priceVal = Number(c[4] || 0);
-          const decimalPlaces = priceVal < 1 ? (priceVal < 0.001 ? 7 : 4) : 2;
-
-          return {
-            timestamp,
-            gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-            open: Number((c[1] || 0).toFixed(decimalPlaces)),
-            high: Number((c[2] || 0).toFixed(decimalPlaces)),
-            low: Number((c[3] || 0).toFixed(decimalPlaces)),
-            close: Number(priceVal.toFixed(decimalPlaces)),
-            volume: Number((c[5] || 0).toFixed(2)),
-          };
-        });
+        return parseOHLCV(ohlcv as (number | undefined)[][]);
       }
-      return [];
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      // Only log at debug level — avoid noise in production
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug(`[CCXT fetchOHLCVWithSince] ${exId} failed for ${symbol} ${timeframe}: ${msg}`);
+    } catch {
+      // Primary exchange failed, attempt Binance if primary wasn't binance
+      if (exId !== 'binance') {
+        try {
+          const exchange = await this.getExchange('binance');
+          const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
+          if (ohlcv && ohlcv.length > 0) {
+            return parseOHLCV(ohlcv as (number | undefined)[][]);
+          }
+        } catch {
+          // Ignore secondary fallback error
+        }
       }
-      return [];
     }
+    return [];
   }
 
   public static async fetchOHLCV(
