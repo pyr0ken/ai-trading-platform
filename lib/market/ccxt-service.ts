@@ -284,6 +284,7 @@ export class CCXTMarketService {
       BTC: 67450.0,
       ETH: 3520.0,
       SOL: 165.5,
+      XAUT: 2450.0,
       BNB: 585.0,
       XRP: 0.58,
       ADA: 0.39,

@@ -21,6 +21,7 @@ const CRYPTO_BASE_LIST: Array<{ base: string; name: string; category: string; ic
   { base: 'BTC', name: 'Bitcoin', category: 'Major', icon: '₿' },
   { base: 'ETH', name: 'Ethereum', category: 'Major', icon: 'Ξ' },
   { base: 'SOL', name: 'Solana', category: 'Layer 1', icon: '◎' },
+  { base: 'XAUT', name: 'Tether Gold (Tokenized Gold)', category: 'Gold RWA', icon: '🥇' },
   { base: 'SUI', name: 'Sui Network', category: 'Layer 1', icon: '💧' },
   { base: 'XRP', name: 'Ripple', category: 'Payment', icon: '✕' },
   { base: 'BNB', name: 'BNB Chain', category: 'Major', icon: '🔶' },
@@ -315,7 +316,7 @@ function generateForexSymbols(): MarketSymbolItem[] {
     });
   }
 
-  // Generate cross matrix for global currencies (EUR, GBP, JPY, AUD, CAD, CHF, NZD, SEK, NOK, SGD, HKD, TRY, MXN, ZAR)
+  // Generate cross matrix for global currencies (EUR, GBP, JPY, AUD, CAD, CHF, NZD, SEK, NOK, SGD, HKD, TRY, MXN, ZAR, etc.)
   const currencies = [
     { code: 'USD', name: 'US Dollar', flag: '🇺🇸' },
     { code: 'EUR', name: 'Euro', flag: '🇪🇺' },
@@ -339,7 +340,25 @@ function generateForexSymbols(): MarketSymbolItem[] {
     { code: 'ILS', name: 'Israeli Shekel', flag: '🇮🇱' },
     { code: 'AED', name: 'UAE Dirham', flag: '🇦🇪' },
     { code: 'SAR', name: 'Saudi Riyal', flag: '🇸🇦' },
+    { code: 'QAR', name: 'Qatari Riyal', flag: '🇶🇦' },
+    { code: 'KWD', name: 'Kuwaiti Dinar', flag: '🇰🇼' },
+    { code: 'BHD', name: 'Bahraini Dinar', flag: '🇧🇭' },
+    { code: 'OMR', name: 'Omani Rial', flag: '🇴🇲' },
+    { code: 'JOD', name: 'Jordanian Dinar', flag: '🇯🇴' },
+    { code: 'EGP', name: 'Egyptian Pound', flag: '🇪🇬' },
+    { code: 'NGN', name: 'Nigerian Naira', flag: '🇳🇬' },
+    { code: 'KES', name: 'Kenyan Shilling', flag: '🇰🇪' },
     { code: 'THB', name: 'Thai Baht', flag: '🇹🇭' },
+    { code: 'TWD', name: 'Taiwan Dollar', flag: '🇹🇼' },
+    { code: 'MYR', name: 'Malaysian Ringgit', flag: '🇲🇾' },
+    { code: 'PHP', name: 'Philippine Peso', flag: '🇵🇭' },
+    { code: 'VND', name: 'Vietnamese Dong', flag: '🇻🇳' },
+    { code: 'PKR', name: 'Pakistani Rupee', flag: '🇵🇰' },
+    { code: 'BRL', name: 'Brazilian Real', flag: '🇧🇷' },
+    { code: 'CLP', name: 'Chilean Peso', flag: '🇨🇱' },
+    { code: 'COP', name: 'Colombian Peso', flag: '🇨🇴' },
+    { code: 'PEN', name: 'Peruvian Sol', flag: '🇵🇪' },
+    { code: 'ARS', name: 'Argentine Peso', flag: '🇦🇷' },
   ];
 
   for (let i = 0; i < currencies.length; i++) {
