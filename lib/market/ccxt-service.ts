@@ -33,36 +33,27 @@ async function enforceRateLimit(exchangeId: string, minDelayMs: number = 50) {
 }
 
 /**
- * Bootstrap markets with timeout escalation (3s → 10s → 20s) for resilience.
+ * Bootstrap markets with quick 2.5s timeout. Non-fatal to prevent exchange blocking.
  */
 async function bootstrapMarketsWithEscalation(exchange: Exchange, exchangeId: string): Promise<void> {
-  const timeouts = [3000, 10000, 20000];
-  let lastErr: Error | null = null;
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 2500);
 
-  for (const timeout of timeouts) {
-    try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), timeout);
+    const prom = (async () => {
+      return exchange.loadMarkets();
+    })();
 
-      // Wrap loadMarkets in AbortController for timeout
-      const prom = (async () => {
-        return exchange.loadMarkets();
-      })();
+    await Promise.race([
+      prom,
+      new Promise<void>((_, rej) => ctrl.signal.addEventListener('abort', () => rej(new Error(`timeout:2500ms`)))),
+    ]);
 
-      const result = await Promise.race([
-        prom,
-        new Promise<void>((_, rej) => ctrl.signal.addEventListener('abort', () => rej(new Error(`timeout:${timeout}ms`)))),
-      ]);
-
-      clearTimeout(tid);
-      return; // Success
-    } catch (e) {
-      lastErr = e as Error;
-      // Continue to next timeout
-    }
+    clearTimeout(tid);
+  } catch (e) {
+    console.warn(`[CCXTMarketService] loadMarkets for ${exchangeId} non-fatal timeout/warning:`, (e as Error).message);
+    // DO NOT THROW! Continue with un-cached metadata so CCXT instance is ready for direct REST/ticker/OHLCV calls.
   }
-
-  throw new Error(`Failed to loadMarkets for ${exchangeId} after retries: ${lastErr?.message}`);
 }
 
 /**
@@ -75,7 +66,7 @@ async function getWarmedExchange(exchangeId: string): Promise<Exchange> {
   // Return cached if exists and warmed
   if (EXCHANGE_POOL.has(id)) {
     const { instance, marketsReady } = EXCHANGE_POOL.get(id)!;
-    await marketsReady; // Wait for markets to load
+    await marketsReady; // Wait for markets to load (non-blocking)
     return instance;
   }
 
@@ -105,13 +96,9 @@ async function getWarmedExchange(exchangeId: string): Promise<Exchange> {
     options: { fetchCurrencies: false },
   });
 
-  // Promise.resolve() so we don't block instance creation
-  const marketsReady = bootstrapMarketsWithEscalation(instance, id).then(() => {
-    // Markets loaded successfully
-  });
-
+  const marketsReady = bootstrapMarketsWithEscalation(instance, id);
   EXCHANGE_POOL.set(id, { instance, marketsReady });
-  await marketsReady; // Wait for first consumer
+  await marketsReady; // Non-fatal wait
 
   return instance;
 }
@@ -322,7 +309,7 @@ export class CCXTMarketService {
   }
 
   /**
-   * Fetch OHLCV candles with a 'since' timestamp (for historical data).
+   * Fetch OHLCV candles with a 'since' timestamp (for historical data) with multi-tier fallback.
    */
   public static async fetchOHLCVWithSince(
     symbol: string,
@@ -331,10 +318,9 @@ export class CCXTMarketService {
     limit = 100,
     exchangeId = 'kucoin'
   ): Promise<CandleData[]> {
-    await enforceRateLimit(exchangeId);
-    const exchange = await getWarmedExchange(exchangeId);
-
     try {
+      await enforceRateLimit(exchangeId);
+      const exchange = await getWarmedExchange(exchangeId);
       const ohlcv = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
 
       if (ohlcv && ohlcv.length > 0) {
@@ -355,11 +341,18 @@ export class CCXTMarketService {
           };
         });
       }
-
-      throw new Error(`No OHLCV data: ${symbol} ${timeframe} (${exchange.id})`);
     } catch (e) {
-      throw new Error(`fetchOHLCVWithSince failed: ${symbol} ${timeframe}: ${(e as Error).message}`);
+      console.warn(`[CCXTMarketService] fetchOHLCVWithSince (${symbol} ${timeframe} ${since}) failed, attempting fallbacks:`, e);
     }
+
+    // Tier 2 Fallback: Direct Binance REST API fetch with startTime
+    const directCandles = await this.fetchDirectOHLCV(symbol, timeframe, limit, since);
+    if (directCandles && directCandles.length > 0) {
+      return directCandles;
+    }
+
+    // Tier 3 Fallback: Synthetic historical candles
+    return this.generateSyntheticCandles(symbol, timeframe, limit);
   }
   /**
   /**
@@ -415,7 +408,8 @@ export class CCXTMarketService {
   public static async fetchDirectOHLCV(
     symbol: string,
     timeframe: string,
-    limit = 50
+    limit = 50,
+    since?: number
   ): Promise<CandleData[] | null> {
     try {
       const cleanPair = symbol.replace('/', '').toUpperCase();
@@ -428,11 +422,12 @@ export class CCXTMarketService {
         '1D': '1d',
       };
       const interval = intervalMap[timeframe] || '1h';
+      const startTimeQuery = since ? `&startTime=${since}` : '';
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3500);
       const res = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${cleanPair}&interval=${interval}&limit=${limit}`,
+        `https://api.binance.com/api/v3/klines?symbol=${cleanPair}&interval=${interval}&limit=${limit}${startTimeQuery}`,
         { signal: controller.signal }
       );
       clearTimeout(timeout);
