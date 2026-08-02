@@ -373,7 +373,7 @@ export class CCXTMarketService {
           };
         });
       }
-      return this.generateFallbackCandles(symbol, timeframe, limit, targetPrice);
+      throw new Error(`No OHLCV candles returned for ${symbol} (${timeframe})`);
     } catch {
       // Throw error if exchange fetch fails — never return fake 100$ fallback candles
       throw new Error(`Failed to fetch OHLCV candles for ${symbol} (${timeframe})`);
