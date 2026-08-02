@@ -74,7 +74,6 @@ const CRYPTO_BASE_LIST: Array<{ base: string; name: string; category: string; ic
   { base: 'VET', name: 'VeChain', category: 'Supply Chain', icon: 'V' },
   { base: 'ALGO', name: 'Algorand', category: 'Layer 1', icon: 'Ⱥ' },
   { base: 'PYTH', name: 'Pyth Network', category: 'Oracle', icon: '🔮' },
-  { base: 'STRK', name: 'Starknet', category: 'Layer 2', icon: '🐺' },
   { base: 'SANG', name: 'Sanctum', category: 'DeFi', icon: '🛡️' },
   { base: 'NEIRO', name: 'Neiro', category: 'Meme', icon: '🐕' },
   { base: 'TURBO', name: 'Turbo', category: 'AI Meme', icon: '🐸' },
@@ -128,7 +127,6 @@ const CRYPTO_BASE_LIST: Array<{ base: string; name: string; category: string; ic
   { base: 'ALT', name: 'AltLayer', category: 'Layer 2', icon: '🧩' },
   { base: 'MANTA', name: 'Manta Network', category: 'Layer 2', icon: '🐋' },
   { base: 'ZK', name: 'ZKsync', category: 'Layer 2', icon: '🛡️' },
-  { base: 'STRK', name: 'Starknet', category: 'Layer 2', icon: '🐺' },
   { base: 'METIS', name: 'Metis', category: 'Layer 2', icon: '🏛️' },
   { base: 'SC', name: 'Siacoin', category: 'DePIN', icon: '☁️' },
   { base: 'HOT', name: 'Holo', category: 'Infrastructure', icon: '🔥' },
@@ -143,7 +141,6 @@ const CRYPTO_BASE_LIST: Array<{ base: string; name: string; category: string; ic
   { base: 'GAS', name: 'Neo Gas', category: 'Layer 1', icon: '⛽' },
   { base: 'ONT', name: 'Ontology', category: 'Identity', icon: '🆔' },
   { base: 'WAVES', name: 'Waves', category: 'Layer 1', icon: '🌊' },
-  { base: 'KSM', name: 'Kusama', category: 'Layer 0', icon: '🦅' },
   { base: 'ASTR', name: 'Astar', category: 'Layer 1', icon: '⭐' },
   { base: 'GLMR', name: 'Moonbeam', category: 'Layer 1', icon: '🌕' },
   { base: 'MOVR', name: 'Moonriver', category: 'Layer 1', icon: '🌙' },
@@ -158,16 +155,13 @@ const CRYPTO_BASE_LIST: Array<{ base: string; name: string; category: string; ic
   { base: 'HIVE', name: 'Hive', category: 'Social', icon: '🐝' },
   { base: 'STEEM', name: 'Steem', category: 'Social', icon: '📝' },
   { base: 'BAT', name: 'Basic Attention Token', category: 'Media', icon: '🦁' },
-  { base: 'KSM', name: 'Kusama', category: 'Layer 0', icon: '🦅' },
   { base: 'BADGER', name: 'Badger DAO', category: 'DeFi', icon: '🦡' },
   { base: 'BAL', name: 'Balancer', category: 'DeFi', icon: '⚖️' },
   { base: 'YFI', name: 'yearn.finance', category: 'DeFi', icon: '💙' },
   { base: 'FXS', name: 'Frax Share', category: 'DeFi', icon: '📊' },
-  { base: 'CRV', name: 'Curve DAO', category: 'DeFi', icon: '↪️' },
   { base: 'CVX', name: 'Convex Finance', category: 'DeFi', icon: '🏛️' },
   { base: 'SPELL', name: 'Spell Token', category: 'DeFi', icon: '🪄' },
   { base: 'ALPHA', name: 'Stella', category: 'DeFi', icon: '⭐' },
-  { base: 'AUDIO', name: 'Audius', category: 'Media', icon: '🎧' },
   { base: 'ACH', name: 'Alchemy Pay', category: 'Payment', icon: '💳' },
   { base: 'COTI', name: 'COTI', category: 'Payment', icon: '⚡' },
   { base: 'SLP', name: 'Smooth Love Potion', category: 'Gaming', icon: '🧪' },
@@ -176,9 +170,7 @@ const CRYPTO_BASE_LIST: Array<{ base: string; name: string; category: string; ic
   { base: 'YGG', name: 'Yield Guild Games', category: 'Gaming', icon: '⚔️' },
   { base: 'MAGIC', name: 'Treasure', category: 'Gaming', icon: '🪄' },
   { base: 'GNS', name: 'Gains Network', category: 'DeFi', icon: '🎯' },
-  { base: 'DYDX', name: 'dYdX', category: 'DeFi', icon: '📈' },
   { base: 'PERP', name: 'Perpetual Protocol', category: 'DeFi', icon: '🔄' },
-  { base: 'SNX', name: 'Synthetix', category: 'DeFi', icon: '⚔️' },
   { base: 'SXP', name: 'Solar', category: 'Payment', icon: '☀️' },
   { base: 'CRO', name: 'Cronos', category: 'Exchange', icon: '🦁' },
   { base: 'OKB', name: 'OKB Token', category: 'Exchange', icon: '🔵' },
@@ -388,12 +380,21 @@ function generateForexSymbols(): MarketSymbolItem[] {
 }
 
 // ----------------------------------------------------------------------
-// COMBINED 1000+ MARKET SYMBOLS DATASET
+// COMBINED 1000+ DEDUPLICATED MARKET SYMBOLS DATASET
 // ----------------------------------------------------------------------
-export const ALL_MARKET_SYMBOLS: MarketSymbolItem[] = [
+const rawSymbols: MarketSymbolItem[] = [
   ...generateCryptoSymbols(),
   ...generateForexSymbols(),
 ];
+
+const uniqueMap = new Map<string, MarketSymbolItem>();
+for (const item of rawSymbols) {
+  if (!uniqueMap.has(item.symbol)) {
+    uniqueMap.set(item.symbol, item);
+  }
+}
+
+export const ALL_MARKET_SYMBOLS: MarketSymbolItem[] = Array.from(uniqueMap.values());
 
 // Quick index lookup map for instant autocomplete
 export const SYMBOL_LOOKUP_MAP = new Map<string, MarketSymbolItem>(

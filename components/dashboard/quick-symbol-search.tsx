@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, TrendingUp, X, Sparkles, Check, ArrowRight, DollarSign, Globe, Layers, Cpu, ShieldAlert } from 'lucide-react';
+import { Search, TrendingUp, X, Sparkles, Check, ArrowRight } from 'lucide-react';
 import { ALL_MARKET_SYMBOLS, MarketSymbolItem } from '@/lib/constants/market-symbols';
 import { CoinIcon } from '@/components/common/coin-icon';
 
@@ -42,7 +42,7 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
   const customFormattedSymbol = useMemo(() => {
     if (!cleanQuery) return '';
     if (cleanQuery.includes('/')) return cleanQuery;
-    
+
     // Check if query matches a known forex currency base (e.g. EUR -> EUR/USD)
     if (['EUR', 'GBP', 'AUD', 'NZD', 'CAD', 'CHF', 'JPY', 'XAU', 'XAG'].includes(cleanQuery)) {
       return `${cleanQuery}/USD`;
@@ -104,11 +104,15 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
     if (typeof item !== 'string') {
       if (item.type === 'forex' || item.type === 'commodity' || item.type === 'index') {
         preferredExchange = 'forex';
+      } else {
+        preferredExchange = 'kucoin';
       }
     } else {
       const cleanUpper = symStr.toUpperCase();
       if (cleanUpper.includes('EUR/') || cleanUpper.includes('GBP/') || cleanUpper.includes('USD/') || cleanUpper.includes('XAU/') || cleanUpper.includes('XAG/')) {
         preferredExchange = 'forex';
+      } else {
+        preferredExchange = 'kucoin';
       }
     }
 
@@ -118,7 +122,10 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Backspace' && query.length <= 1) {
+      setQuery('');
+      setSelectedIndex(0);
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => (prev < filteredSymbols.length - 1 ? prev + 1 : 0));
     } else if (e.key === 'ArrowUp') {
@@ -147,33 +154,46 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
         className="w-full max-w-2xl bg-[#040406] border border-[#1c1d22] rounded-[14px] shadow-2xl overflow-hidden flex flex-col mx-4 animate-in fade-in zoom-in-95 duration-150 font-sans"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search Input Box Header */}
-        <div className="flex items-center px-4 border-b border-[#1c1d22] bg-[#08080a] relative">
-          <Search className="w-4 h-4 text-[#cc9166] shrink-0 mr-3" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Search 1,000+ Crypto & Forex pairs (e.g. BTC, EUR/USD, SOL, XAU/USD, ETH)..."
-            className="w-full bg-transparent py-4 text-sm text-[#e2e3e9] placeholder-[#5e616e] outline-none font-sans"
-          />
-          {query ? (
-            <button
-              onClick={() => {
-                setQuery('');
-                inputRef.current?.focus();
+        {/* Search Input Box Header with Close Button */}
+        <div className="flex items-center justify-between px-4 border-b border-[#1c1d22] bg-[#08080a] relative">
+          <div className="flex items-center flex-1 mr-3">
+            <Search className="w-4 h-4 text-[#cc9166] shrink-0 mr-3" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSelectedIndex(0);
               }}
-              className="p-1 text-[#5e616e] hover:text-[#e2e3e9] transition-colors cursor-pointer"
+              onKeyDown={handleKeyDown}
+              placeholder="Search 1,000+ Crypto & Forex pairs (e.g. BTC, EUR/USD, SOL, XAU/USD, ETH)..."
+              className="w-full bg-transparent py-4 text-sm text-[#e2e3e9] placeholder-[#5e616e] outline-none font-sans"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {query && (
+              <button
+                onClick={() => {
+                  setQuery('');
+                  setSelectedIndex(0);
+                  inputRef.current?.focus();
+                }}
+                className="px-2 py-1 rounded-[6px] text-xs font-mono text-[#cc9166] hover:bg-[#121317] transition-colors cursor-pointer"
+                title="Clear text input"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-[6px] text-[#5e616e] hover:text-[#e2e3e9] hover:bg-[#1c1d22] border border-transparent hover:border-[#1c1d22] transition-colors cursor-pointer flex items-center justify-center"
+              title="Close modal (ESC)"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5 text-[#e2e3e9]" />
             </button>
-          ) : (
-            <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-[#5e616e] bg-[#121317] border border-[#1c1d22] px-2 py-0.5 rounded-[4px]">
-              ESC to close
-            </kbd>
-          )}
+          </div>
         </div>
 
         {/* Category Filter Tabs */}
@@ -234,11 +254,10 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
               const isCurrent = item.symbol === currentSymbol;
               const isCrypto = item.type === 'crypto';
               const isForex = item.type === 'forex';
-              const isCommodity = item.type === 'commodity' || item.type === 'index';
 
               return (
                 <div
-                  key={item.symbol}
+                  key={`${item.symbol}-${idx}`}
                   onClick={() => selectAndClose(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-[8px] cursor-pointer transition-all ${
