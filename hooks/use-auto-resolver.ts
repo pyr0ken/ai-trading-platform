@@ -180,8 +180,12 @@ export function useAutoResolver() {
       }
     };
 
-    // Start after a delay to let critical renders complete first
-    const timer = setTimeout(() => resolvePendingSignals(), 3_000);
-    return () => clearTimeout(timer);
+    // Start initial check after 2 seconds, then re-check every 30 seconds
+    const timer = setTimeout(() => resolvePendingSignals(), 2_000);
+    const interval = setInterval(() => resolvePendingSignals(), 30_000);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, []);
 }
