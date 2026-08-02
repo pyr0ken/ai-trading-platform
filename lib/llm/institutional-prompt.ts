@@ -112,23 +112,31 @@ function formatCandleTime(c: { timestamp?: number; gregorianDate?: string }): st
 }
 
 /**
+ * Estimate token count of a prompt string (chars / 4 heuristic).
+ */
+export function estimatePromptTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
  * Filter out warm-up candles carrying synthetic placeholder indicators.
- * Warm-up signature: sma_20 === sma_50 && sma_50 === sma_200.
+ * Real payload evidence: warm-up candles have rsi_14 exactly 50, macd_hist exactly 0,
+ * and adx_14 exactly 20 while the indicator window has not filled. SMA equalities
+ * are unreliable because a short series can produce sma_200 === close as a
+ * computational artifact, not a placeholder.
  */
 function filterWarmupCandles(candles: Array<CandleData & { indicators: CalculatedIndicators }>) {
   return candles.filter((c) => {
     const ind = c.indicators;
     if (!ind) return false;
-    if (
-      typeof ind.sma_20 === 'number' &&
-      typeof ind.sma_50 === 'number' &&
-      typeof ind.sma_200 === 'number' &&
-      ind.sma_20 === ind.sma_50 &&
-      ind.sma_50 === ind.sma_200
-    ) {
-      return false; // Skip warm-up candle
-    }
-    return true;
+    const isWarmup =
+      typeof ind.rsi_14 === 'number' &&
+      ind.rsi_14 === 50 &&
+      typeof ind.macd_hist === 'number' &&
+      ind.macd_hist === 0 &&
+      typeof ind.adx_14 === 'number' &&
+      ind.adx_14 === 20;
+    return !isWarmup;
   });
 }
 
@@ -187,22 +195,28 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
   const newsSentimentIndex = marketContext.news?.newsSentimentIndex ?? 0.0;
   const newsSentimentLabel = newsSentimentIndex > 0.3 ? 'BULLISH' : newsSentimentIndex < -0.3 ? 'BEARISH' : 'NEUTRAL';
 
-  const newsSummaryText = marketContext.news?.summaryForPrompt || (
-    marketContext.news?.articles?.length
-      ? marketContext.news.articles.map((a, i) =>
-          `[News ${i + 1}] (${a.source}) [${a.category?.toUpperCase() || 'GENERAL'}]: ${a.title} - ${a.summary || 'No summary available.'} (Sentiment: ${a.sentimentScore ?? 0})`
-        ).join('\n')
-      : 'No recent market news available.'
-  );
+  const newsHeadlines = marketContext.news?.articles?.length
+    ? marketContext.news.articles.slice(0, 5).map((a) => {
+        const dateStr = a.published_at ? a.published_at.substring(0, 10) : 'N/A';
+        return `- [${a.source ?? 'N/A'}, ${dateStr}] ${a.title ?? 'N/A'} (sentiment: ${typeof a.sentimentScore === 'number' ? (a.sentimentScore > 0 ? `+${a.sentimentScore}` : a.sentimentScore) : 'N/A'})`;
+      }).join('\n')
+    : '';
+
+  const newsSummaryText = [
+    marketContext.news?.summaryForPrompt || '',
+    newsHeadlines,
+  ].filter(Boolean).join('\n') || 'No recent market news available. N/A (Data Unavailable)';
 
   const ob = marketContext.microstructure?.orderBookDepth;
   const cvd = marketContext.microstructure?.volumeDeltaCvd;
-  const obText = ob && typeof ob.bestBid === 'number'
+  const hasRealDepth = ob && typeof ob.bestBid === 'number' && ob.bestBid > 0 && (ob.bidDepthVolumeTop20 > 0 || ob.askDepthVolumeTop20 > 0);
+  const obText = hasRealDepth
     ? `Bid/Ask=$${ob.bestBid}/$${ob.bestAsk} | Spread=$${ob.spread} (${ob.spreadPercentage}%) | Bid Depth Top 20=${ob.bidDepthVolumeTop20} | Ask Depth Top 20=${ob.askDepthVolumeTop20} | Imbalance=${ob.imbalanceRatio} (${ob.orderBookPressure})`
-    : `Orderbook Pressure=${ob?.orderBookPressure ?? 'NEUTRAL'} | Imbalance=${ob?.imbalanceRatio ?? 1.0}`;
-  const cvdText = cvd && typeof cvd.takerBuyVolume === 'number'
+    : `Orderbook depth: N/A (Data Unavailable)`;
+  const hasRealCvd = cvd && typeof cvd.takerBuyVolume === 'number' && cvd.sampleTradesCount > 0;
+  const cvdText = hasRealCvd
     ? `CVD Signal=${cvd.cvdSignal} | Delta=${cvd.volumeDelta} | Taker Buy/Sell=${cvd.takerBuyVolume}/${cvd.takerSellVolume} (Ratio: ${cvd.buySellRatio}) | Trades=${cvd.sampleTradesCount}`
-    : `CVD Signal=${cvd?.cvdSignal ?? 'BALANCED'} | Volume Delta=${cvd?.volumeDelta ?? 0}`;
+    : `CVD: N/A (Data Unavailable)`;
   const liqText = marketContext.microstructure?.liquidationsStatus ? ` | Liquidations=${marketContext.microstructure.liquidationsStatus}` : '';
 
   const modeInstruction = mode === 'scalp'
@@ -218,9 +232,13 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
       // Warm-up candle filtering (R2)
       const validCandles = filterWarmupCandles(candles);
 
-      // Select last 30 candles for primary timeframe, last 10 for secondary timeframes (R1)
+      // Select candle count per timeframe:
+      // - primary timeframe: 50 candles (full historical context for accurate structure & trend)
+      // - 4h and 1d: 30 candles (macro trend & key S/R context)
+      // - other timeframes: 20 candles
       const isPrimary = tf.toLowerCase() === timeframe.toLowerCase();
-      const targetCount = isPrimary ? 30 : 10;
+      const isHigherTf = tf === '4h' || tf === '1d';
+      const targetCount = isPrimary ? 50 : (isHigherTf ? 30 : 20);
       const selectedCandles = validCandles.slice(-targetCount);
 
       // Calculate Volume Surge Ratio
@@ -252,7 +270,7 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
     })
     .join('\n\n');
 
-  return `TARGET ASSET: ${symbol} (${timeframe})
+  const userPrompt = `TARGET ASSET: ${symbol} (${timeframe})
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
 ${technicalFactsText}
@@ -274,5 +292,14 @@ MULTI-TIMEFRAME INDICATORS & PRICE ACTION ANATOMY:
 ${mtfText}
 
 Provide the Output matching the mode constraints.`;
+
+  // R5 safety ceiling: warn loudly in dev if the prompt balloons; NEVER truncate silently.
+  if (process.env.NODE_ENV !== 'production' && userPrompt.length > 120_000) {
+    console.warn(
+      `[institutional-prompt] User prompt exceeds safety ceiling: ${userPrompt.length} chars (~${estimatePromptTokens(userPrompt)} tokens). Review candle counts / news volume.`
+    );
+  }
+
+  return userPrompt;
 }
 

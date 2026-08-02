@@ -15,10 +15,10 @@ import { CandleData } from '@/types/market';
  */
 async function runLimitedConcurrency<T>(
   items: string[],
-  fn: (tf: string) => Promise<[string, T]>,
+  fn: (tf: string) => Promise<[string, T | null]>,
   concurrency = 2
-): Promise<[string, T][]> {
-  const results: [string, T][] = [];
+): Promise<[string, T | null][]> {
+  const results: [string, T | null][] = [];
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency);
     const batchResults = await Promise.all(batch.map(fn));
@@ -94,8 +94,7 @@ export async function GET(request: Request) {
       throw new Error(`Failed to fetch ticker data for ${symbol}. Market data is currently unavailable.`);
     }
 
-    const CANDLE_LIMIT = 60;
-    const errors: string[] = [];
+    const CANDLE_LIMIT = 250;
 
     const candlesResults = await runLimitedConcurrency<ProcessedTimeframeData>(
       timeframes,
@@ -126,30 +125,22 @@ export async function GET(request: Request) {
           };
           return [tf, tfData] as const;
         } catch (e) {
-          console.warn(`[API /market/full-context] Timeframe ${tf} fetch failed, applying synthetic fallback:`, e);
-          const rawCandles = CCXTMarketService.generateSyntheticCandles(symbol, tf, CANDLE_LIMIT, ticker?.price);
-          const processedCandles = TechnicalIndicatorEngine.processCandleIndicators(rawCandles);
-          const keyLevels = TechnicalIndicatorEngine.extractSupportResistance(rawCandles);
-          const latestClose = processedCandles.length > 0 ? processedCandles[processedCandles.length - 1].close : ticker!.price || 0;
-          const latestIndicators = processedCandles.length > 0 ? processedCandles[processedCandles.length - 1].indicators : ({} as CalculatedIndicators);
-
-          const tfData: ProcessedTimeframeData = {
-            timeframe: tf,
-            candleCount: rawCandles.length,
-            latestClose,
-            indicators: latestIndicators,
-            keyLevels,
-            candles: processedCandles,
-          };
-          return [tf, tfData] as const;
+          // ZERO-FABRICATION POLICY: do NOT synthesize candles. Mark this
+          // timeframe as unavailable so the prompt shows "N/A (Data Unavailable)".
+          console.warn(`[API /market/full-context] Timeframe ${tf} data unavailable:`, e instanceof Error ? e.message : e);
+          return [tf, null] as const;
         }
       },
       2
     );
 
+    // timeframes whose data source failed are omitted (not synthesized):
+    // the LLM prompt builder renders them as "N/A (Data Unavailable)".
     const timeframesData: Record<string, ProcessedTimeframeData> = {};
     for (const [tf, tfData] of candlesResults) {
-      timeframesData[tf] = tfData;
+      if (tfData) {
+        timeframesData[tf] = tfData;
+      }
     }
 
     const primaryTfData = timeframesData[primaryTimeframe];

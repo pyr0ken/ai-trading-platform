@@ -352,8 +352,12 @@ export class CCXTMarketService {
       return directCandles;
     }
 
-    // Tier 3 Fallback: Synthetic historical candles
-    return this.generateSyntheticCandles(symbol, timeframe, limit);
+    // ZERO-FABRICATION POLICY: never invent candles. Signal data unavailability
+    // to the caller so it can surface "N/A (Data Unavailable)" instead of
+    // producing trade signals from random numbers.
+    throw new Error(
+      `No live OHLCV data available for ${symbol} (${timeframe}) since ${since}. All data sources exhausted.`
+    );
   }
   /**
   /**
@@ -399,8 +403,12 @@ export class CCXTMarketService {
       return directCandles;
     }
 
-    // Tier 3 Fallback: Synthetic historical candles (guarantees engine resilience)
-    return this.generateSyntheticCandles(symbol, timeframe, limit, targetPrice);
+    // ZERO-FABRICATION POLICY: never invent candles. Signal data unavailability
+    // to the caller so it can surface "N/A (Data Unavailable)" instead of
+    // producing trade signals from random numbers.
+    throw new Error(
+      `No live OHLCV data available for ${symbol} (${timeframe}) on ${exchangeId}. All data sources exhausted.`
+    );
   }
 
   /**

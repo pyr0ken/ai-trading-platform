@@ -91,9 +91,10 @@ export async function GET(request: Request) {
     setCache(cacheKey, body);
     return NextResponse.json(body);
   } catch (err) {
-    console.warn('[API /market/history-ohlcv] Exchange fetch warning, serving synthetic fallback:', err);
-    const fallbackCandles = CCXTMarketService.generateSyntheticCandles(symbol, timeframe, limit);
-    const body = { candles: fallbackCandles };
-    return NextResponse.json(body);
+    console.error('[API /market/history-ohlcv] Exchange fetch failed:', err);
+    return NextResponse.json(
+      { error: 'Failed to fetch live OHLCV history. No synthetic data available.' },
+      { status: 503 }
+    );
   }
 }
