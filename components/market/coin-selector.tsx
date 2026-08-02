@@ -45,6 +45,7 @@ interface CoinSelectorProps {
   onWatchlistOpened?: () => void;
   layoutConfig?: DashboardLayoutConfig;
   onChangeLayoutConfig?: (config: DashboardLayoutConfig) => void;
+  onOpenSearch?: () => void;
 }
 
 const WIDGET_LABELS: Record<WidgetId, { label: string; group: string }> = {
@@ -76,6 +77,7 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   onWatchlistOpened,
   layoutConfig,
   onChangeLayoutConfig,
+  onOpenSearch,
 }) => {
   const [showWidgetMenu, setShowWidgetMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -148,8 +150,23 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
       ref={topBarRef}
       className="bg-[#040406]/95 backdrop-blur-md border border-[#1c1d22] rounded-[10px] p-2 text-[#e2e3e9] shadow-xl flex flex-wrap items-center justify-between gap-2.5 select-none relative z-30"
     >
-      {/* Left: Venue · Timeframe · Horizon Mode */}
+      {/* Left: Search Symbol · Venue · Timeframe · Horizon Mode */}
       <div className="flex flex-wrap items-center gap-1.5">
+        {/* Symbol Quick Search Trigger */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-1.5 bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] hover:border-[#cc9166]/50 px-2.5 py-1 rounded-[6px] text-xs transition-all cursor-pointer group"
+            title="Search 1,000+ Crypto & Forex pairs (Press / or Ctrl+K)"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#cc9166] group-hover:scale-125 transition-transform" />
+            <span className="font-mono font-bold text-xs text-[#ffffff]">{selectedSymbol}</span>
+            <kbd className="text-[9px] font-mono text-[#5e616e] bg-[#08080a] border border-[#1c1d22] px-1 py-0.2 rounded font-normal">
+              /
+            </kbd>
+          </button>
+        )}
+
         {/* Exchange Selector */}
         <div className="flex items-center gap-0.5 bg-[#121317] border border-[#1c1d22] p-0.5 rounded-[6px]">
           {exchanges.map((ex) => {

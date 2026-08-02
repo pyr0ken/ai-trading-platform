@@ -131,8 +131,11 @@ export default function DashboardPage() {
     resetAnalysis,
   } = useLLMAnalysis();
 
-  const handleSymbolChange = useCallback((newSymbol: string) => {
+  const handleSymbolChange = useCallback((newSymbol: string, newExchange?: string) => {
     setSelectedSymbol(newSymbol);
+    if (newExchange) {
+      setSelectedExchange(newExchange);
+    }
     resetAnalysis();
     setHasRun(false);
   }, [resetAnalysis]);
@@ -252,6 +255,7 @@ export default function DashboardPage() {
                     onWatchlistOpened={() => setWatchlistOpen(false)}
                     layoutConfig={layoutConfig}
                     onChangeLayoutConfig={setLayoutConfig}
+                    onOpenSearch={() => setIsSearchOpen(true)}
                   />
                 </div>
 
