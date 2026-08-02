@@ -138,7 +138,7 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
         secondsVisible: false,
       },
       width: container.clientWidth,
-      height: 420,
+      height: 250,
     });
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
@@ -363,7 +363,7 @@ export const SignalVisualizerChart: React.FC<SignalVisualizerChartProps> = ({
             <span>Loading TradingView Lightweight Chart...</span>
           </div>
         )}
-        <div ref={chartContainerRef} className="w-full h-[420px]" />
+        <div ref={chartContainerRef} className="w-full h-[250px]" />
       </div>
     </div>
   );

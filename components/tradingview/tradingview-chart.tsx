@@ -138,7 +138,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         secondsVisible: false,
       },
       width: container.clientWidth,
-      height: 600,
+      height: 360,
     });
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
@@ -416,14 +416,14 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       )}
 
       {/* TradingView Lightweight Chart Container */}
-      <div className="relative w-full h-[600px] border border-[#1c1d22] bg-[#040406]">
+      <div className="relative w-full h-[360px] border border-[#1c1d22] bg-[#040406]">
         {loading && (
           <div className="absolute inset-0 bg-[#040406]/70 backdrop-blur-xs flex items-center justify-center z-10 font-mono text-xs text-[#cc9166]">
             <RefreshCw className="w-4 h-4 animate-spin mr-2" />
             <span>Loading TradingView Lightweight Chart ({symbol})...</span>
           </div>
         )}
-        <div ref={containerRef} className="w-full h-[600px]" />
+        <div ref={containerRef} className="w-full h-[360px]" />
       </div>
     </div>
   );
