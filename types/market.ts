@@ -125,6 +125,8 @@ export interface MarketTechnicalFacts {
   atrSuggestedTakeProfitLong?: number;
   atrSuggestedStopLossShort?: number;
   atrSuggestedTakeProfitShort?: number;
+  riskRewardRatioLong?: number;
+  riskRewardRatioShort?: number;
   breakoutType?: 'BOS_BULLISH' | 'BOS_BEARISH' | 'NONE';
   breakoutLevel?: number;
   breakoutVolumeRatio?: number;

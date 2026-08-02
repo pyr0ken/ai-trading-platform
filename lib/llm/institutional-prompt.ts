@@ -118,10 +118,8 @@ IMPORTANT DECISION GUIDANCE:
 - The signal field accepts BUY / SELL / HOLD / NEUTRAL. Prefer BUY/SELL over HOLD when directional evidence exists. HOLD is reserved for no edge; NEUTRAL is reserved for truly mixed signals.
 
 DETERMINISTIC ATR-BASED RISK BUFFER GUIDELINES (USE AS NON-BINDING REFERENCE FOR SL/TP PLACEMENT):
-* Long Invalidation Risk Buffer: Ideal Stop Loss should consider the $${marketContext.technicalFacts.atrSuggestedStopLossLong} ATR floor, but place your actual SL beyond market liquidity sweeps or key order block invalidation.
-* Long Profit Target Guide: Projected 2x ATR Move = $${marketContext.technicalFacts.atrSuggestedTakeProfitLong}
-* Short Invalidation Risk Buffer: Ideal Stop Loss should consider the $${marketContext.technicalFacts.atrSuggestedStopLossShort} ATR ceiling, but place your actual SL above liquidity sweeps or key supply zones.
-* Short Profit Target Guide: Projected 2x ATR Move = $${marketContext.technicalFacts.atrSuggestedTakeProfitShort}
+* Long Position: Ideal SL floor = $${marketContext.technicalFacts.atrSuggestedStopLossLong} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitLong} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioLong ?? 2.0}
+* Short Position: Ideal SL ceiling = $${marketContext.technicalFacts.atrSuggestedStopLossShort} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitShort} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioShort ?? 2.0}
 ` : '';
 
   const recentSignals = marketContext.recentHistoricalSignals || [];

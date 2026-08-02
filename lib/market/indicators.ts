@@ -554,6 +554,18 @@ export class TechnicalIndicatorEngine {
     const atrSuggestedStopLossShort = Number((currentPrice + 2.0 * latestAtr).toFixed(2));
     const atrSuggestedTakeProfitShort = Number((currentPrice - 2.0 * latestAtr).toFixed(2));
 
+    // Calculate Real-Time Risk-to-Reward Ratio (R:R) based on S&R Target vs ATR Risk Buffer
+    const nearestResistance = sr.resistanceLevels.length > 0 ? Math.min(...sr.resistanceLevels) : atrSuggestedTakeProfitLong;
+    const nearestSupport = sr.supportLevels.length > 0 ? Math.max(...sr.supportLevels) : atrSuggestedTakeProfitShort;
+
+    const longRisk = Math.abs(currentPrice - atrSuggestedStopLossLong);
+    const longReward = Math.abs(nearestResistance - currentPrice);
+    const riskRewardRatioLong = longRisk > 0 ? Number((longReward / longRisk).toFixed(2)) : 2.0;
+
+    const shortRisk = Math.abs(atrSuggestedStopLossShort - currentPrice);
+    const shortReward = Math.abs(currentPrice - nearestSupport);
+    const riskRewardRatioShort = shortRisk > 0 ? Number((shortReward / shortRisk).toFixed(2)) : 2.0;
+
     // Detect Break of Structure / Breakout
     const breakout = this.detectBreakout(candles, sr);
 
@@ -573,6 +585,8 @@ export class TechnicalIndicatorEngine {
       atrSuggestedTakeProfitLong,
       atrSuggestedStopLossShort,
       atrSuggestedTakeProfitShort,
+      riskRewardRatioLong,
+      riskRewardRatioShort,
       breakoutType: breakout.type,
       breakoutLevel: breakout.brokenLevel,
       breakoutVolumeRatio: breakout.volumeRatio,
