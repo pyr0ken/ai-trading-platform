@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { TradeSetup, StructuredLLMOutput } from '@/types/terminal';
-import { ShieldAlert, CheckCircle2, Copy, Check, PauseCircle, TrendingUp, TrendingDown, RefreshCw, BarChart2 } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, Copy, Check, PauseCircle, TrendingUp, TrendingDown, RefreshCw, BarChart2, Radio } from 'lucide-react';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
 import {
   createChart,
@@ -20,14 +20,24 @@ interface TradingViewChartProps {
   symbol: string;
   exchange: string;
   timeframe: string;
+  currentPrice?: number;
   setup?: TradeSetup | null;
   onTimeframeChange?: (tf: string) => void;
+}
+
+interface Candle {
+  time: Time;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 }
 
 export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   symbol,
   exchange,
   timeframe,
+  currentPrice,
   setup,
   onTimeframeChange,
 }) => {
@@ -35,12 +45,21 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
+  const lastCandleRef = useRef<Candle | null>(null);
 
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [livePrice, setLivePrice] = useState<number | undefined>(currentPrice);
 
-  // Position setup helpers
+  // Update internal live price when currentPrice prop updates
+  useEffect(() => {
+    if (currentPrice && currentPrice > 0) {
+      setLivePrice(currentPrice);
+    }
+  }, [currentPrice]);
+
+  // Setup position helpers
   const isLong = setup?.position === 'LONG';
   const isShort = setup?.position === 'SHORT';
   const isNeutral = !setup || setup.position === 'NEUTRAL';
@@ -53,7 +72,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
   const PositionIcon = isLong ? TrendingUp : isShort ? TrendingDown : PauseCircle;
 
-  // Copy Pine script helper
+  // Copy Pine Script helper
   const handleCopyPine = async () => {
     const code = generateAdvancedPineScriptCode(
       setup ? ({ trade_setup: setup } as unknown as StructuredLLMOutput) : null,
@@ -68,7 +87,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
   // Generate fallback candles if network fails
   const generateFallbackCandles = useCallback(() => {
-    const candles = [];
+    const candles: Candle[] = [];
     const now = Math.floor(Date.now() / 1000);
     let intervalSeconds = 15 * 60;
     if (timeframe === '1m') intervalSeconds = 60;
@@ -77,10 +96,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     if (timeframe === '4h') intervalSeconds = 4 * 3600;
     if (timeframe === '1d') intervalSeconds = 86400;
 
-    let base = 67000;
-    if (symbol.includes('ETH')) base = 3500;
-    if (symbol.includes('SOL')) base = 165;
-    if (symbol.includes('XRP')) base = 0.58;
+    let base = livePrice && livePrice > 0 ? livePrice : 67000;
+    if (symbol.includes('ETH')) base = livePrice || 3500;
+    if (symbol.includes('SOL')) base = livePrice || 165;
 
     for (let i = 120; i >= 0; i--) {
       const time = (now - i * intervalSeconds) as Time;
@@ -100,9 +118,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       });
     }
     return candles;
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, livePrice]);
 
-  // Initialize and maintain TradingView Lightweight Chart
+  // Main Effect: Create & Manage Lightweight Chart + Live Polling
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -169,7 +187,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         const data = await response.json();
 
         if (data.candles && Array.isArray(data.candles) && data.candles.length > 0) {
-          const formatted = data.candles.map(
+          const formatted: Candle[] = data.candles.map(
             (c: { timestamp: number; open: number; high: number; low: number; close: number }) => ({
               time: Math.floor(c.timestamp / 1000) as Time,
               open: c.open,
@@ -180,12 +198,16 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
           );
 
           // Deduplicate and sort timestamps ascending
-          const uniqueTimes = new Map();
-          formatted.forEach((item: { time: Time }) => uniqueTimes.set(item.time, item));
+          const uniqueTimes = new Map<Time, Candle>();
+          formatted.forEach((item) => uniqueTimes.set(item.time, item));
           const sorted = Array.from(uniqueTimes.values()).sort((a, b) => (a.time as number) - (b.time as number));
 
           if (isSubscribed && seriesRef.current) {
             seriesRef.current.setData(sorted);
+            lastCandleRef.current = sorted[sorted.length - 1] || null;
+            if (sorted.length > 0) {
+              setLivePrice(sorted[sorted.length - 1].close);
+            }
             chart.timeScale().fitContent();
           }
         } else {
@@ -195,6 +217,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         if (isSubscribed && seriesRef.current) {
           const fallback = generateFallbackCandles();
           seriesRef.current.setData(fallback);
+          lastCandleRef.current = fallback[fallback.length - 1] || null;
           chart.timeScale().fitContent();
         }
       } finally {
@@ -203,6 +226,11 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     };
 
     loadMarketCandles();
+
+    // Live streaming poll every 10 seconds
+    const pollInterval = setInterval(() => {
+      loadMarketCandles();
+    }, 10_000);
 
     // Clear old price lines
     priceLinesRef.current.forEach((line) => {
@@ -300,6 +328,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
 
     return () => {
       isSubscribed = false;
+      clearInterval(pollInterval);
       resizeObserver.disconnect();
       if (chartRef.current) {
         chartRef.current.remove();
@@ -308,6 +337,41 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     };
   }, [symbol, exchange, timeframe, setup, isNeutral, refreshKey, generateFallbackCandles]);
 
+  // Real-time tick updates when livePrice / currentPrice changes
+  useEffect(() => {
+    if (!seriesRef.current || !livePrice || livePrice <= 0) return;
+
+    const intervalSeconds =
+      timeframe === '1m' ? 60 : timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : timeframe === '1h' ? 3600 : timeframe === '4h' ? 14400 : 86400;
+
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const candleTime = (Math.floor(nowSeconds / intervalSeconds) * intervalSeconds) as Time;
+
+    if (lastCandleRef.current && (lastCandleRef.current.time as number) === (candleTime as number)) {
+      // Update existing live candle
+      const updatedCandle: Candle = {
+        time: candleTime,
+        open: lastCandleRef.current.open,
+        high: Math.max(lastCandleRef.current.high, livePrice),
+        low: Math.min(lastCandleRef.current.low, livePrice),
+        close: livePrice,
+      };
+      lastCandleRef.current = updatedCandle;
+      seriesRef.current.update(updatedCandle);
+    } else {
+      // Start a new candle period
+      const newCandle: Candle = {
+        time: candleTime,
+        open: livePrice,
+        high: livePrice,
+        low: livePrice,
+        close: livePrice,
+      };
+      lastCandleRef.current = newCandle;
+      seriesRef.current.update(newCandle);
+    }
+  }, [livePrice, timeframe]);
+
   const availableTimeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
   return (
@@ -315,7 +379,12 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       {/* TradingView Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2 border-b border-[#1c1d22]">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 bg-emerald-400 animate-pulse" />
+          {/* Live Pulsing Indicator */}
+          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-950/80 border border-emerald-500 text-emerald-400 font-mono text-xs">
+            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+            <span>LIVE {livePrice ? `$${livePrice.toLocaleString()}` : ''}</span>
+          </div>
+
           <span className="font-mono text-xs font-bold text-[#ffffff] uppercase tracking-wider flex items-center gap-1.5">
             <BarChart2 className="w-4 h-4 text-[#cc9166]" />
             TradingView Lightweight Chart

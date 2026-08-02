@@ -241,6 +241,7 @@ export default function DashboardPage() {
                     symbol={selectedSymbol}
                     exchange={selectedExchange}
                     timeframe={selectedTimeframe}
+                    currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
                     onTimeframeChange={handleTimeframeChange}
                     setup={parsedJson?.trade_setup || (marketContext?.ticker?.price ? {
                       position: 'NEUTRAL',
