@@ -181,13 +181,16 @@ DETERMINISTIC ATR-BASED RISK BUFFER GUIDELINES (USE AS NON-BINDING REFERENCE FOR
 ` : '';
 
   const recentSignals = marketContext.recentHistoricalSignals || [];
-  const recentSignalsText = recentSignals.length > 0
+  const validSignals = recentSignals.filter((s: HistoricalSignalFeedback) => s.status && s.status !== 'PENDING');
+  const winCount = validSignals.filter((s: HistoricalSignalFeedback) => s.status === 'WIN' || s.status === 'TAKE_PROFIT').length;
+  const totalClosed = validSignals.length;
+  const historicalWinRate = totalClosed > 0 ? Math.round((winCount / totalClosed) * 100) : null;
+
+  const recentSignalsText = totalClosed > 0
     ? `
-HISTORICAL PERFORMANCE & RECENT SIGNALS FOR ${symbol} (CLOSED-LOOP FEEDBACK):
-${recentSignals.map((s: HistoricalSignalFeedback, idx: number) => {
-      return `${idx + 1}. Signal: ${s.signal} at Entry $${s.price} (Created: ${new Date(s.created_at).toLocaleDateString()}) -> Result: ${s.status}${s.status !== 'PENDING' ? ` (PnL: ${s.pnl_percentage}%)` : ''}`;
-    }).join('\n')}
-Use this historical performance data to refine your accuracy and prevent repeating previous trading mistakes.
+HISTORICAL ACCURACY CONTEXT FOR ${symbol} (CLOSED-LOOP FEEDBACK):
+- Recent Track Record: ${winCount}/${totalClosed} Wins (${historicalWinRate}% Win Rate over last closed trades).
+- Guidance: Use your recent historical win rate to calibrate position confidence. If recent accuracy is low, enforce stricter invalidation boundaries and demand higher confluence before entry. Do NOT overfit or bias toward previous trade directions (BUY/SELL) — analyze current market structure independently.
 ` : '';
 
   const warnings = marketContext.economicWarnings || [];
@@ -200,17 +203,16 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
   const newsSentimentIndex = marketContext.news?.newsSentimentIndex ?? 0.0;
   const newsSentimentLabel = newsSentimentIndex > 0.3 ? 'BULLISH' : newsSentimentIndex < -0.3 ? 'BEARISH' : 'NEUTRAL';
 
-  const newsHeadlines = marketContext.news?.articles?.length
-    ? marketContext.news.articles.slice(0, 5).map((a) => {
-        const dateStr = a.published_at ? a.published_at.substring(0, 10) : 'N/A';
-        return `- [${a.source ?? 'N/A'}, ${dateStr}] ${a.title ?? 'N/A'} (sentiment: ${typeof a.sentimentScore === 'number' ? (a.sentimentScore > 0 ? `+${a.sentimentScore}` : a.sentimentScore) : 'N/A'})`;
-      }).join('\n')
-    : '';
+  const newsHeadlines = marketContext.news?.summaryForPrompt
+    ? marketContext.news.summaryForPrompt
+    : (marketContext.news?.articles?.length
+        ? marketContext.news.articles.slice(0, 5).map((a) => {
+            const dateStr = a.published_at ? a.published_at.substring(0, 10) : 'N/A';
+            return `- [${a.source ?? 'N/A'}, ${dateStr}] ${a.title ?? 'N/A'} (sentiment: ${typeof a.sentimentScore === 'number' ? (a.sentimentScore > 0 ? `+${a.sentimentScore}` : a.sentimentScore) : 'N/A'})`;
+          }).join('\n')
+        : 'No recent market news available. N/A (Data Unavailable)');
 
-  const newsSummaryText = [
-    marketContext.news?.summaryForPrompt || '',
-    newsHeadlines,
-  ].filter(Boolean).join('\n') || 'No recent market news available. N/A (Data Unavailable)';
+  const newsSummaryText = newsHeadlines;
 
   const ob = marketContext.microstructure?.orderBookDepth;
   const cvd = marketContext.microstructure?.volumeDeltaCvd;
