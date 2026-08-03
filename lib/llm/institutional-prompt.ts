@@ -203,16 +203,99 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
   const newsSentimentIndex = marketContext.news?.newsSentimentIndex ?? 0.0;
   const newsSentimentLabel = newsSentimentIndex > 0.3 ? 'BULLISH' : newsSentimentIndex < -0.3 ? 'BEARISH' : 'NEUTRAL';
 
-  const newsHeadlines = marketContext.news?.summaryForPrompt
-    ? marketContext.news.summaryForPrompt
-    : (marketContext.news?.articles?.length
-        ? marketContext.news.articles.slice(0, 5).map((a) => {
-            const dateStr = a.published_at ? a.published_at.substring(0, 10) : 'N/A';
-            return `- [${a.source ?? 'N/A'}, ${dateStr}] ${a.title ?? 'N/A'} (sentiment: ${typeof a.sentimentScore === 'number' ? (a.sentimentScore > 0 ? `+${a.sentimentScore}` : a.sentimentScore) : 'N/A'})`;
-          }).join('\n')
-        : 'No recent market news available. N/A (Data Unavailable)');
+  const newsIntel = marketContext.newsIntelligence;
 
-  const newsSummaryText = newsHeadlines;
+  /**
+   * Render the pre-analysed, symbol-filtered news brief.
+   *
+   * Falls back to the raw aggregated summary only when the intelligence layer
+   * produced nothing at all — and says so explicitly, so the model knows the
+   * difference between analysed intelligence and an unranked keyword dump.
+   */
+  const newsIntelligenceText = (() => {
+    if (!newsIntel) {
+      const raw = marketContext.news?.summaryForPrompt;
+      if (!raw) return 'NEWS & MACRO INTELLIGENCE: N/A (Data Unavailable)';
+      return `NEWS HEADLINES (RAW — intelligence layer unavailable, treat as unranked and unfiltered):
+- Aggregate Keyword Sentiment Index: ${newsSentimentIndex} (${newsSentimentLabel})
+${raw}`;
+    }
+
+    const b = newsIntel.brief;
+    const ageMin = Math.max(0, Math.round((Date.now() - (Date.parse(b.generatedAt) || Date.now())) / 60_000));
+    const lines: string[] = [];
+
+    lines.push('NEWS & MACRO INTELLIGENCE BRIEF (pre-analysed, symbol-filtered, relevance-ranked):');
+    lines.push(
+      `- Provenance: ${b.isFallback ? 'DETERMINISTIC LEXICON (LLM analysis unavailable — lower confidence)' : 'LLM-ANALYSED'} | generated ${ageMin}m ago | ${b.sourceArticleCount} articles scanned`
+    );
+    lines.push(`- Aggregate Regime Bias: ${b.aggregateBias} (confidence ${b.biasConfidence}%)`);
+    lines.push(
+      `- Symbol-Weighted News Sentiment: ${newsIntel.weightedSentiment} (from ${newsIntel.directionalArticleCount} of ${newsIntel.rankedArticles.length} surfaced articles carrying directional signal; neutral items excluded so they do not dilute real signal)`
+    );
+
+    if (b.macroDrivers.length > 0) {
+      const drivers = b.macroDrivers
+        .map((d) => `[${d.driver}: ${d.direction}, w=${d.weight}, ${d.horizon}]`)
+        .join(' ');
+      lines.push(`- Active Macro Drivers: ${drivers}`);
+    } else {
+      lines.push('- Active Macro Drivers: N/A (none identified)');
+    }
+
+    if (newsIntel.directImpact) {
+      const di = newsIntel.directImpact;
+      lines.push(
+        `- Direct Impact on ${di.asset}: ${di.impact} (magnitude ${di.magnitude}/100) — ${di.rationale}`
+      );
+    } else {
+      lines.push(
+        `- Direct Impact on ${symbol}: N/A (no asset-specific news impact identified in this window)`
+      );
+    }
+
+    if (newsIntel.correlationAdjustedBtcImpact) {
+      const c = newsIntel.correlationAdjustedBtcImpact;
+      lines.push(`- Correlation-Adjusted BTC Spillover: ${c.verdict} (corr=${c.correlation})`);
+    }
+
+    if (b.eventRisks.length > 0) {
+      lines.push('- Scheduled Event Risks:');
+      for (const e of b.eventRisks) {
+        lines.push(`  * ${e.event} [${e.whenUtc}] | if resolved positively: ${e.ifPassed} | if resolved negatively: ${e.ifFailed}`);
+      }
+    } else {
+      lines.push('- Scheduled Event Risks: N/A (none identified)');
+    }
+
+    if (newsIntel.rankedArticles.length > 0) {
+      lines.push(
+        `- Relevant Headlines (${newsIntel.rankedArticles.length} of ${newsIntel.totalArticlesConsidered} passed the relevance filter, ranked by relevance x freshness):`
+      );
+      newsIntel.rankedArticles.forEach((a, i) => {
+        const ageH = a.publishedAt
+          ? `${Math.max(0, Math.round((Date.now() - Date.parse(a.publishedAt)) / 3_600_000))}h ago`
+          : 'age unknown';
+        const sentiment = a.llmSentiment !== null
+          ? `sentiment ${a.llmSentiment} (LLM-corrected)`
+          : `sentiment ${a.lexiconSentiment} (lexicon)`;
+        lines.push(
+          `  ${i + 1}. [w=${a.effectiveWeight} rel=${a.relevance}] (${a.source}, ${ageH}, ${a.category ?? 'general'}) ${a.title}`
+        );
+        lines.push(`     ${sentiment} | urgency ${a.timeSensitivity} | relevance basis: ${a.relevanceReason}`);
+      });
+    } else {
+      lines.push(
+        `- Relevant Headlines: NONE of the ${newsIntel.totalArticlesConsidered} scanned articles were materially relevant to ${symbol}. Treat news as NEUTRAL and rely on price action and microstructure.`
+      );
+    }
+
+    lines.push(
+      '- USAGE RULE: news adjusts CONVICTION and INVALIDATION LEVELS, it does not override market structure. Never take a trade against confirmed structure on a headline alone. If provenance is DETERMINISTIC LEXICON, weight this section lower.'
+    );
+
+    return lines.join('\n');
+  })();
 
   const ob = marketContext.microstructure?.orderBookDepth;
   const cvd = marketContext.microstructure?.volumeDeltaCvd;
@@ -291,9 +374,7 @@ RAW QUANTITATIVE MARKET DATA PAYLOAD:
 - Microstructure: ${obText} | ${cvdText}${liqText}
 - Macro: Fear&Greed=${marketContext.macroSentiment?.fearAndGreed?.value ?? 'N/A'} (${marketContext.macroSentiment?.fearAndGreed?.classification ?? 'N/A'}) | Stablecoin Mcap=$${marketContext.macroSentiment?.stablecoinLiquidity?.totalStablecoinMarketCapUsd ?? 'N/A'}
 
-MARKET NEWS & INTELLIGENCE HEADLINES:
-- Aggregate News Sentiment Index: ${newsSentimentIndex} (${newsSentimentLabel})
-${newsSummaryText}
+${newsIntelligenceText}
 
 MULTI-TIMEFRAME INDICATORS & PRICE ACTION ANATOMY:
 ${mtfText}

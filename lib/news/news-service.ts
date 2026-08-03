@@ -1,5 +1,6 @@
 import Parser from 'rss-parser';
 import { NewsArticle, NewsPayload, NewsCategory } from '@/types/news';
+import { analyzeSentimentDeterministic } from './news-lexicon';
 
 const RSS_FEEDS: { url: string; label: string }[] = [
   { url: 'https://cointelegraph.com/rss', label: 'CoinTelegraph' },
@@ -123,7 +124,7 @@ export class NewsService {
     }
     this.inFlightPromise = (async () => {
       try {
-        const articles = await this.fetchNews(4);
+        const articles = await this.fetchNews(6);
         this.cachedPayload = { articles, fetchedAt: Date.now() };
         return articles;
       } finally {
@@ -133,30 +134,27 @@ export class NewsService {
     return this.inFlightPromise;
   }
 
-  private static positiveKeywords = [
-    'bullish', 'surge', 'institutional', 'approved', 'buying', 'adoption', 'upgrade',
-    'growth', 'inflow', 'gain', 'breakout', 'support', 'highest', 'profit', 'positive',
-    'invest', 'rally', 'record high', 'green', 'skyrocket', 'momentum', 'win'
-  ];
+  /**
+   * Public accessor for the shared, de-duplicated article cache.
+   *
+   * Both the UI feed (`/api/news`) and the news-intelligence layer read
+   * through this so a single RSS round-trip serves both. Without it the
+   * intelligence pass would re-fetch every feed on each brief regeneration.
+   */
+  public static async getArticles(): Promise<NewsArticle[]> {
+    return this.getCachedArticles();
+  }
 
-  private static negativeKeywords = [
-    'bearish', 'hack', 'ban', 'lawsuit', 'dump', 'liquidation', 'regulatory', 'scam',
-    'loss', 'outflow', 'drop', 'crash', 'red', 'selling', 'panic', 'deficit', 'fears',
-    'sec', 'probe', 'subpoena', 'downward', 'danger', 'correction', 'slippage'
-  ];
-
+  /**
+   * Deterministic sentiment score for an article, in [-1..1].
+   *
+   * Delegates to the financial lexicon engine, which handles negation
+   * ("not panic selling"), outcome-aware regulatory phrases ("SEC approves"
+   * vs "SEC sues"), phrase weighting, and hedging detection. The previous
+   * flat ±0.25 keyword counter mis-signed a measurable share of headlines.
+   */
   public static scoreArticle(title: string, summary: string): number {
-    let score = 0;
-    const content = (title + ' ' + summary).toLowerCase();
-    
-    this.positiveKeywords.forEach(w => {
-      if (content.includes(w)) score += 0.25;
-    });
-    this.negativeKeywords.forEach(w => {
-      if (content.includes(w)) score -= 0.25;
-    });
-
-    return Number(Math.max(-1.0, Math.min(1.0, score)).toFixed(2));
+    return analyzeSentimentDeterministic(title, summary).score;
   }
 
   private static sanitizeText(raw: string): string {

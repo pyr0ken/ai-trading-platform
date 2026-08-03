@@ -1,5 +1,5 @@
 import { MarketTicker, ProcessedTimeframeData, DerivativesMetrics, MicrostructureMetrics, MacroSentiment, MarketTechnicalFacts } from './market';
-import { NewsPayload } from './news';
+import { NewsPayload, SymbolNewsContext } from './news';
 
 /**
  * Full Structured Market Context Payload sent to LLM
@@ -25,6 +25,12 @@ export interface FullMarketContextPayload {
   derivatives: DerivativesMetrics;
   microstructure: MicrostructureMetrics;
   news: NewsPayload;
+  /**
+   * Pre-analysed, symbol-filtered news intelligence (Stage-1 output).
+   * Optional so older payloads and forex paths remain valid; when absent the
+   * prompt builder falls back to the raw `news` summary.
+   */
+  newsIntelligence?: SymbolNewsContext;
   timeframes: Record<string, ProcessedTimeframeData>;
   technicalFacts?: MarketTechnicalFacts;
   mode?: 'scalp' | 'swing';

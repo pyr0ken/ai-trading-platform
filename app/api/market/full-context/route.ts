@@ -4,9 +4,11 @@ import { ForexMarketService } from '@/lib/market/forex-service';
 import { TechnicalIndicatorEngine } from '@/lib/market/indicators';
 import { MacroSentimentService } from '@/lib/market/macro-service';
 import { NewsService } from '@/lib/news/news-service';
+import { NewsIntelligenceService } from '@/lib/news/news-intelligence';
 import { EconomicCalendar } from '@/lib/market/economic-calendar';
 import { FullMarketContextPayload } from '@/types/analysis';
 import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
+import { SymbolNewsContext } from '@/types/news';
 import { getPipInfo } from '@/lib/constants/forex-pairs';
 import { CandleData } from '@/types/market';
 
@@ -199,6 +201,23 @@ export async function GET(request: Request) {
 
     const economicWarnings = EconomicCalendar.getEconomicWarnings();
 
+    // Stage-1 news intelligence: a shared, pre-analysed brief filtered down to
+    // this symbol. Must run AFTER btcCorrelation is known so Bitcoin-driven
+    // headlines can be discounted for weakly-correlated assets.
+    // Never fatal — on any failure the prompt falls back to the raw news summary.
+    let newsIntelligence: SymbolNewsContext | undefined;
+    try {
+      newsIntelligence = await NewsIntelligenceService.getSymbolNewsContext(
+        symbol,
+        btcCorrelation
+      );
+    } catch (e) {
+      console.warn(
+        '[API /market/full-context] News intelligence unavailable:',
+        e instanceof Error ? e.message : e
+      );
+    }
+
     const payload: FullMarketContextPayload = {
       metadata: {
         symbol,
@@ -211,6 +230,7 @@ export async function GET(request: Request) {
       derivatives,
       microstructure,
       news,
+      newsIntelligence,
       timeframes: timeframesData,
       technicalFacts,
       economicWarnings,
