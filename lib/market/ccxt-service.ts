@@ -33,12 +33,12 @@ async function enforceRateLimit(exchangeId: string, minDelayMs: number = 50) {
 }
 
 /**
- * Bootstrap markets with quick 2.5s timeout. Non-fatal to prevent exchange blocking.
+ * Bootstrap markets with quick 4.0s timeout. Non-fatal to prevent exchange blocking.
  */
 async function bootstrapMarketsWithEscalation(exchange: Exchange, exchangeId: string): Promise<void> {
   try {
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 2500);
+    const tid = setTimeout(() => ctrl.abort(), 4000);
 
     const prom = (async () => {
       return exchange.loadMarkets();
@@ -46,7 +46,7 @@ async function bootstrapMarketsWithEscalation(exchange: Exchange, exchangeId: st
 
     await Promise.race([
       prom,
-      new Promise<void>((_, rej) => ctrl.signal.addEventListener('abort', () => rej(new Error(`timeout:2500ms`)))),
+      new Promise<void>((_, rej) => ctrl.signal.addEventListener('abort', () => rej(new Error(`timeout:4000ms`)))),
     ]);
 
     clearTimeout(tid);
@@ -92,8 +92,10 @@ async function getWarmedExchange(exchangeId: string): Promise<Exchange> {
 
   const instance = new (ExchangeClass as new (cfg: any) => Exchange)({
     enableRateLimit: true,
-    timeout: 3000,
-    options: { fetchCurrencies: false },
+    timeout: 5000,
+    has: {
+      fetchCurrencies: false,
+    },
   });
 
   const marketsReady = bootstrapMarketsWithEscalation(instance, id);
