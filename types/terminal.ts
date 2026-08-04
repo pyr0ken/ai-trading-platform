@@ -51,6 +51,8 @@ export interface TimelinePredictions {
   '7d': string;
 }
 
+import type { NoTradeGateResult } from '@/lib/analysis/no-trade-gate';
+
 export interface ChecklistItem {
   item: string;
   status: 'good' | 'neutral' | 'bad';
@@ -246,6 +248,11 @@ export interface StructuredLLMOutput {
    * Deterministic conviction score computed after LLM response by code.
    */
   conviction?: ConvictionScore;
+  /**
+   * Deterministic no-trade gate verdict. Populated client-side after the model
+   * responds; absent on records created before the gate existed.
+   */
+  gate?: NoTradeGateResult;
 
   /**
    * Validation & auto-correction adjustments applied by code.

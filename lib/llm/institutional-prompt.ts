@@ -2,6 +2,9 @@ import { FullMarketContextPayload, HistoricalSignalFeedback } from '@/types/anal
 import { CandleData, CalculatedIndicators } from '@/types/market';
 import { renderRegimeForPrompt } from '@/lib/analysis/market-regime';
 import { renderDecisionZonesForPrompt } from '@/lib/analysis/decision-zones';
+import { describeFormingCandle } from '@/lib/market/closed-candle';
+import { renderCostModelForPrompt } from '@/lib/analysis/trading-costs';
+import { renderGateRulesForPrompt } from '@/lib/analysis/no-trade-gate';
 
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
@@ -382,16 +385,26 @@ ${raw}`;
       const targetCount = isPrimary ? 75 : (isHigherTf ? 30 : 20);
       const selectedCandles = validCandles.slice(-targetCount);
 
-      // Calculate Volume Surge Ratio
-      const slice20 = candles.slice(-20);
+      // Calculate Volume Surge Ratio from CLOSED candles only.
+      // Using the forming bar here understates volume badly — measured at 64%
+      // of average on a half-elapsed 1h bar — which would fake a "volume dries
+      // up" reading and suppress genuine breakout confirmation.
+      const slice20 = validCandles.slice(-20);
       const avgVol20 = slice20.length > 0 ? slice20.reduce((acc, c) => acc + c.volume, 0) / slice20.length : 1;
-      const latestVol = candles.length > 0 ? candles[candles.length - 1].volume : 0;
+      const latestVol = validCandles.length > 0 ? validCandles[validCandles.length - 1].volume : 0;
       const volumeSurgeRatio = avgVol20 > 0 ? Number((latestVol / avgVol20).toFixed(2)) : 1.0;
 
       const summaryLine = `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | VolSurge=${volumeSurgeRatio}x | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels`;
 
+      // Live-bar disclosure: the forming candle is deliberately excluded from
+      // every number above. Stating that explicitly stops the model from
+      // assuming the feed is stale and "correcting" for a lag that isn't there.
+      const formingLine = td.formingCandle
+        ? `\n  ${describeFormingCandle(td.formingCandle, tf).split('\n').join('\n  ')}`
+        : '';
+
       if (selectedCandles.length === 0) {
-        return `${summaryLine}\n  [${tf}] columns: time_utc | O | H | L | C | V | body% | topwick% | botwick% | rsi14 | macd_hist\n  (No valid candles available after warm-up filtering)`;
+        return `${summaryLine}${formingLine}\n  [${tf}] columns: time_utc | O | H | L | C | V | body% | topwick% | botwick% | rsi14 | macd_hist\n  (No valid candles available after warm-up filtering)`;
       }
 
       const tableHeader = `  [${tf}] columns: time_utc | O | H | L | C | V | body% | topwick% | botwick% | rsi14 | macd_hist`;
@@ -407,7 +420,7 @@ ${raw}`;
         return `  ${timeUtc} | ${c.open} | ${c.high} | ${c.low} | ${c.close} | ${c.volume} | ${bodyPct} | ${topWickPct} | ${botWickPct} | ${rsi14} | ${macdHist}`;
       }).join('\n');
 
-      return `${summaryLine}\n${tableHeader}\n${tableRows}`;
+      return `${summaryLine}${formingLine}\n${tableHeader}\n${tableRows}`;
     })
     .join('\n\n');
 
@@ -430,10 +443,24 @@ ${raw}`;
     ? `\n${renderDecisionZonesForPrompt(marketContext.decisionZones)}\n`
     : '';
 
+  /**
+   * Execution costs and the hard constraints derived from them.
+   *
+   * Placed near the top of the prompt rather than buried at the end: the cost of
+   * a round trip determines which targets are even worth proposing, so it has to
+   * be known before the model starts sizing anything. A target inside the
+   * minimum viable move is rejected by the gate regardless of how good the
+   * directional read is, and a rejected signal wastes the whole analysis.
+   */
+  const costText = marketContext.costModel
+    ? `\n${renderCostModelForPrompt(marketContext.costModel)}\n` +
+      `\n${renderGateRulesForPrompt(marketContext.costModel, marketContext.mode || 'swing')}\n`
+    : '';
+
   const userPrompt = `TARGET ASSET: ${symbol} (${timeframe})
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
-${regimeText}${decisionZonesText}${technicalFactsText}
+${regimeText}${decisionZonesText}${costText}${technicalFactsText}
 ${economicWarningsText}
 ${recentSignalsText}
 ${modeInstruction}

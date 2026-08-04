@@ -46,7 +46,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     const fetchStats = () => {
       try {
         const analyses = AppStorageEngine.getAnalyses();
-        const resolved = analyses.filter(a => a.accuracy_evaluation && a.accuracy_evaluation.status !== 'PENDING');
+        // Win rate must be computed over trades that actually opened.
+        // NOT_FILLED signals never became positions, and INVALIDATED ones had no
+        // resolution, so including either distorts the statistic.
+        const resolved = analyses.filter(a =>
+          a.accuracy_evaluation &&
+          a.accuracy_evaluation.status !== 'PENDING' &&
+          a.accuracy_evaluation.status !== 'NOT_FILLED'
+        );
         const wins = resolved.filter(a => a.accuracy_evaluation?.status === 'WIN').length;
         const losses = resolved.filter(a => a.accuracy_evaluation?.status === 'LOSS').length;
         const winRate = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;

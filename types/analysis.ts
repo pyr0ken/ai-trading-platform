@@ -1,7 +1,8 @@
 import { MarketTicker, ProcessedTimeframeData, DerivativesMetrics, MicrostructureMetrics, MacroSentiment, MarketTechnicalFacts } from './market';
 import { NewsPayload, SymbolNewsContext } from './news';
 import type { MarketRegime } from '@/lib/analysis/market-regime';
-import type { DecisionZoneMap } from '@/lib/analysis/decision-zones';
+import { DecisionZoneMap } from '@/lib/analysis/decision-zones';
+import { TradingCostModel } from '@/lib/analysis/trading-costs';
 
 /**
  * Full Structured Market Context Payload sent to LLM
@@ -52,6 +53,11 @@ export interface FullMarketContextPayload {
    * vs break. Optional for backward compatibility.
    */
   decisionZones?: DecisionZoneMap;
+  /**
+   * Deterministic execution cost model. Present so both the prompt and the
+   * post-response gate reason about the same numbers.
+   */
+  costModel?: TradingCostModel;
   recentHistoricalSignals?: HistoricalSignalFeedback[];
   economicWarnings?: string[];
 }

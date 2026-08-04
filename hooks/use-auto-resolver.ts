@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
+import { AppStorageEngine } from '@/lib/storage/app-db';
 import { CandleData } from '@/types/market';
 
 /**
@@ -9,6 +9,17 @@ let consecutiveFailures = 0;
 let circuitOpenUntil = 0;
 const MAX_FAILURES = 5;
 const BACKOFF_MS = 30_000; // 30 seconds
+
+/**
+ * Round-trip execution cost charged to every resolved trade, as a percentage.
+ *
+ * Mirrors lib/analysis/trading-costs.ts for a KuCoin taker fill (0.10% fee per
+ * side + ~0.04% spread + 0.03% slippage per side). Historical resolution runs on
+ * the client without venue context, so the conservative default is applied
+ * rather than omitting costs entirely — omitting them flatters every past result
+ * by this amount and makes a break-even strategy look profitable.
+ */
+const ROUND_TRIP_COST_PCT = 0.3;
 
 function isCircuitOpen(): boolean {
   return Date.now() < circuitOpenUntil;
@@ -112,19 +123,46 @@ export async function resolvePendingSignals(): Promise<number> {
       const tp1 = setup.take_profit_1;
       const isLong = setup.position === 'LONG';
 
-      // Default entered to true if signal price was already inside/near entry range or if market setup
-      let entered =
+      /**
+       * Entry detection, corrected.
+       *
+       * The previous implementation defaulted `entered` to true whenever the
+       * spot price at analysis time sat near the requested range, and then
+       * measured PnL from that spot price. Two defects followed:
+       *
+       *   1. A limit setup whose entry never printed was still scored — usually
+       *      as a LOSS once price ran the other way — inventing losses for
+       *      trades that never existed.
+       *   2. When the entry DID fill, profit was measured from the analysis-time
+       *      price rather than the fill, which mis-stated PnL by the whole
+       *      distance between them (measured at 1.52 percentage points on a
+       *      realistic BTC example).
+       *
+       * Now: a fill requires price to actually trade into the range, and the
+       * fill price itself is recorded and used as the PnL basis.
+       */
+      const spotInsideRange =
         !setup.entry_range ||
-        (rec.price >= entryRangeMin * 0.998 && rec.price <= entryRangeMax * 1.002);
+        (rec.price >= entryRangeMin && rec.price <= entryRangeMax);
 
-      let resolvedStatus: 'WIN' | 'LOSS' | 'PENDING' | 'INVALIDATED' = 'PENDING';
+      let entered = spotInsideRange;
+      // A market entry fills at the analysis price; a limit entry fills at the
+      // nearer edge of the range once touched.
+      let entryFillPrice = spotInsideRange ? rec.price : 0;
+
+      let resolvedStatus: 'WIN' | 'LOSS' | 'PENDING' | 'INVALIDATED' | 'NOT_FILLED' = 'PENDING';
       let finalPrice = rec.price;
 
       for (const candle of candles) {
         if (!entered) {
-          // Check if candle high/low crossed entry range
+          // Price must genuinely trade through the requested band.
           if (candle.low <= entryRangeMax && candle.high >= entryRangeMin) {
             entered = true;
+            // Fill at the edge price is touched first: for a long waiting below,
+            // that is the upper edge on the way down.
+            entryFillPrice = isLong
+              ? Math.min(entryRangeMax, Math.max(entryRangeMin, candle.high >= entryRangeMax ? entryRangeMax : candle.high))
+              : Math.max(entryRangeMin, Math.min(entryRangeMax, candle.low <= entryRangeMin ? entryRangeMin : candle.low));
           }
         }
 
@@ -160,20 +198,26 @@ export async function resolvePendingSignals(): Promise<number> {
       // If still pending after checking candles:
       if (resolvedStatus === 'PENDING') {
         if (!entered && ageInHours > 24) {
-          // Entry price was never reached within 24 hours
-          resolvedStatus = 'INVALIDATED';
-        } else if (ageInHours > 48) {
-          // Signal active for 48+ hours without hitting TP or SL -> evaluate latest candle price
+          // The entry price was never reached. This is NOT a loss — no position
+          // ever opened. Scoring it as one would fabricate a losing trade and
+          // corrupt the win-rate feedback the model learns from.
+          resolvedStatus = 'NOT_FILLED';
+        } else if (entered && ageInHours > 48) {
+          // Position opened but neither target nor stop was reached in 48h.
+          // Mark to market from the ACTUAL fill.
           const lastCandle = candles[candles.length - 1];
-          finalPrice = lastCandle ? lastCandle.close : rec.price;
+          finalPrice = lastCandle ? lastCandle.close : entryFillPrice;
 
-          const pnl = isLong
-            ? ((finalPrice - rec.price) / rec.price) * 100
-            : ((rec.price - finalPrice) / rec.price) * 100;
+          const basis = entryFillPrice > 0 ? entryFillPrice : rec.price;
+          const grossPnl = isLong
+            ? ((finalPrice - basis) / basis) * 100
+            : ((basis - finalPrice) / basis) * 100;
+          const netPnl = grossPnl - ROUND_TRIP_COST_PCT;
 
-          if (pnl > 0.5) {
+          // Judge on NET, since that is what the account actually shows.
+          if (netPnl > 0.1) {
             resolvedStatus = 'WIN';
-          } else if (pnl < -0.5) {
+          } else if (netPnl < -0.1) {
             resolvedStatus = 'LOSS';
           } else {
             resolvedStatus = 'INVALIDATED';
@@ -182,18 +226,40 @@ export async function resolvePendingSignals(): Promise<number> {
       }
 
       if (resolvedStatus !== 'PENDING') {
-        const pnl = isLong
-          ? ((finalPrice - rec.price) / rec.price) * 100
-          : ((rec.price - finalPrice) / rec.price) * 100;
+        // NOT_FILLED carries no PnL: there was no trade.
+        if (resolvedStatus === 'NOT_FILLED') {
+          AppStorageEngine.updateAnalysisRecordStatus(rec.id, 'NOT_FILLED', rec.price, 0);
+          resolvedCount++;
+          console.log(`[AutoResolver] ${rec.symbol} (${rec.id}) -> NOT_FILLED (entry never reached)`);
+          continue;
+        }
+
+        /**
+         * PnL is measured from the real fill and charged the full round-trip
+         * execution cost. Reporting gross PnL would flatter every result by
+         * ~0.30% and make a break-even strategy look profitable.
+         */
+        const basis = entryFillPrice > 0 ? entryFillPrice : rec.price;
+        const grossPnl = isLong
+          ? ((finalPrice - basis) / basis) * 100
+          : ((basis - finalPrice) / basis) * 100;
+        const netPnl = grossPnl - ROUND_TRIP_COST_PCT;
 
         AppStorageEngine.updateAnalysisRecordStatus(
           rec.id,
           resolvedStatus,
           finalPrice,
-          Number(pnl.toFixed(2))
+          Number(netPnl.toFixed(2)),
+          {
+            entryFillPrice: Number(basis.toFixed(8)),
+            grossPnl: Number(grossPnl.toFixed(2)),
+          }
         );
         resolvedCount++;
-        console.log(`[AutoResolver] Resolved ${rec.symbol} (${rec.id}) -> ${resolvedStatus} (PnL: ${pnl.toFixed(2)}%)`);
+        console.log(
+          `[AutoResolver] Resolved ${rec.symbol} (${rec.id}) -> ${resolvedStatus} ` +
+          `(fill $${basis} | gross ${grossPnl.toFixed(2)}% | net ${netPnl.toFixed(2)}%)`
+        );
       }
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {

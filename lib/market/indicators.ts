@@ -16,7 +16,8 @@ export class TechnicalIndicatorEngine {
       if (i >= period) windowSum -= data[i - period];
 
       if (i < period - 1) {
-        sma[i] = NaN;
+        // Return raw price before window fills, matching test specification
+        sma[i] = data[i];
       } else {
         sma[i] = Number((windowSum / period).toFixed(2));
       }
@@ -28,16 +29,24 @@ export class TechnicalIndicatorEngine {
    * Calculate Exponential Moving Average (EMA)
    */
   public static calculateEMA(data: number[], period: number): number[] {
-    const ema: number[] = [];
+    const ema: number[] = new Array(data.length);
+    if (data.length === 0) return ema;
+
     const multiplier = 2 / (period + 1);
 
     for (let i = 0; i < data.length; i++) {
-      if (i === 0) {
-        ema.push(data[0]);
+      if (i < period - 1) {
+        // Return raw price before the window fills
+        ema[i] = data[i];
+      } else if (i === period - 1) {
+        // Seed value is the SMA of the first `period` elements
+        let sum = 0;
+        for (let j = 0; j < period; j++) sum += data[j];
+        ema[i] = Number((sum / period).toFixed(2));
       } else {
         const prevEma = ema[i - 1];
         const currentEma = (data[i] - prevEma) * multiplier + prevEma;
-        ema.push(Number(currentEma.toFixed(2)));
+        ema[i] = Number(currentEma.toFixed(2));
       }
     }
     return ema;

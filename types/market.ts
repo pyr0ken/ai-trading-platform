@@ -56,6 +56,12 @@ export interface SupportResistanceLevels {
 }
 
 export interface ProcessedTimeframeData {
+  /**
+   * The still-forming bar, excluded from every indicator/zone calculation.
+   * Present so the prompt and UI can show live price action while making it
+   * explicit that the bar is unfinished and will repaint.
+   */
+  formingCandle?: CandleData | null;
   timeframe: string;
   candleCount: number;
   latestClose: number;

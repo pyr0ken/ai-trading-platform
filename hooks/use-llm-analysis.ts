@@ -7,6 +7,8 @@ import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
 import { computeConvictionScore } from '@/lib/analysis/conviction-scorer';
 import { validateAndCorrectPlaybook } from '@/lib/analysis/playbook-validator';
+import { evaluateNoTradeGate } from '@/lib/analysis/no-trade-gate';
+import { buildCostModel } from '@/lib/analysis/trading-costs';
 
 export function useLLMAnalysis() {
   const [analysisText, setAnalysisTextState] = useState<string>('');
@@ -75,9 +77,60 @@ export function useLLMAnalysis() {
         const validation = validateAndCorrectPlaybook(contextPayload, parsedJson);
         parsedJson.validation = validation;
 
-        // Step 2: Compute deterministic 9-filter conviction score & soft-vetoes
+        /**
+         * Step 2: the no-trade gate.
+         *
+         * Runs after validation so it judges the CORRECTED prices, and before
+         * conviction so its penalties can feed the score. This is the layer that
+         * lets the platform decline a trade: a target that cannot clear a 0.30%
+         * round trip is refused here no matter how confident the model sounded,
+         * because taking it has negative expected value by arithmetic.
+         */
+        const costModel = contextPayload.costModel
+          ?? buildCostModel(contextPayload.metadata?.exchange || 'kucoin', contextPayload.microstructure);
+        const gate = evaluateNoTradeGate(contextPayload, parsedJson, costModel);
+        parsedJson.gate = gate;
+
+        // Step 3: Compute deterministic 9-filter conviction score & soft-vetoes
         const conviction = computeConvictionScore(contextPayload, parsedJson);
+
+        // The gate's penalties are additive on top of the filter score: a setup
+        // that survives the filters can still be thin after costs.
+        const gateAdjusted = Math.max(0, Math.round(conviction.final_score - gate.totalPenalty));
+        conviction.final_score = gateAdjusted;
+        if (gate.findings.length > 0) {
+          conviction.vetoes = [
+            ...(conviction.vetoes || []),
+            ...gate.findings.map((f) => ({
+              rule: `${f.tier}:${f.rule}`,
+              penalty: f.penalty,
+              detail: f.detail,
+            })),
+          ];
+        }
         parsedJson.conviction = conviction;
+
+        /**
+         * Enforce the gate's verdict on the playbook the UI reads.
+         *
+         * Without this the gate would be advisory only — the card would still
+         * render a tradeable setup while the findings sat unread in a side field.
+         */
+        if (gate.decision !== 'ALLOW' && parsedJson.playbook?.actionable) {
+          parsedJson.playbook.actionable.status =
+            gate.decision === 'NO_TRADE' ? 'NO_TRADE' : 'WAIT_FOR_ZONE';
+          parsedJson.playbook.actionable.reasoning =
+            `${gate.summary}\n\n${parsedJson.playbook.actionable.reasoning ?? ''}`.trim();
+          if (gate.decision === 'NO_TRADE') {
+            parsedJson.playbook.actionable.setup = null;
+          }
+        }
+        if (gate.decision === 'NO_TRADE') {
+          // Keep the top-level signal consistent with the refusal so downstream
+          // consumers (history table, resolver, sidebar stats) do not record a
+          // trade that the platform declined to take.
+          parsedJson.signal = 'NEUTRAL';
+        }
 
         // Sync model's subjective confidence with deterministic score
         parsedJson.confidence = conviction.final_score;

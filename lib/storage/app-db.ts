@@ -43,7 +43,24 @@ export interface StoredAnalysisRecord {
   accuracy_evaluation?: {
     current_price?: number;
     pnl_percentage?: number;
-    status: 'PENDING' | 'WIN' | 'LOSS' | 'INVALIDATED';
+    /**
+     * NOT_FILLED is distinct from INVALIDATED and from LOSS.
+     *
+     * A limit setup whose entry price was never reached is not a losing trade —
+     * no position existed. Recording it as LOSS poisons the feedback the model
+     * receives and understates the strategy's real win rate. Keeping it separate
+     * means win-rate statistics are computed only over trades that actually
+     * happened.
+     */
+    status: 'PENDING' | 'WIN' | 'LOSS' | 'INVALIDATED' | 'NOT_FILLED';
+    /**
+     * The price the position actually opened at. PnL must be measured from this,
+     * not from the spot price at analysis time, or every limit-entry signal is
+     * mis-scored.
+     */
+    entry_fill_price?: number;
+    /** Gross PnL before execution costs, for transparency in the UI. */
+    gross_pnl_percentage?: number;
   };
 }
 
@@ -271,9 +288,10 @@ export class AppStorageEngine {
 
   public static updateAnalysisRecordStatus(
     id: string,
-    status: 'WIN' | 'LOSS' | 'INVALIDATED',
+    status: 'WIN' | 'LOSS' | 'INVALIDATED' | 'NOT_FILLED',
     currentPrice: number,
-    pnl: number
+    pnl: number,
+    extra?: { entryFillPrice?: number; grossPnl?: number }
   ): void {
     const list = this.getAnalyses();
     const index = list.findIndex((rec) => rec.id === id);
@@ -282,6 +300,8 @@ export class AppStorageEngine {
         status,
         current_price: currentPrice,
         pnl_percentage: pnl,
+        ...(extra?.entryFillPrice !== undefined ? { entry_fill_price: extra.entryFillPrice } : {}),
+        ...(extra?.grossPnl !== undefined ? { gross_pnl_percentage: extra.grossPnl } : {}),
       };
       this.saveAnalyses(list);
     }
