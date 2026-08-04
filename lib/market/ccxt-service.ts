@@ -431,6 +431,8 @@ export class CCXTMarketService {
         '4h': '4h',
         '1d': '1d',
         '1D': '1d',
+        '1w': '1w',
+        '1W': '1w',
       };
       const interval = intervalMap[timeframe] || '1h';
       const startTimeQuery = since ? `&startTime=${since}` : '';

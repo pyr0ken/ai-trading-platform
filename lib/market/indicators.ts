@@ -400,6 +400,147 @@ export class TechnicalIndicatorEngine {
   }
 
   /**
+   * Support/Resistance extraction that PRESERVES cluster metadata.
+   *
+   * `extractSupportResistance` collapses each cluster to a bare average and
+   * throws away how many swings formed it. That touch count is the single best
+   * proxy for how much a level actually matters: a price rejected five times is
+   * a wall, a price touched once is a coincidence. Decision-zone construction
+   * needs that distinction, so this variant returns it.
+   *
+   * Deliberately additive — the original method is untouched so every existing
+   * caller keeps its exact behaviour.
+   *
+   * @param candles    Mature candles (warm-up already filtered by the caller).
+   * @param window     Swing pivot half-width.
+   * @param maxLevels  Max clusters per side (3 support + 3 resistance by default).
+   */
+  public static extractSupportResistanceDetailed(
+    candles: CandleData[],
+    window = 5,
+    maxLevels = 3,
+    atr?: number
+  ): {
+    resistances: Array<{ price: number; touchCount: number; lastTouchIndex: number; spread: number }>;
+    supports: Array<{ price: number; touchCount: number; lastTouchIndex: number; spread: number }>;
+  } {
+    if (candles.length < window * 2 + 1) {
+      return { resistances: [], supports: [] };
+    }
+
+    const currentPrice = candles[candles.length - 1].close;
+    const rawResistances: Array<{ price: number; index: number }> = [];
+    const rawSupports: Array<{ price: number; index: number }> = [];
+
+    // 1. Identify raw swing highs and lows, keeping their bar index so we know
+    //    how recently the level was actually respected.
+    for (let i = window; i < candles.length - window; i++) {
+      const currentHigh = candles[i].high;
+      const currentLow = candles[i].low;
+
+      let isHigh = true;
+      let isLow = true;
+
+      for (let j = 1; j <= window; j++) {
+        if (candles[i - j].high > currentHigh || candles[i + j].high > currentHigh) {
+          isHigh = false;
+        }
+        if (candles[i - j].low < currentLow || candles[i + j].low < currentLow) {
+          isLow = false;
+        }
+      }
+
+      if (isHigh) rawResistances.push({ price: currentHigh, index: i });
+      if (isLow) rawSupports.push({ price: currentLow, index: i });
+    }
+
+    // Levels on the wrong side of price have already been broken and are no
+    // longer support/resistance — they become targets, not barriers.
+    const validSupports = rawSupports.filter((l) => l.price <= currentPrice);
+    const validResistances = rawResistances.filter((l) => l.price >= currentPrice);
+
+    /**
+     * Clustering threshold, volatility-scaled.
+     *
+     * A flat 0.8%-of-price threshold is wrong in both directions: on a quiet
+     * instrument it fuses genuinely distinct levels into one blob (inflating
+     * touch counts and inventing "20-touch walls" spanning 5 ATR), and on a
+     * violent one it splits a single real level into three.
+     *
+     * Tying the threshold to ATR makes "same level" mean the same thing in
+     * every market: within half a typical bar's range. The 0.8% form is kept as
+     * an upper bound so a freak ATR spike cannot fuse the whole book.
+     */
+    const atrBased = Number.isFinite(atr) && (atr as number) > 0 ? (atr as number) * 0.5 : null;
+    const pctBased = currentPrice * 0.008;
+    const threshold = atrBased !== null ? Math.min(atrBased, pctBased) : pctBased;
+
+    const clusterLevels = (
+      levels: Array<{ price: number; index: number }>,
+      isSupport: boolean
+    ): Array<{ price: number; touchCount: number; lastTouchIndex: number; spread: number }> => {
+      if (levels.length === 0) return [];
+
+      // Sort nearest-to-price first so the closest levels seed the clusters.
+      const sorted = [...levels].sort((a, b) =>
+        isSupport ? b.price - a.price : a.price - b.price
+      );
+
+      const clusters: Array<{ prices: number[]; indices: number[] }> = [];
+
+      for (const lvl of sorted) {
+        let placed = false;
+        for (const cluster of clusters) {
+          const avg = cluster.prices.reduce((s, p) => s + p, 0) / cluster.prices.length;
+          if (Math.abs(lvl.price - avg) <= threshold) {
+            cluster.prices.push(lvl.price);
+            cluster.indices.push(lvl.index);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          clusters.push({ prices: [lvl.price], indices: [lvl.index] });
+        }
+      }
+
+      return clusters
+        .map((c) => {
+          const price = c.prices.reduce((s, p) => s + p, 0) / c.prices.length;
+          const min = Math.min(...c.prices);
+          const max = Math.max(...c.prices);
+
+          // Magnitude-aware precision. A flat toFixed(2) collapses sub-dollar
+          // assets (DOGE at 0.10234 -> 0.10) and destroys the level entirely.
+          const mag = Math.abs(currentPrice);
+          const decimals = mag >= 1000 ? 2 : mag >= 100 ? 3 : mag >= 1 ? 4 : mag >= 0.01 ? 6 : 8;
+
+          return {
+            price: Number(price.toFixed(decimals)),
+            touchCount: c.prices.length,
+            lastTouchIndex: Math.max(...c.indices),
+            // Real dispersion of the swings that formed this cluster. A tight
+            // cluster is a precise line; a wide one is a fuzzy area, and the
+            // zone width should reflect that instead of assuming.
+            spread: Number((max - min).toFixed(decimals)),
+          };
+        })
+        // Strongest first (most touches), recency breaks ties.
+        .sort((a, b) => b.touchCount - a.touchCount || b.lastTouchIndex - a.lastTouchIndex)
+        .slice(0, maxLevels)
+        // Then present in price order, nearest to price first.
+        .sort((a, b) =>
+          isSupport ? b.price - a.price : a.price - b.price
+        );
+    };
+
+    return {
+      resistances: clusterLevels(validResistances, false),
+      supports: clusterLevels(validSupports, true),
+    };
+  }
+
+  /**
    * Master Function: Calculate all quantitative indicators for a set of candles
    */
   public static processCandleIndicators(candles: CandleData[]): Array<CandleData & { indicators: CalculatedIndicators }> {

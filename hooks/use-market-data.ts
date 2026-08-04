@@ -3,14 +3,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { FullMarketContextPayload } from '@/types/analysis';
 
-export function useMarketData(symbol: string, exchange: string, timeframe: string, enabled = true) {
+export function useMarketData(
+  symbol: string,
+  exchange: string,
+  timeframe: string,
+  mode: 'scalp' | 'swing' = 'swing',
+  enabled = true
+) {
   return useQuery<FullMarketContextPayload, Error>({
-    queryKey: ['market-data', symbol, exchange, timeframe],
+    queryKey: ['market-data', symbol, exchange, timeframe, mode],
     queryFn: async ({ signal }) => {
       const res = await fetch(
         `/api/market/full-context?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(
           exchange
-        )}&timeframe=${encodeURIComponent(timeframe)}`,
+        )}&timeframe=${encodeURIComponent(timeframe)}&mode=${encodeURIComponent(mode)}`,
         { signal }
       );
       

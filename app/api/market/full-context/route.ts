@@ -11,6 +11,8 @@ import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
 import { SymbolNewsContext } from '@/types/news';
 import { getPipInfo } from '@/lib/constants/forex-pairs';
 import { CandleData } from '@/types/market';
+import { detectMarketRegime, type MarketRegime } from '@/lib/analysis/market-regime';
+import { buildDecisionZones, type DecisionZoneMap } from '@/lib/analysis/decision-zones';
 
 /**
  * Process up to N items at a time to avoid memory spikes from concurrent fetches.
@@ -34,11 +36,20 @@ export async function GET(request: Request) {
   const symbol = searchParams.get('symbol') || 'BTC/USDT';
   const exchange = searchParams.get('exchange') || 'kucoin';
   const primaryTimeframe = searchParams.get('timeframe') || '1h';
+  const mode = (searchParams.get('mode') || 'swing') as 'scalp' | 'swing';
 
   try {
     const pipInfo = getPipInfo(symbol);
     const isForex = pipInfo.isForex || exchange.toLowerCase() === 'forex' || exchange.toLowerCase() === 'oanda';
-    const timeframes = Array.from(new Set(['5m', '15m', '1h', '4h', '1d', primaryTimeframe]));
+    
+    // Dynamic Timeframe Selection based on Analysis Mode:
+    // Scalp mode focuses on lower-timeframe execution and micro-structure (5m, 15m, 1h, 4h).
+    // Swing mode focuses on macro trend and multi-day structural levels (15m, 1h, 4h, 1d, 1w).
+    const defaultTimeframes = mode === 'scalp'
+      ? ['5m', '15m', '1h', '4h']
+      : ['15m', '1h', '4h', '1d', '1w'];
+      
+    const timeframes = Array.from(new Set([...defaultTimeframes, primaryTimeframe]));
 
     // 1. Fetch Ticker & Market structure based on market type
     let ticker;
@@ -96,7 +107,7 @@ export async function GET(request: Request) {
       throw new Error(`Failed to fetch ticker data for ${symbol}. Market data is currently unavailable.`);
     }
 
-    const CANDLE_LIMIT = 250;
+    const CANDLE_LIMIT = 500;
 
     const candlesResults = await runLimitedConcurrency<ProcessedTimeframeData>(
       timeframes,
@@ -199,6 +210,42 @@ export async function GET(request: Request) {
       technicalFacts.btcCorrelation = btcCorrelation;
     }
 
+    /**
+     * Deterministic pre-analysis: regime + decision zones.
+     *
+     * Both are computed in code and handed to the model as established fact.
+     * The alternative — asking the LLM "is this trending?" and "where is
+     * support?" — produces a confident answer either way, and every downstream
+     * conclusion then inherits that guess. Structure has to be measured, not
+     * negotiated.
+     *
+     * Wrapped defensively: this is enrichment, and a failure here must never
+     * take down a market-data request that is otherwise complete.
+     */
+    let marketRegime: MarketRegime | undefined;
+    let decisionZones: DecisionZoneMap | undefined;
+    try {
+      marketRegime = detectMarketRegime(timeframesData, primaryTimeframe);
+
+      if (technicalFacts && primaryTfData && maturePrimaryCandles.length >= 20) {
+        // Zones are built from MATURE candles only, matching technicalFacts.
+        // Feeding warm-up placeholders in would let null-indicator bars form
+        // phantom swing pivots and fabricate levels that never traded.
+        decisionZones = buildDecisionZones(
+          { ...primaryTfData, candles: maturePrimaryCandles },
+          technicalFacts,
+          marketRegime,
+          primaryTimeframe,
+          3 // 3 support + 3 resistance = 6 zones
+        );
+      }
+    } catch (e) {
+      console.warn(
+        '[API /market/full-context] Deterministic pre-analysis failed:',
+        e instanceof Error ? e.message : e
+      );
+    }
+
     const economicWarnings = EconomicCalendar.getEconomicWarnings();
 
     // Stage-1 news intelligence: a shared, pre-analysed brief filtered down to
@@ -225,6 +272,7 @@ export async function GET(request: Request) {
         primaryTimeframe,
         timestampUtc: new Date().toISOString(),
       },
+      mode,
       ticker,
       macroSentiment,
       derivatives,
@@ -233,6 +281,8 @@ export async function GET(request: Request) {
       newsIntelligence,
       timeframes: timeframesData,
       technicalFacts,
+      marketRegime,
+      decisionZones,
       economicWarnings,
     };
 

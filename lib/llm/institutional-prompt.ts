@@ -1,5 +1,7 @@
 import { FullMarketContextPayload, HistoricalSignalFeedback } from '@/types/analysis';
 import { CandleData, CalculatedIndicators } from '@/types/market';
+import { renderRegimeForPrompt } from '@/lib/analysis/market-regime';
+import { renderDecisionZonesForPrompt } from '@/lib/analysis/decision-zones';
 
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
@@ -65,8 +67,57 @@ Schema requirement:
   },
   "checklist": [
     { "item": string, "status": "good" | "neutral" | "bad" }
-  ]
+  ],
+  "playbook": {
+    "bias": "BULLISH" | "BEARISH" | "NEUTRAL",
+    "bias_confidence": number (0 to 100),
+    "primary_path": {
+      "narrative": string,
+      "probability": number,
+      "trigger_zone_id": string (e.g. "R1" or "S1"),
+      "invalidated_by": string,
+      "branches": [
+        {
+          "zone_id": string,
+          "outcome": "REJECT" | "BREAK",
+          "probability": number,
+          "target": number,
+          "rationale": string
+        }
+      ]
+    },
+    "alternative_path": {
+      "narrative": string,
+      "probability": number,
+      "trigger_zone_id": string,
+      "invalidated_by": string,
+      "branches": [ ... ]
+    },
+    "actionable": {
+      "status": "READY" | "WAIT_FOR_ZONE" | "NO_TRADE",
+      "waiting_for": string | null (populated ONLY when status is WAIT_FOR_ZONE, e.g. "price to reach S1 (63234-63361) and reject"),
+      "anchor_zone_id": string | null (zone id this trade keys off, e.g. "S1"),
+      "setup": {
+        "position": "LONG" | "SHORT" | "NEUTRAL",
+        "entry_range": [number, number],
+        "stop_loss": number,
+        "take_profit_1": number,
+        "take_profit_2": number,
+        "take_profit_3": number,
+        "risk_reward_ratio": number,
+        "recommended_leverage": string,
+        "invalidation_point": number,
+        "strategy_name": string
+      } | null (populated ONLY when status is READY; MUST be null when status is WAIT_FOR_ZONE or NO_TRADE)
+    },
+    "referenced_zone_ids": [string] (e.g. ["R1", "S1", "S2"])
+  }
 }
+
+CRITICAL ACTIONABLE STATUS RULES:
+1. "READY": Use ONLY when price is CURRENTLY sitting inside or at a Decision Zone boundary and the entry criteria are confirmed right now.
+2. "WAIT_FOR_ZONE": Use when you have a clear directional bias, but price is mid-structure or between zones. Set setup to null, and populate waiting_for with the exact zone and reaction you are waiting for. DO NOT manufacture an immediate entry when price is mid-range.
+3. "NO_TRADE": Use when market structure is unreadable or conflicting signals destroy edge. Set setup to null.
 
 SECTION 2: Exhaustive Institutional Report in Markdown
 Must strictly include these exact headers:
@@ -170,9 +221,10 @@ DETERMINISTIC TECHNICAL FACTS (USE THESE AS YOUR PRIMARY QUANTITATIVE BASIS — 
 
 IMPORTANT DECISION GUIDANCE:
 - RSI BELOW 30 = OVERSOLD (bullish reversal bias), RSI ABOVE 70 = OVERBOUGHT (bearish reversal bias), RSI 30-70 = momentum continuation zone. Use RSI direction (rising vs falling) to detect momentum shifts, not just the absolute value.
-- If ADX < 20 the market is ranging — still make a directional call based on RSI position, EMA alignment, MACD histogram direction, and support/resistance proximity. A ranging market does NOT mean NEUTRAL is the correct signal; it means you should pick the side with higher probability (e.g. RSI near oversold at support with bullish divergence = BUY bias).
-- NEVER default to NEUTRAL/HOLD unless ALL of the following are true: RSI is mid-range (45-55) AND flat, MACD histogram is flat near zero, price is equidistant between support and resistance, AND no divergence or BOS signal exists. If ANY directional signal exists, make a directional call with appropriate confidence.
-- The signal field accepts BUY / SELL / HOLD / NEUTRAL. Prefer BUY/SELL over HOLD when directional evidence exists. HOLD is reserved for no edge; NEUTRAL is reserved for truly mixed signals.
+- If ADX < 20 the market is ranging — you may still form a directional BIAS from RSI position, EMA alignment, MACD histogram direction, and zone proximity. But a bias is not an entry: in a ranging regime the edge lives at zone EDGES, so the correct output is usually WAIT_FOR_ZONE until price reaches one.
+- Distinguish BIAS from EXECUTION. Your directional read (bullish/bearish) and your action (enter now vs wait) are separate decisions. A strong bearish bias with price sitting mid-range is a WAIT, not a SELL.
+- Do NOT force an immediate entry to avoid looking indecisive. Entering mid-structure because "some signal exists" is the single largest source of losing trades. If price is not at a decision zone, say so and wait.
+- The signal field accepts BUY / SELL / HOLD / NEUTRAL and must reflect your directional BIAS. Whether to act on it right now is expressed separately via the actionable status.
 
 DETERMINISTIC ATR-BASED RISK BUFFER GUIDELINES (USE AS NON-BINDING REFERENCE FOR SL/TP PLACEMENT):
 * Long Position: Ideal SL floor = $${marketContext.technicalFacts.atrSuggestedStopLossLong} | Target = $${marketContext.technicalFacts.atrSuggestedTakeProfitLong} | Calculated Risk-to-Reward Ratio = 1:${marketContext.technicalFacts.riskRewardRatioLong && marketContext.technicalFacts.riskRewardRatioLong >= 1.8 ? marketContext.technicalFacts.riskRewardRatioLong : 'INVALID (no valid nearby resistance >= 1:1.8)'}
@@ -324,10 +376,10 @@ ${raw}`;
 
       // Select candle count per timeframe:
       // - primary timeframe: 50 candles (full historical context for accurate structure & trend)
-      // - 4h and 1d: 30 candles (macro trend & key S/R context)
-      // - other timeframes: 20 candles
+      // - 4h, 1d, and 1w: 30 candles (macro trend & key S/R context)
+      // - other timeframes (e.g. 5m, 15m): 20 candles
       const isPrimary = tf.toLowerCase() === timeframe.toLowerCase();
-      const isHigherTf = tf === '4h' || tf === '1d';
+      const isHigherTf = tf === '4h' || tf === '1d' || tf === '1w';
       const targetCount = isPrimary ? 50 : (isHigherTf ? 30 : 20);
       const selectedCandles = validCandles.slice(-targetCount);
 
@@ -360,10 +412,29 @@ ${raw}`;
     })
     .join('\n\n');
 
+  /**
+   * Deterministic pre-analysis blocks.
+   *
+   * These are rendered from values computed in code, not asked of the model.
+   * They are placed BEFORE the raw payload so the model reads the measured
+   * structure first and treats the raw candles as supporting evidence rather
+   * than as something to re-derive its own levels from.
+   *
+   * Both degrade to an empty string when absent, so a payload produced before
+   * this feature existed still builds a valid prompt.
+   */
+  const regimeText = marketContext.marketRegime
+    ? `\n${renderRegimeForPrompt(marketContext.marketRegime)}\n`
+    : '';
+
+  const decisionZonesText = marketContext.decisionZones
+    ? `\n${renderDecisionZonesForPrompt(marketContext.decisionZones)}\n`
+    : '';
+
   const userPrompt = `TARGET ASSET: ${symbol} (${timeframe})
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
-${technicalFactsText}
+${regimeText}${decisionZonesText}${technicalFactsText}
 ${economicWarningsText}
 ${recentSignalsText}
 ${modeInstruction}

@@ -17,6 +17,8 @@ import { MultiTimeframeMatrix } from '@/components/terminal/multi-timeframe-matr
 import { TechnicalScoreRadar } from '@/components/terminal/technical-score-radar';
 import { BuySellMeter } from '@/components/terminal/buy-sell-meter';
 import { ScenariosCard } from '@/components/terminal/scenarios-card';
+import { DecisionZonesMapComponent } from '@/components/terminal/decision-zones-map';
+import { ConvictionBreakdownComponent } from '@/components/terminal/conviction-breakdown';
 import { HistorySignalTable } from '@/components/terminal/history-signal-table';
 import { PineScriptEditor } from '@/components/terminal/pine-script-editor';
 import { AIChatWidget } from '@/components/terminal/ai-chat-widget';
@@ -115,7 +117,7 @@ export default function DashboardPage() {
     isFetching: isMarketFetching,
     error: marketError,
     refetch: refetchMarketData,
-  } = useMarketData(selectedSymbol, selectedExchange, selectedTimeframe, hasRun);
+  } = useMarketData(selectedSymbol, selectedExchange, selectedTimeframe, analysisMode, hasRun);
 
   const { data: liveTicker } = useTickerPoll(selectedSymbol, selectedExchange);
 
@@ -337,17 +339,21 @@ export default function DashboardPage() {
                       )}
 
                       {isVisible('meter_scenarios') && (
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                          <div className="md:col-span-5">
-                            <BuySellMeter
-                              buyPct={parsedJson?.probabilities?.bullish}
-                              sellPct={parsedJson?.probabilities?.bearish}
-                              microstructure={marketContext?.microstructure}
-                              isLoading={isStreaming}
-                            />
-                          </div>
-                          <div className="md:col-span-7">
-                            <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isStreaming} />
+                        <div className="space-y-4">
+                          <DecisionZonesMapComponent map={marketContext?.decisionZones} />
+                          <ConvictionBreakdownComponent score={parsedJson?.conviction} />
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div className="md:col-span-5">
+                              <BuySellMeter
+                                buyPct={parsedJson?.probabilities?.bullish}
+                                sellPct={parsedJson?.probabilities?.bearish}
+                                microstructure={marketContext?.microstructure}
+                                isLoading={isStreaming}
+                              />
+                            </div>
+                            <div className="md:col-span-7">
+                              <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isStreaming} />
+                            </div>
                           </div>
                         </div>
                       )}

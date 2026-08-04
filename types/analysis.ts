@@ -1,5 +1,7 @@
 import { MarketTicker, ProcessedTimeframeData, DerivativesMetrics, MicrostructureMetrics, MacroSentiment, MarketTechnicalFacts } from './market';
 import { NewsPayload, SymbolNewsContext } from './news';
+import type { MarketRegime } from '@/lib/analysis/market-regime';
+import type { DecisionZoneMap } from '@/lib/analysis/decision-zones';
 
 /**
  * Full Structured Market Context Payload sent to LLM
@@ -34,6 +36,22 @@ export interface FullMarketContextPayload {
   timeframes: Record<string, ProcessedTimeframeData>;
   technicalFacts?: MarketTechnicalFacts;
   mode?: 'scalp' | 'swing';
+  /**
+   * Deterministic regime read across all fetched timeframes.
+   *
+   * Computed in code rather than asked of the model: an LLM will answer
+   * "trending or ranging?" confidently either way, and that guess then anchors
+   * every downstream conclusion. Optional so older cached payloads stay valid.
+   */
+  marketRegime?: MarketRegime;
+  /**
+   * Conditional decision-zone map built from real swing pivots.
+   *
+   * This is what turns a bare directional call into a positional plan: the
+   * prices where a decision actually gets made, with branch outcomes for hold
+   * vs break. Optional for backward compatibility.
+   */
+  decisionZones?: DecisionZoneMap;
   recentHistoricalSignals?: HistoricalSignalFeedback[];
   economicWarnings?: string[];
 }

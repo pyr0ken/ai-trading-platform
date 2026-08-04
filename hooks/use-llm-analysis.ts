@@ -5,6 +5,8 @@ import { FullMarketContextPayload } from '@/types/analysis';
 import { LogStep } from '@/components/analysis/live-status-logger';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
+import { computeConvictionScore } from '@/lib/analysis/conviction-scorer';
+import { validateAndCorrectPlaybook } from '@/lib/analysis/playbook-validator';
 
 export function useLLMAnalysis() {
   const [analysisText, setAnalysisTextState] = useState<string>('');
@@ -67,6 +69,20 @@ export function useLLMAnalysis() {
       if (jsonMatch && jsonMatch[1]) {
         parsedJson = JSON.parse(jsonMatch[1]);
       }
+
+      if (parsedJson) {
+        // Step 1: Validate and auto-correct model targets/SL against deterministic zones
+        const validation = validateAndCorrectPlaybook(contextPayload, parsedJson);
+        parsedJson.validation = validation;
+
+        // Step 2: Compute deterministic 9-filter conviction score & soft-vetoes
+        const conviction = computeConvictionScore(contextPayload, parsedJson);
+        parsedJson.conviction = conviction;
+
+        // Sync model's subjective confidence with deterministic score
+        parsedJson.confidence = conviction.final_score;
+      }
+
       const sym = contextPayload.metadata?.symbol || 'BTC/USDT';
       const pineCode = generateAdvancedPineScriptCode(parsedJson, sym);
 
@@ -76,7 +92,7 @@ export function useLLMAnalysis() {
         exchange: contextPayload.metadata?.exchange || 'kucoin',
         timeframe: contextPayload.metadata?.primaryTimeframe || '1h',
         price: contextPayload.ticker?.price || 0,
-        signal: parsedJson?.signal || 'NEUTRAL',
+        signal: parsedJson?.playbook?.bias || parsedJson?.signal || 'NEUTRAL',
         confidence: parsedJson?.confidence || 75,
         risk_level: parsedJson?.risk_level || 'MEDIUM',
         json_output: parsedJson,
