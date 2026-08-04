@@ -32,11 +32,9 @@ export interface CalculatedIndicators {
   sma_10: number;
   sma_20: number;
   sma_50: number;
-  sma_200: number;
   ema_7: number;
   ema_20: number;
   ema_50: number;
-  ema_200: number;
   rsi_14: number;
   rsi_condition: 'OVERBOUGHT' | 'OVERSOLD' | 'NEUTRAL';
   macd_line: number;

@@ -551,12 +551,10 @@ export class TechnicalIndicatorEngine {
     const sma10 = this.calculateSMA(closes, 10);
     const sma20 = this.calculateSMA(closes, 20);
     const sma50 = this.calculateSMA(closes, 50);
-    const sma200 = this.calculateSMA(closes, 200);
 
     const ema7 = this.calculateEMA(closes, 7);
     const ema20 = this.calculateEMA(closes, 20);
     const ema50 = this.calculateEMA(closes, 50);
-    const ema200 = this.calculateEMA(closes, 200);
 
     const rsi14 = this.calculateRSI(closes, 14);
     const macd = this.calculateMACD(closes);
@@ -583,11 +581,9 @@ export class TechnicalIndicatorEngine {
         sma_10: sma10[idx],
         sma_20: sma20[idx],
         sma_50: sma50[idx],
-        sma_200: sma200[idx],
         ema_7: ema7[idx],
         ema_20: ema20[idx],
         ema_50: ema50[idx],
-        ema_200: ema200[idx],
         rsi_14: rsiVal,
         rsi_condition: rsiCondition,
         macd_line: macdLine,
@@ -614,7 +610,7 @@ export class TechnicalIndicatorEngine {
    * Determine whether a candle has moved past its indicator warm-up phase.
    * Warm-up signatures:
    *  - rsi_14 === 50 && macd_hist === 0 && adx_14 === 20 (placeholder values before windows fill)
-   *  - any long-period SMA is NaN (its window has not yet accumulated enough data)
+   *  - any SMA is NaN (its window has not yet accumulated enough data)
    */
   public static isMatureCandle(candle: CandleData & { indicators: CalculatedIndicators }): boolean {
     const ind = candle.indicators;
@@ -624,9 +620,9 @@ export class TechnicalIndicatorEngine {
       typeof ind.adx_14 === 'number' &&
       ind.adx_14 === 20;
     const hasNaNIndicator =
+      Number.isNaN(ind.sma_10) ||
       Number.isNaN(ind.sma_20) ||
-      Number.isNaN(ind.sma_50) ||
-      Number.isNaN(ind.sma_200);
+      Number.isNaN(ind.sma_50);
     return !placeholderSignature && !hasNaNIndicator;
   }
 

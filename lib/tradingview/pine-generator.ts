@@ -82,7 +82,7 @@ plot(trailPrice, "Trailing Stop", color=color.orange, style=plot.style_cross)
 ${secName}("Steep AI Institutional Overlay - ${cleanSymbol}", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
 
 // --- Inputs & Settings ---
-showEMAs       = input.bool(true, "Show EMA Fast/Slow/200", group="Indicators")
+showEMAs       = input.bool(true, "Show EMA Fast/Slow", group="Indicators")
 showVWAP       = input.bool(true, "Show Anchored VWAP", group="Indicators")
 showATRBands   = input.bool(true, "Show ATR Volatility Bands", group="Indicators")
 showZones      = input.bool(true, "Show Supply & Demand Zones", group="Market Structure")
@@ -91,7 +91,6 @@ showSignals    = input.bool(true, "Show Buy/Sell Breakout Signals", group="Trade
 // --- Technical Indicators ---
 emaFast = ${taPrefix}ema(close, ${options.fastEma})
 emaSlow = ${taPrefix}ema(close, ${options.slowEma})
-ema200  = ${taPrefix}ema(close, 200)
 vwapVal = ${taPrefix}vwap(close)
 atrVal  = ${taPrefix}atr(14)
 ${adxCode}
@@ -99,7 +98,6 @@ ${adxCode}
 // EMA Lines & Trend Cloud
 plot(showEMAs ? emaFast : na, "EMA Fast", color=color.rgb(59, 130, 246), width=1)
 plot(showEMAs ? emaSlow : na, "EMA Slow", color=color.rgb(245, 158, 11), width=1)
-plot(showEMAs ? ema200 : na, "EMA 200", color=color.rgb(239, 68, 68), width=2)
 plot(showVWAP ? vwapVal : na, "VWAP", color=color.rgb(168, 85, 247), width=2, style=plot.style_linebr)
 
 // ATR Volatility Bands

@@ -76,10 +76,6 @@ export const IndicatorTable: React.FC<IndicatorTableProps> = ({ timeframeData, i
             <span className="text-[#9194a1]">EMA 50 (MID):</span>
             <span className="font-mono text-[#e2e3e9]">${ind.ema_50}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-[#9194a1]">EMA 200 (LONG):</span>
-            <span className="font-mono text-emerald-400 font-bold">${ind.ema_200}</span>
-          </div>
         </div>
 
         {/* RSI & MACD */}

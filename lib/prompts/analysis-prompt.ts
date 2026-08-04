@@ -85,7 +85,7 @@ ${Object.entries(timeframes)
     const ind = tfData.indicators;
     const kl = tfData.keyLevels;
     return `--- Timeframe ${tf} (Latest Close: $${tfData.latestClose}) ---
-* Moving Averages: EMA 7=$${ind.ema_7} | EMA 20=$${ind.ema_20} | EMA 50=$${ind.ema_50} | EMA 200=$${ind.ema_200}
+* Moving Averages: EMA 7=$${ind.ema_7} | EMA 20=$${ind.ema_20} | EMA 50=$${ind.ema_50}
 * RSI (14): ${ind.rsi_14} (${ind.rsi_condition})
 * MACD (12,26,9): Line=${ind.macd_line} | Histogram=${ind.macd_hist} (${ind.macd_condition})
 * Bollinger Bands: Upper=$${ind.bb_upper} | Middle=$${ind.bb_middle} | Lower=$${ind.bb_lower} (Width: ${ind.bb_bandwidth}%)

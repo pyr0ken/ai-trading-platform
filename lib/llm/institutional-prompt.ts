@@ -173,7 +173,7 @@ export function estimatePromptTokens(text: string): number {
  * Filter out warm-up candles carrying synthetic placeholder indicators.
  * Real payload evidence: warm-up candles have rsi_14 exactly 50, macd_hist exactly 0,
  * and adx_14 exactly 20 while the indicator window has not filled. SMA equalities
- * are unreliable because a short series can produce sma_200 === close as a
+ * are unreliable because a short series can produce sma_50 === close as a
  * computational artifact, not a placeholder.
  */
 function filterWarmupCandles(candles: Array<CandleData & { indicators: CalculatedIndicators }>) {
@@ -189,8 +189,7 @@ function filterWarmupCandles(candles: Array<CandleData & { indicators: Calculate
       ind.adx_14 === 20;
     const hasNaNIndicator =
       Number.isNaN(ind.sma_20) ||
-      Number.isNaN(ind.sma_50) ||
-      Number.isNaN(ind.sma_200);
+      Number.isNaN(ind.sma_50);
     return !placeholderSignature && !hasNaNIndicator;
   });
 }
@@ -375,12 +374,12 @@ ${raw}`;
       const validCandles = filterWarmupCandles(candles);
 
       // Select candle count per timeframe:
-      // - primary timeframe: 50 candles (full historical context for accurate structure & trend)
+      // - primary timeframe: 75 candles (full historical context for accurate structure & trend)
       // - 4h, 1d, and 1w: 30 candles (macro trend & key S/R context)
       // - other timeframes (e.g. 5m, 15m): 20 candles
       const isPrimary = tf.toLowerCase() === timeframe.toLowerCase();
       const isHigherTf = tf === '4h' || tf === '1d' || tf === '1w';
-      const targetCount = isPrimary ? 50 : (isHigherTf ? 30 : 20);
+      const targetCount = isPrimary ? 75 : (isHigherTf ? 30 : 20);
       const selectedCandles = validCandles.slice(-targetCount);
 
       // Calculate Volume Surge Ratio
