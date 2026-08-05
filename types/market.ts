@@ -134,6 +134,16 @@ export interface MarketTechnicalFacts {
   breakoutType?: 'BOS_BULLISH' | 'BOS_BEARISH' | 'NONE';
   breakoutLevel?: number;
   breakoutVolumeRatio?: number;
+  /**
+   * Latest closed bar volume divided by the 20-bar average, computed on EVERY
+   * bar regardless of regime.
+   *
+   * Distinct from breakoutVolumeRatio, which detectBreakout() only populates
+   * meaningfully when a break of structure actually fired — outside a breakout
+   * it reports a value that carries no information about volume expansion.
+   * Consumers judging "is volume confirming this move" must read THIS field.
+   */
+  volumeSurgeRatio?: number;
   rsiDivergence?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
   macdDivergence?: 'BULLISH_DIV' | 'BEARISH_DIV' | 'NONE';
   btcCorrelation?: number;

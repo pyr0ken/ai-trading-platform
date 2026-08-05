@@ -1,4 +1,6 @@
 import { CalculatedIndicators, CandleData, SupportResistanceLevels, MarketTechnicalFacts } from '@/types/market';
+import { computeVolumeSurgeRatio } from './volume-surge';
+import { smoothWilders } from './wilder-smoothing';
 
 /**
  * Technical Indicator Calculation Engine (Pure TypeScript)
@@ -169,6 +171,12 @@ export class TechnicalIndicatorEngine {
 
   /**
    * Calculate Average True Range (ATR)
+   *
+   * Smoothed with Wilder's Method (alpha = 1/period), NOT EMA (alpha =
+   * 2/(period+1)). This previously used calculateEMA, which reacts almost twice
+   * as fast and made every ATR-derived number — decision zone widths, suggested
+   * stops and targets, and the gate's ATR-distance reasoning — disagree with
+   * every standard charting package.
    */
   public static calculateATR(candles: CandleData[], period = 14): number[] {
     const tr: number[] = [];
@@ -184,7 +192,7 @@ export class TechnicalIndicatorEngine {
       }
     }
 
-    return this.calculateEMA(tr, period);
+    return smoothWilders(tr, period);
   }
 
   /**
@@ -759,6 +767,23 @@ export class TechnicalIndicatorEngine {
     // Detect Break of Structure / Breakout
     const breakout = this.detectBreakout(candles, sr);
 
+    /**
+     * Regime-independent volume surge.
+     *
+     * `breakoutVolumeRatio` is only meaningful when a BOS actually fired:
+     * detectBreakout() returns { type: 'NONE', volumeRatio } and bails early
+     * whenever the ratio is under 1.5, so in every non-breakout bar — the large
+     * majority of them — it reports a value that says nothing about whether
+     * volume is genuinely expanding or drying up.
+     *
+     * The conviction scorer was reading that field as "volume confirmation",
+     * which silently neutered a whole filter outside breakout conditions.
+     * This measure is computed on every bar from closed candles, mirroring the
+     * VolSurge figure already shown to the model in institutional-prompt.ts so
+     * the score and the prompt agree on one number.
+     */
+    const volumeSurgeRatio = computeVolumeSurgeRatio(candles);
+
     // Detect Divergences
     const divs = this.detectDivergences(candles);
 
@@ -780,6 +805,7 @@ export class TechnicalIndicatorEngine {
       breakoutType: breakout.type,
       breakoutLevel: breakout.brokenLevel,
       breakoutVolumeRatio: breakout.volumeRatio,
+      volumeSurgeRatio,
       rsiDivergence: divs.rsiDivergence,
       macdDivergence: divs.macdDivergence,
     };

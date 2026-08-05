@@ -5,6 +5,7 @@ import { renderDecisionZonesForPrompt } from '@/lib/analysis/decision-zones';
 import { describeFormingCandle } from '@/lib/market/closed-candle';
 import { renderCostModelForPrompt } from '@/lib/analysis/trading-costs';
 import { renderGateRulesForPrompt } from '@/lib/analysis/no-trade-gate';
+import { computeVolumeSurgeRatio } from '@/lib/market/volume-surge';
 
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
@@ -236,14 +237,49 @@ DETERMINISTIC ATR-BASED RISK BUFFER GUIDELINES (USE AS NON-BINDING REFERENCE FOR
 
   const recentSignals = marketContext.recentHistoricalSignals || [];
   const validSignals = recentSignals.filter((s: HistoricalSignalFeedback) => s.status && s.status !== 'PENDING');
-  const winCount = validSignals.filter((s: HistoricalSignalFeedback) => s.status === 'WIN' || s.status === 'TAKE_PROFIT').length;
-  const totalClosed = validSignals.length;
+
+  /**
+   * Win rate is computed over trades that ACTUALLY OPENED.
+   *
+   * NOT_FILLED means the entry price was never reached — no position existed,
+   * so it is neither a win nor a loss and must not dilute the win rate.
+   */
+  const filledSignals = validSignals.filter(
+    (s: HistoricalSignalFeedback) => s.status !== 'NOT_FILLED' && s.status !== 'NO_TRADE'
+  );
+  const winCount = filledSignals.filter(
+    (s: HistoricalSignalFeedback) => s.status === 'WIN' || s.status === 'TAKE_PROFIT'
+  ).length;
+  const totalClosed = filledSignals.length;
   const historicalWinRate = totalClosed > 0 ? Math.round((winCount / totalClosed) * 100) : null;
 
-  const recentSignalsText = totalClosed > 0
+  /**
+   * Fill rate is reported SEPARATELY and is the feedback that was missing.
+   *
+   * A setup whose entry never printed is invisible in win/loss terms, so a model
+   * that repeatedly asks for entries price never reaches receives no corrective
+   * signal at all — it just sees fewer results. Surfacing the miss rate makes
+   * that failure mode legible and lets the model tighten its entry bands.
+   */
+  const notFilledCount = validSignals.filter(
+    (s: HistoricalSignalFeedback) => s.status === 'NOT_FILLED'
+  ).length;
+  const fillAttempts = totalClosed + notFilledCount;
+  const fillRate = fillAttempts > 0 ? Math.round((totalClosed / fillAttempts) * 100) : null;
+
+  const fillRateLine =
+    fillRate !== null && fillAttempts >= 3
+      ? `\n- Entry Fill Rate: ${totalClosed}/${fillAttempts} setups actually filled (${fillRate}%).${
+          fillRate < 60
+            ? ' WARNING: most proposed entries were never reached. Your entry bands are too far from price — anchor them to a zone price can realistically trade into, or use WAIT_FOR_ZONE instead of a band price will not visit.'
+            : ''
+        }`
+      : '';
+
+  const recentSignalsText = totalClosed > 0 || notFilledCount > 0
     ? `
 HISTORICAL ACCURACY CONTEXT FOR ${symbol} (CLOSED-LOOP FEEDBACK):
-- Recent Track Record: ${winCount}/${totalClosed} Wins (${historicalWinRate}% Win Rate over last closed trades).
+- Recent Track Record: ${winCount}/${totalClosed} Wins${historicalWinRate !== null ? ` (${historicalWinRate}% Win Rate over filled trades)` : ''}.${fillRateLine}
 - Guidance: Use your recent historical win rate to calibrate position confidence. If recent accuracy is low, enforce stricter invalidation boundaries and demand higher confluence before entry. Do NOT overfit or bias toward previous trade directions (BUY/SELL) — analyze current market structure independently.
 ` : '';
 
@@ -385,14 +421,14 @@ ${raw}`;
       const targetCount = isPrimary ? 75 : (isHigherTf ? 30 : 20);
       const selectedCandles = validCandles.slice(-targetCount);
 
-      // Calculate Volume Surge Ratio from CLOSED candles only.
-      // Using the forming bar here understates volume badly — measured at 64%
-      // of average on a half-elapsed 1h bar — which would fake a "volume dries
-      // up" reading and suppress genuine breakout confirmation.
-      const slice20 = validCandles.slice(-20);
-      const avgVol20 = slice20.length > 0 ? slice20.reduce((acc, c) => acc + c.volume, 0) / slice20.length : 1;
-      const latestVol = validCandles.length > 0 ? validCandles[validCandles.length - 1].volume : 0;
-      const volumeSurgeRatio = avgVol20 > 0 ? Number((latestVol / avgVol20).toFixed(2)) : 1.0;
+      // Volume Surge Ratio from CLOSED candles only, via the shared helper so
+      // this figure and technicalFacts.volumeSurgeRatio (which the conviction
+      // scorer reads) can never drift apart into two different definitions.
+      //
+      // Using the forming bar here would understate volume badly — measured at
+      // 64% of average on a half-elapsed 1h bar — faking a "volume dries up"
+      // reading and suppressing genuine breakout confirmation.
+      const volumeSurgeRatio = computeVolumeSurgeRatio(validCandles);
 
       const summaryLine = `- ${tf}: Close=$${td.latestClose} | EMA7=$${ind.ema_7} | EMA20=$${ind.ema_20} | EMA50=$${ind.ema_50} | RSI14=${ind.rsi_14} (${ind.rsi_condition}) | MACD Hist=${ind.macd_hist} (${ind.macd_condition}) | ATR=$${ind.atr_14} | VolSurge=${volumeSurgeRatio}x | S/R=${(td.keyLevels?.supportLevels || []).length}/${(td.keyLevels?.resistanceLevels || []).length} levels`;
 

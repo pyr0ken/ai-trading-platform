@@ -20,6 +20,7 @@
 
 import { FullMarketContextPayload } from '@/types/analysis';
 import { ConvictionFilter, ConvictionScore, StructuredLLMOutput } from '@/types/terminal';
+import { resolveTradeSetup } from './setup-resolver';
 
 export function computeConvictionScore(
   payload: FullMarketContextPayload,
@@ -31,7 +32,7 @@ export function computeConvictionScore(
   const regime = payload.marketRegime;
   const zones = payload.decisionZones;
   const facts = payload.technicalFacts;
-  const setup = parsedOutput.trade_setup || parsedOutput.playbook?.actionable?.setup;
+  const setup = resolveTradeSetup(parsedOutput);
   const bias = parsedOutput.playbook?.bias || (parsedOutput.signal === 'BUY' ? 'BULLISH' : parsedOutput.signal === 'SELL' ? 'BEARISH' : 'NEUTRAL');
   const isLong = bias === 'BULLISH';
   const isShort = bias === 'BEARISH';
@@ -57,6 +58,12 @@ export function computeConvictionScore(
   }
 
   // 2. Higher Timeframe Agreement (Max 18 pts)
+  //
+  // Carries the FULL cost of fighting the higher timeframe. This filter is the
+  // single authority on HTF conflict — the old Rule A veto charged another -18
+  // on top of the -16 already taken here, so one fault cost 34 points and a
+  // clean early-reversal setup (zone + oversold RSI + volume + 2.5 R:R) fell
+  // from MEDIUM to LOW purely through double counting. Measured: 66 -> 48.
   let htfScore = 9;
   let htfReason = 'HTF neutral or unconfirmed';
   if (regime) {
@@ -66,8 +73,8 @@ export function computeConvictionScore(
         htfScore = 18;
         htfReason = `Trade aligns with HTF (${htfVote.timeframe}: ${htfVote.vote})`;
       } else if ((isLong && htfVote.vote === 'BEARISH') || (isShort && htfVote.vote === 'BULLISH')) {
-        htfScore = 2;
-        htfReason = `Trade CONFLICTS with HTF trend (${htfVote.timeframe}: ${htfVote.vote})`;
+        htfScore = 0;
+        htfReason = `Trade CONFLICTS with HTF trend (${htfVote.timeframe}: ${htfVote.vote}) — full filter penalty applied once`;
       }
     }
   }
@@ -106,6 +113,9 @@ export function computeConvictionScore(
   });
 
   // 4. Risk-to-Reward Ratio Quality (Max 12 pts)
+  //
+  // Sole authority on R:R quality. The old Rule B veto charged a further -15
+  // for rr < 1.5 on top of the reduced score here, punishing one weakness twice.
   const rr = setup?.risk_reward_ratio || 0;
   let rrScore = 0;
   let rrReason = 'R:R unavailable or < 1.0';
@@ -115,11 +125,12 @@ export function computeConvictionScore(
   } else if (rr >= 1.8) {
     rrScore = 9;
     rrReason = `Valid Risk-to-Reward ratio: 1:${rr.toFixed(2)}`;
-  } else if (rr >= 1.2) {
+  } else if (rr >= 1.5) {
     rrScore = 4;
     rrReason = `Suboptimal R:R ratio: 1:${rr.toFixed(2)} (target >= 1.8)`;
-  } else {
-    rrReason = `Invalid R:R ratio: 1:${rr.toFixed(2)}`;
+  } else if (rr > 0) {
+    rrScore = 0;
+    rrReason = `R:R 1:${rr.toFixed(2)} is below the 1:1.5 minimum — no points awarded`;
   }
   filters.push({
     name: 'R:R Quality',
@@ -156,6 +167,10 @@ export function computeConvictionScore(
   });
 
   // 6. Momentum Confirmation (Max 8 pts)
+  //
+  // Sole authority on chasing extended momentum. The old Rule C veto charged a
+  // further -15 for a long into overbought (or short into oversold) on top of
+  // the reduced score here.
   let momScore = 4;
   let momReason = 'Neutral momentum indicators';
   if (facts) {
@@ -164,8 +179,8 @@ export function computeConvictionScore(
       momScore = 8;
       momReason = `RSI extreme confirms reversal edge (${rsi})`;
     } else if ((isLong && rsi.includes('OVERBOUGHT')) || (isShort && rsi.includes('OVERSOLD'))) {
-      momScore = 1;
-      momReason = `RSI opposes entry direction (${rsi})`;
+      momScore = 0;
+      momReason = `Chasing extended momentum: RSI opposes entry direction (${rsi})`;
     } else {
       momScore = 5;
       momReason = `RSI momentum neutral (${rsi})`;
@@ -180,16 +195,30 @@ export function computeConvictionScore(
   });
 
   // 7. Volume Surge Confirmation (Max 7 pts)
+  //
+  // Reads volumeSurgeRatio, which is computed on every bar. The previous source
+  // (breakoutVolumeRatio) is only populated meaningfully when a break of
+  // structure fired — detectBreakout() bails out below 1.5x — so outside a
+  // breakout this filter was scoring on a number that carried no volume
+  // information at all, and awarded the neutral 3.5 by default.
   let volScore = 3.5;
   let volReason = 'Volume ratio normal';
-  if (facts && facts.breakoutVolumeRatio) {
-    if (facts.breakoutVolumeRatio >= 1.5) {
+  const volRatio = facts?.volumeSurgeRatio ?? facts?.breakoutVolumeRatio;
+  if (typeof volRatio === 'number' && Number.isFinite(volRatio) && volRatio > 0) {
+    if (volRatio >= 1.5) {
       volScore = 7;
-      volReason = `Volume surge confirmed: ${facts.breakoutVolumeRatio.toFixed(1)}x average`;
-    } else if (facts.breakoutVolumeRatio < 0.8) {
+      volReason = `Volume surge confirmed: ${volRatio.toFixed(2)}x the 20-bar average`;
+    } else if (volRatio >= 1.1) {
+      volScore = 5;
+      volReason = `Volume mildly expanding: ${volRatio.toFixed(2)}x the 20-bar average`;
+    } else if (volRatio < 0.8) {
       volScore = 1;
-      volReason = `Low volume expansion: ${facts.breakoutVolumeRatio.toFixed(1)}x average`;
+      volReason = `Volume drying up: ${volRatio.toFixed(2)}x the 20-bar average — move lacks participation`;
+    } else {
+      volReason = `Volume in line with average: ${volRatio.toFixed(2)}x`;
     }
+  } else {
+    volReason = 'Volume data unavailable — neutral score assigned';
   }
   filters.push({
     name: 'Volume Confirmation',
@@ -247,45 +276,29 @@ export function computeConvictionScore(
   // ── Calculate Raw Score ──
   const rawScore = filters.reduce((sum, f) => sum + f.score, 0);
 
-  // ── SOFT-VETO RULES ──
-  // Rule A: Trading against 4h/1d trend
-  if (regime) {
-    const htfVote = regime.votes.find((v) => v.timeframe === '4h' || v.timeframe === '1d');
-    if (htfVote && ((isLong && htfVote.vote === 'BEARISH') || (isShort && htfVote.vote === 'BULLISH'))) {
-      vetoes.push({
-        rule: 'COUNTER_HTF_TREND',
-        penalty: 18,
-        detail: `Trade direction opposes HTF ${htfVote.timeframe} ${htfVote.vote} trend`,
-      });
-    }
-  }
-
-  // Rule B: R:R < 1.5
-  if (rr > 0 && rr < 1.5) {
-    vetoes.push({
-      rule: 'SUBOPTIMAL_RISK_REWARD',
-      penalty: 15,
-      detail: `Risk-to-Reward ratio (1:${rr.toFixed(2)}) is below minimum 1:1.5 threshold`,
-    });
-  }
-
-  // Rule C: Overbought LONG or Oversold SHORT
-  if (facts) {
-    const rsi = facts.rsiCondition;
-    if (isLong && rsi.includes('OVERBOUGHT')) {
-      vetoes.push({
-        rule: 'CHASING_OVERBOUGHT',
-        penalty: 15,
-        detail: 'Entering LONG while RSI is overbought increases pullback probability',
-      });
-    } else if (isShort && rsi.includes('OVERSOLD')) {
-      vetoes.push({
-        rule: 'CHASING_OVERSOLD',
-        penalty: 15,
-        detail: 'Entering SHORT while RSI is oversold increases bounce probability',
-      });
-    }
-  }
+  /**
+   * ── VETO RULES ──
+   *
+   * Rules A (COUNTER_HTF_TREND), B (SUBOPTIMAL_RISK_REWARD) and C
+   * (CHASING_OVERBOUGHT/OVERSOLD) were REMOVED here because each duplicated a
+   * penalty the corresponding filter had already applied:
+   *
+   *   Rule A  <-> filter 2 (Higher-TF Agreement)
+   *   Rule B  <-> filter 4 (R:R Quality)
+   *   Rule C  <-> filter 6 (Momentum Confirmation)
+   *
+   * Charging both meant one fault cost up to 34 of 100 points. A clean early
+   * reversal — inside a support zone, oversold RSI, volume surge, 2.5 R:R, and
+   * only the 4h still against it — scored 48/LOW instead of 66/MEDIUM and was
+   * effectively suppressed. That is exactly the setup this platform should be
+   * able to take, so the system was blind at turning points by construction.
+   *
+   * Each filter now carries the full weight of its own concern, applied once.
+   * Vetoes remain reserved for risks NO filter measures; the no-trade gate
+   * (lib/analysis/no-trade-gate.ts) contributes its findings separately in
+   * use-llm-analysis.ts, and those are genuinely additional information
+   * (post-cost economics), not a second charge for the same fault.
+   */
 
   // Calculate Veto Penalties & Final Score
   const vetoPenalty = vetoes.reduce((sum, v) => sum + v.penalty, 0);

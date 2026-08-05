@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 import { CandleData } from '@/types/market';
+import { resolveTradeSetup } from '@/lib/analysis/setup-resolver';
 
 /**
  * Circuit breaker: if OHLCV calls keep failing, back off to avoid overwhelming the server.
@@ -11,15 +12,31 @@ const MAX_FAILURES = 5;
 const BACKOFF_MS = 30_000; // 30 seconds
 
 /**
- * Round-trip execution cost charged to every resolved trade, as a percentage.
+ * Fallback round-trip execution cost, as a percentage, for records saved before
+ * per-signal cost capture existed.
  *
  * Mirrors lib/analysis/trading-costs.ts for a KuCoin taker fill (0.10% fee per
- * side + ~0.04% spread + 0.03% slippage per side). Historical resolution runs on
- * the client without venue context, so the conservative default is applied
- * rather than omitting costs entirely — omitting them flatters every past result
- * by this amount and makes a break-even strategy look profitable.
+ * side + ~0.04% spread + 0.03% slippage per side). Signals written by the
+ * current pipeline carry `round_trip_cost_pct` measured from the live orderbook
+ * at signal time and that value is preferred — real spread varies with
+ * liquidity, so charging a flat 0.30% to a fill that actually paid 0.35%
+ * flatters the result.
  */
-const ROUND_TRIP_COST_PCT = 0.3;
+const FALLBACK_ROUND_TRIP_COST_PCT = 0.3;
+
+/**
+ * Cost actually charged to a given record.
+ *
+ * Clamped to a sane band so a corrupt or absurd stored value cannot silently
+ * wipe out or invent PnL.
+ */
+function roundTripCostFor(rec: { round_trip_cost_pct?: number }): number {
+  const stored = rec.round_trip_cost_pct;
+  if (typeof stored === 'number' && Number.isFinite(stored) && stored >= 0 && stored <= 5) {
+    return stored;
+  }
+  return FALLBACK_ROUND_TRIP_COST_PCT;
+}
 
 function isCircuitOpen(): boolean {
   return Date.now() < circuitOpenUntil;
@@ -110,7 +127,17 @@ export async function resolvePendingSignals(): Promise<number> {
         continue;
       }
 
-      const setup = rec.json_output?.trade_setup;
+      /**
+       * Read the setup through the shared resolver rather than the legacy
+       * `trade_setup` field alone.
+       *
+       * The prompt instructs the model to place the executable setup at
+       * `playbook.actionable.setup`. Reading only `trade_setup` here meant every
+       * such signal resolved to INVALIDATED and dropped out of the win-rate
+       * statistics entirely — a biased subsample that also fed back into the
+       * prompt via recentHistoricalSignals.
+       */
+      const setup = resolveTradeSetup(rec.json_output);
       if (!setup) {
         AppStorageEngine.updateAnalysisRecordStatus(rec.id, 'INVALIDATED', rec.price, 0);
         resolvedCount++;
@@ -212,7 +239,7 @@ export async function resolvePendingSignals(): Promise<number> {
           const grossPnl = isLong
             ? ((finalPrice - basis) / basis) * 100
             : ((basis - finalPrice) / basis) * 100;
-          const netPnl = grossPnl - ROUND_TRIP_COST_PCT;
+          const netPnl = grossPnl - roundTripCostFor(rec);
 
           // Judge on NET, since that is what the account actually shows.
           if (netPnl > 0.1) {
@@ -243,7 +270,7 @@ export async function resolvePendingSignals(): Promise<number> {
         const grossPnl = isLong
           ? ((finalPrice - basis) / basis) * 100
           : ((basis - finalPrice) / basis) * 100;
-        const netPnl = grossPnl - ROUND_TRIP_COST_PCT;
+        const netPnl = grossPnl - roundTripCostFor(rec);
 
         AppStorageEngine.updateAnalysisRecordStatus(
           rec.id,

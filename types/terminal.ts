@@ -232,7 +232,13 @@ export interface StructuredLLMOutput {
   };
   recommendation: string;
   scores: RadarScores;
-  trade_setup: TradeSetup;
+  /**
+   * Legacy top-level setup path. May legitimately be null when the platform
+   * declines the trade (gate NO_TRADE) or the model proposes no setup.
+   * setup-resolver.ts normalises this to mirror playbook.actionable.setup at
+   * save time; read through resolveTradeSetup(), never directly.
+   */
+  trade_setup: TradeSetup | null;
   reasoning_badges: ReasoningBadge[];
   scenarios: Scenarios;
   timeline_predictions: TimelinePredictions;

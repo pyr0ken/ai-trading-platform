@@ -29,6 +29,7 @@
 
 import { FullMarketContextPayload } from '@/types/analysis';
 import { StructuredLLMOutput, TradeSetup } from '@/types/terminal';
+import { resolveTradeSetup } from './setup-resolver';
 import {
   TradingCostModel,
   computeNetEconomics,
@@ -101,7 +102,7 @@ export function evaluateNoTradeGate(
 
   const playbookStatus = output.playbook?.actionable?.status;
   const setup: TradeSetup | null | undefined =
-    output.playbook?.actionable?.setup ?? output.trade_setup;
+    resolveTradeSetup(output);
 
   const bias = output.playbook?.bias
     ?? (output.signal === 'BUY' ? 'BULLISH' : output.signal === 'SELL' ? 'BEARISH' : 'NEUTRAL');

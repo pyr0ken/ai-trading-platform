@@ -40,6 +40,21 @@ export interface StoredAnalysisRecord {
   markdown_report: string;
   pine_script?: string;
   created_at: string;
+  /**
+   * Round-trip execution cost in percent, captured from the LIVE cost model at
+   * the moment the signal was generated (venue taker fee + real orderbook
+   * spread + slippage, both sides).
+   *
+   * The auto-resolver used to charge a hardcoded 0.30% to every historical
+   * trade. Real spread varies with liquidity — trading-costs.ts measures it per
+   * signal and it ranges roughly 0.26%-0.35% — so a signal taken in a thin book
+   * was scored with a cost lower than it actually paid, flattering its PnL.
+   * Persisting the figure lets resolution charge what the trade really cost.
+   *
+   * Optional: records written before this field existed fall back to the
+   * conservative default in use-auto-resolver.ts.
+   */
+  round_trip_cost_pct?: number;
   accuracy_evaluation?: {
     current_price?: number;
     pnl_percentage?: number;

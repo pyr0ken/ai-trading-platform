@@ -9,6 +9,7 @@ import { computeConvictionScore } from '@/lib/analysis/conviction-scorer';
 import { validateAndCorrectPlaybook } from '@/lib/analysis/playbook-validator';
 import { evaluateNoTradeGate } from '@/lib/analysis/no-trade-gate';
 import { buildCostModel } from '@/lib/analysis/trading-costs';
+import { normaliseSetupPaths } from '@/lib/analysis/setup-resolver';
 
 export function useLLMAnalysis() {
   const [analysisText, setAnalysisTextState] = useState<string>('');
@@ -67,6 +68,9 @@ export function useLLMAnalysis() {
     if (!text) return;
     try {
       let parsedJson = null;
+      // Captured inside the parse block, read when building the record below,
+      // so the resolver later charges the cost this signal actually faced.
+      let roundTripCostPct: number | undefined;
       const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch && jsonMatch[1]) {
         parsedJson = JSON.parse(jsonMatch[1]);
@@ -88,6 +92,7 @@ export function useLLMAnalysis() {
          */
         const costModel = contextPayload.costModel
           ?? buildCostModel(contextPayload.metadata?.exchange || 'kucoin', contextPayload.microstructure);
+        roundTripCostPct = costModel?.roundTripCostPct;
         const gate = evaluateNoTradeGate(contextPayload, parsedJson, costModel);
         parsedJson.gate = gate;
 
@@ -134,6 +139,17 @@ export function useLLMAnalysis() {
 
         // Sync model's subjective confidence with deterministic score
         parsedJson.confidence = conviction.final_score;
+
+        /**
+         * Step 5: mirror the final setup into BOTH schema paths.
+         *
+         * Runs last so it reflects every correction above: validator price
+         * snapping, gate refusals, and the NO_TRADE clearing. After this the
+         * auto-resolver — which historically read only `trade_setup` — sees the
+         * same object the gate and scorer judged, so no signal can be analysed
+         * and displayed yet silently excluded from the win-rate statistics.
+         */
+        normaliseSetupPaths(parsedJson);
       }
 
       const sym = contextPayload.metadata?.symbol || 'BTC/USDT';
@@ -152,6 +168,9 @@ export function useLLMAnalysis() {
         markdown_report: text,
         pine_script: pineCode,
         created_at: new Date().toISOString(),
+        ...(typeof roundTripCostPct === 'number' && Number.isFinite(roundTripCostPct)
+          ? { round_trip_cost_pct: roundTripCostPct }
+          : {}),
         accuracy_evaluation: {
           status: 'PENDING',
           current_price: contextPayload.ticker?.price || 0,
