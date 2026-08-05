@@ -1,0 +1,79 @@
+'use client';
+
+/**
+ * Intel source toggles — single source of truth for "should the AI see news /
+ * X feed".
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The toggles are written from three places (header quick-toggle, settings
+ * page) and read from two (header, dashboard page). The browser `storage`
+ * event only fires in *other* tabs, so same-tab listeners never woke up and the
+ * header pill kept rendering a stale value until a full remount.
+ *
+ * This module owns a custom same-tab event plus a `useIntelToggles` hook, so
+ * every consumer re-renders the moment any of them flips a switch.
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { AppStorageEngine } from './app-db';
+
+export const INTEL_TOGGLE_EVENT = 'intel-toggles-changed';
+
+export interface IntelToggles {
+  includeNews: boolean;
+  includeSocial: boolean;
+}
+
+/** Read current toggles, defaulting to enabled. SSR-safe. */
+export function readIntelToggles(): IntelToggles {
+  if (typeof window === 'undefined') {
+    return { includeNews: true, includeSocial: true };
+  }
+  const session = AppStorageEngine.getSession();
+  return {
+    includeNews: session.includeNews ?? true,
+    includeSocial: session.includeSocial ?? true,
+  };
+}
+
+/** Persist a toggle and notify every listener in this tab and others. */
+export function setIntelToggle(key: keyof IntelToggles, value: boolean): void {
+  AppStorageEngine.saveSession({ [key]: value });
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(INTEL_TOGGLE_EVENT));
+  }
+}
+
+/**
+ * Subscribe to toggle state.
+ *
+ * Initial state is the enabled default rather than the stored value so server
+ * and first client render agree; the stored value lands in the mount effect.
+ * This avoids a hydration mismatch on the pill's styling.
+ */
+export function useIntelToggles(): IntelToggles & {
+  toggleIntelSource: (key: keyof IntelToggles) => void;
+} {
+  const [toggles, setToggles] = useState<IntelToggles>({
+    includeNews: true,
+    includeSocial: true,
+  });
+
+  useEffect(() => {
+    const sync = () => setToggles(readIntelToggles());
+    sync();
+    window.addEventListener(INTEL_TOGGLE_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(INTEL_TOGGLE_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  const toggleIntelSource = useCallback((key: keyof IntelToggles) => {
+    setIntelToggle(key, !readIntelToggles()[key]);
+  }, []);
+
+  return { ...toggles, toggleIntelSource };
+}

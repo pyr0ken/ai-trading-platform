@@ -10,8 +10,12 @@ import {
   CheckCircle2,
   Globe2,
   Save,
+  Newspaper,
+  Radio,
+  Share2,
 } from 'lucide-react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
+import { INTEL_TOGGLE_EVENT } from '@/lib/storage/intel-toggles';
 
 export const TerminalSettingsPage: React.FC = () => {
   const [llmUrl, setLlmUrl] = useState('http://127.0.0.1:20128/v1');
@@ -23,13 +27,25 @@ export const TerminalSettingsPage: React.FC = () => {
     const session = AppStorageEngine.getSession();
     return session.selectedTimeframe || '1h';
   });
+  const [includeNews, setIncludeNews] = useState(() => {
+    const session = AppStorageEngine.getSession();
+    return session.includeNews ?? true;
+  });
+  const [includeSocial, setIncludeSocial] = useState(() => {
+    const session = AppStorageEngine.getSession();
+    return session.includeSocial ?? true;
+  });
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const handleSaveSettings = () => {
     AppStorageEngine.saveSession({
       selectedExchange: defaultExchange,
       selectedTimeframe: defaultTimeframe,
+      includeNews,
+      includeSocial,
     });
+    // Wake up the header pill and the dashboard query key in this same tab.
+    window.dispatchEvent(new CustomEvent(INTEL_TOGGLE_EVENT));
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
@@ -150,6 +166,60 @@ export const TerminalSettingsPage: React.FC = () => {
               <option value="4h">4 Hours (Position)</option>
               <option value="1D">1 Day (Macro Trend)</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 2B: News & Social Intelligence Inputs */}
+      <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 space-y-4">
+        <div className="flex items-center gap-2 border-b border-[#1c1d22] pb-3 text-[#cc9166] font-semibold text-xs">
+          <Radio className="w-4 h-4 text-[#cc9166]" />
+          <span className="eyebrow-copper">QUANTITATIVE INTELLIGENCE FEEDS</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-[#121317] border border-[#1c1d22] rounded-[10px] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#1c1d22] flex items-center justify-center text-[#cc9166]">
+                <Newspaper className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-semibold text-[#ffffff] text-xs">RSS News Intelligence</div>
+                <p className="text-[10px] text-[#9194a1] font-sans">Incorporate CoinDesk & CoinTelegraph RSS briefs</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIncludeNews(!includeNews)}
+              className={`px-3 py-1.5 rounded-full font-bold text-[10px] transition-all cursor-pointer border ${
+                includeNews
+                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40'
+                  : 'bg-[#1c1d22] text-[#5e616e] border-[#2a2b32]'
+              }`}
+            >
+              {includeNews ? 'ACTIVE' : 'DISABLED'}
+            </button>
+          </div>
+
+          <div className="p-4 bg-[#121317] border border-[#1c1d22] rounded-[10px] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#1c1d22] flex items-center justify-center text-[#cc9166]">
+                <Share2 className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-semibold text-[#ffffff] text-xs">X / Twitter Social Feed</div>
+                <p className="text-[10px] text-[#9194a1] font-sans">Incorporate primary movers (e.g. Trump, SEC, Whales)</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIncludeSocial(!includeSocial)}
+              className={`px-3 py-1.5 rounded-full font-bold text-[10px] transition-all cursor-pointer border ${
+                includeSocial
+                  ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40'
+                  : 'bg-[#1c1d22] text-[#5e616e] border-[#2a2b32]'
+              }`}
+            >
+              {includeSocial ? 'ACTIVE' : 'DISABLED'}
+            </button>
           </div>
         </div>
       </div>

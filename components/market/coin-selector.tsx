@@ -17,11 +17,14 @@ import {
   Check,
   ChevronDown,
   RotateCcw,
+  Newspaper,
+  Share2,
 } from 'lucide-react';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { CoinIcon } from '@/components/common/coin-icon';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
-import { StoredAnalysisRecord } from '@/lib/storage/app-db';
+import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
+import { useIntelToggles } from '@/lib/storage/intel-toggles';
 import {
   DashboardLayoutConfig,
   LayoutPreset,
@@ -83,6 +86,8 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
   const [showWidgetMenu, setShowWidgetMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const topBarRef = useRef<HTMLDivElement>(null);
+  const { includeNews, includeSocial, toggleIntelSource } = useIntelToggles();
+  const intelToggles = { includeNews, includeSocial };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -416,6 +421,36 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
         )}
 
         <AnalysisReplayModal onReplayAnalysis={onReplayAnalysis} />
+
+        {/* Quick Intel Input Toggles */}
+        <div className="hidden md:flex items-center gap-1 bg-[#121317] border border-[#1c1d22] rounded-[9999px] p-0.5 shrink-0">
+          <button
+            onClick={() => toggleIntelSource('includeNews')}
+            title="Toggle RSS News Intelligence in AI Analysis"
+            aria-pressed={intelToggles.includeNews}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-[9999px] text-[10px] font-mono font-semibold transition-all cursor-pointer ${
+              intelToggles.includeNews
+                ? 'bg-[#1c1d22] text-[#cc9166] border border-[#cc9166]/40'
+                : 'text-[#5e616e] hover:text-[#9194a1] border border-transparent'
+            }`}
+          >
+            <Newspaper className="w-3 h-3" />
+            <span>NEWS</span>
+          </button>
+          <button
+            onClick={() => toggleIntelSource('includeSocial')}
+            title="Toggle X/Twitter Social Intelligence in AI Analysis"
+            aria-pressed={intelToggles.includeSocial}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-[9999px] text-[10px] font-mono font-semibold transition-all cursor-pointer ${
+              intelToggles.includeSocial
+                ? 'bg-[#1c1d22] text-[#cc9166] border border-[#cc9166]/40'
+                : 'text-[#5e616e] hover:text-[#9194a1] border border-transparent'
+            }`}
+          >
+            <Share2 className="w-3 h-3" />
+            <span>X FEED</span>
+          </button>
+        </div>
 
         {/* Run AI Quant CTA */}
         <button

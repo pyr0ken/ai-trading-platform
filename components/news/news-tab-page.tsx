@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { NewsArticle, NewsCategory, NEWS_CATEGORIES } from '@/types/news';
 import { WhaleSidebar } from '@/components/whale/whale-sidebar';
+import { SocialFeedLogWidget } from '@/components/news/social-feed-log-widget';
 
 /* ──────────────────────────────────────────────────
    Types
@@ -448,7 +449,7 @@ function SentimentFooter({ articles }: { articles: NewsArticle[] }) {
    Main Component: NewsTabPage
    ────────────────────────────────────────────────── */
 
-export function NewsTabPage(_props: NewsTabPageProps) {
+export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -616,6 +617,8 @@ export function NewsTabPage(_props: NewsTabPageProps) {
       <div className="flex gap-0 max-w-[1400px] mx-auto w-full items-stretch">
         {/* ═══ Left: News Content ═══ */}
         <div className="flex-1 min-w-0 space-y-5">
+          {/* X / Twitter Real-time Intelligence Log */}
+          <SocialFeedLogWidget symbol={symbol} />
           {/* ═══ Header ═══ */}
           <div className="bg-[#040406] border border-[#1c1d22] rounded-[2px] p-6 md:p-8">
             <div className="flex items-center justify-between flex-wrap gap-4">

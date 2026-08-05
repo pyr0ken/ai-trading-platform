@@ -217,9 +217,38 @@ export function useLLMAnalysis() {
       },
       {
         id: 'step-4',
-        label: 'Aggregating Fear & Greed Index and News Feeds',
+        label: 'Aggregating Macro Sentiment',
         status: 'completed',
         detail: `Fear & Greed Index: ${contextPayload.macroSentiment?.fearAndGreed?.value ?? 50}`,
+      },
+      {
+        id: 'step-4a',
+        label: 'Scoring & Ranking RSS News Intelligence',
+        status: 'completed',
+        detail: contextPayload.newsIntelligence
+          ? `Scanned ${contextPayload.newsIntelligence.brief.sourceArticleCount} articles | Macro Bias: ${contextPayload.newsIntelligence.brief.aggregateBias}`
+          : 'RSS News Feed: Disabled or Unavailable',
+        subItems: contextPayload.newsIntelligence?.rankedArticles?.slice(0, 2).map((a) => ({
+          source: a.source || 'RSS News',
+          text: a.title,
+          badge: `${Math.round(a.relevance ?? 50)}% REL`,
+        })),
+      },
+      {
+        id: 'step-4b',
+        label: 'X/Twitter Primary Mover Feed & Cross-Domain Relevance Filter',
+        status: 'completed',
+        detail: contextPayload.socialIntel
+          ? `Scanned ${contextPayload.socialIntel.counts.considered} items -> Surfaced ${contextPayload.socialIntel.counts.kept} relevant posts${
+              contextPayload.socialIntel.enriched ? ' (LLM Enriched)' : ''
+            }`
+          : 'X/Twitter Social Feed: Disabled or Unavailable',
+        subItems: contextPayload.socialIntel?.items?.slice(0, 3).map((item) => ({
+          source: item.source,
+          text: item.text,
+          badge: `${Math.round((item.relevance || 0) * 100)}% REL`,
+          url: item.url,
+        })),
       },
       {
         id: 'step-5',

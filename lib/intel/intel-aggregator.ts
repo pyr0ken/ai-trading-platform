@@ -379,16 +379,37 @@ export function aggregateIntel(
 export async function loadTweetFeed(feedPath?: string): Promise<RawTweet[]> {
   if (typeof window !== 'undefined') return [];
 
-  const path = feedPath || process.env.X_FEED_PATH;
-  if (!path) return [];
+  // Candidate locations, most authoritative first. The scraper writes to its own
+  // data dir; the env var lets deployments point elsewhere.
+  const candidatePaths = [
+    feedPath,
+    process.env.X_FEED_PATH,
+    'C:\\Users\\Lenovo\\Desktop\\Trade\\market-data-ai-analyzer\\x_feed_engine\\data\\tweets_ai_feed.json',
+  ].filter(Boolean) as string[];
 
-  try {
-    const fs = await import('node:fs/promises');
-    const raw = await fs.readFile(path, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    // Absent file, bad JSON, permissions — all non-fatal by design.
-    return [];
+  const fs = await import('node:fs/promises');
+
+  for (const p of candidatePaths) {
+    try {
+      const raw = await fs.readFile(p, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) continue;
+
+      // Reject scraper placeholder rows. The x_feed_engine schema seeds a dummy
+      // row (user "u", text "t") before its first real run; feeding that to the
+      // model would be fabricated market intelligence.
+      const real = parsed.filter((t: RawTweet) => {
+        const text = safeString(t?.text) || safeString(t?.content_text);
+        const user = safeString(t?.target_account) || safeString(t?.user);
+        return text.length > 15 && user.length > 2;
+      });
+      if (real.length > 0) return real;
+    } catch {
+      // Absent file, bad JSON, permissions — all non-fatal by design.
+    }
   }
+
+  // No real feed available. Returning [] is the honest answer: the prompt then
+  // states "no social signal" instead of inventing one.
+  return [];
 }

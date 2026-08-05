@@ -35,7 +35,9 @@ import { useTickerPoll } from '@/hooks/use-ticker-poll';
 import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
 import { useAutoResolver } from '@/hooks/use-auto-resolver';
 import { StructuredLLMOutput } from '@/types/terminal';
+import { enforceSignalCoherence } from '@/lib/llm/signal-coherence';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
+import { useIntelToggles } from '@/lib/storage/intel-toggles';
 import { DashboardLayoutConfig, WidgetId } from '@/types/layout';
 
 export default function DashboardPage() {
@@ -71,8 +73,12 @@ export default function DashboardPage() {
     return AppStorageEngine.getLayoutConfig();
   });
 
+  // Intel source toggles live in one shared hook so the header pill, the
+  // settings page and this query key can never drift apart.
+  const { includeNews, includeSocial } = useIntelToggles();
+
   useEffect(() => {
-    queueMicrotask(() => setMounted(true));
+    setMounted(true);
   }, []);
 
   useEffect(() => {
@@ -117,7 +123,7 @@ export default function DashboardPage() {
     isFetching: isMarketFetching,
     error: marketError,
     refetch: refetchMarketData,
-  } = useMarketData(selectedSymbol, selectedExchange, selectedTimeframe, analysisMode, hasRun);
+  } = useMarketData(selectedSymbol, selectedExchange, selectedTimeframe, analysisMode, includeNews, includeSocial, hasRun);
 
   const { data: liveTicker } = useTickerPoll(selectedSymbol, selectedExchange);
 
@@ -187,7 +193,20 @@ export default function DashboardPage() {
     try {
       const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch && jsonMatch[1]) {
-        return JSON.parse(jsonMatch[1]);
+        const raw = JSON.parse(jsonMatch[1]) as StructuredLLMOutput;
+
+        // The model emits `signal` and `trade_setup.position` independently and
+        // nothing forces them to agree, which let the Executive Signal Beacon
+        // show BUY while the Trade Setup card below showed HOLD/NEUTRAL.
+        // Reconcile once, here, so every downstream widget reads one verdict.
+        const { output, corrected, reason, original } = enforceSignalCoherence(raw);
+        if (corrected) {
+          console.warn(
+            `[signal-coherence] ${reason}`,
+            { original, resolved: { signal: output.signal, position: output.trade_setup?.position } }
+          );
+        }
+        return output;
       }
     } catch {
       // Ignore JSON parse errors

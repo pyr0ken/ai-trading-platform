@@ -96,7 +96,7 @@ export async function buildSocialIntel(
     enriched = enrichment.enriched;
   }
 
-  return {
+  const context: SocialIntelContext = {
     symbol,
     items,
     narrative,
@@ -104,6 +104,21 @@ export async function buildSocialIntel(
     counts: aggregate.counts,
     generatedAt,
   };
+
+  // Log execution run to logs/x-intel/
+  if (typeof window === 'undefined') {
+    try {
+      const fs = await import('node:fs/promises');
+      const pathModule = await import('node:path');
+      const logDir = pathModule.resolve(process.cwd(), 'logs', 'x-intel');
+      await fs.mkdir(logDir, { recursive: true });
+      const sanitizeSymbol = symbol.replace(/[^a-zA-Z0-9]/g, '_');
+      const logPath = pathModule.join(logDir, `intel_run_${sanitizeSymbol}.json`);
+      await fs.writeFile(logPath, JSON.stringify(context, null, 2), 'utf-8');
+    } catch {}
+  }
+
+  return context;
 }
 
 /* ------------------------------------------------------------------ *
@@ -194,3 +209,5 @@ export function renderSocialIntelBlock(
 
   return lines.join('\n');
 }
+
+export { loadTweetFeed } from './intel-aggregator';

@@ -8,15 +8,17 @@ export function useMarketData(
   exchange: string,
   timeframe: string,
   mode: 'scalp' | 'swing' = 'swing',
+  includeNews = true,
+  includeSocial = true,
   enabled = true
 ) {
   return useQuery<FullMarketContextPayload, Error>({
-    queryKey: ['market-data', symbol, exchange, timeframe, mode],
+    queryKey: ['market-data', symbol, exchange, timeframe, mode, includeNews, includeSocial],
     queryFn: async ({ signal }) => {
       const res = await fetch(
         `/api/market/full-context?symbol=${encodeURIComponent(symbol)}&exchange=${encodeURIComponent(
           exchange
-        )}&timeframe=${encodeURIComponent(timeframe)}&mode=${encodeURIComponent(mode)}`,
+        )}&timeframe=${encodeURIComponent(timeframe)}&mode=${encodeURIComponent(mode)}&includeNews=${includeNews}&includeSocial=${includeSocial}`,
         { signal }
       );
       

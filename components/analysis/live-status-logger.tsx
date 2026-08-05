@@ -3,11 +3,19 @@
 import React from 'react';
 import { CheckCircle2, RotateCw, Terminal, AlertCircle, Sparkles } from 'lucide-react';
 
+export interface LogStepSubItem {
+  source?: string;
+  text: string;
+  badge?: string;
+  url?: string;
+}
+
 export interface LogStep {
   id: string;
   label: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   detail?: string;
+  subItems?: LogStepSubItem[];
 }
 
 interface LiveStatusLoggerProps {
@@ -79,6 +87,23 @@ export const LiveStatusLogger: React.FC<LiveStatusLoggerProps> = ({ steps }) => 
                   <p className="text-[11px] text-[#9194a1] mt-1 font-sans leading-relaxed">
                     {step.detail}
                   </p>
+                )}
+                {step.subItems && step.subItems.length > 0 && (
+                  <div className="mt-2 space-y-1.5 border-l-2 border-[#cc9166]/30 pl-2.5 pt-1">
+                    {step.subItems.map((sub, sIdx) => (
+                      <div key={sIdx} className="text-[10px] bg-[#040406] border border-[#1c1d22] rounded p-1.5 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#cc9166]">@{sub.source || 'Intel'}</span>
+                          {sub.badge && (
+                            <span className="text-[9px] bg-[#121317] text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-bold">
+                              {sub.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[#e2e3e9] line-clamp-2 font-sans">{sub.text}</p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

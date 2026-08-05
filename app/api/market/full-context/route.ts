@@ -40,6 +40,8 @@ export async function GET(request: Request) {
   const exchange = searchParams.get('exchange') || 'kucoin';
   const primaryTimeframe = searchParams.get('timeframe') || '1h';
   const mode = (searchParams.get('mode') || 'swing') as 'scalp' | 'swing';
+  const includeNews = searchParams.get('includeNews') !== 'false';
+  const includeSocial = searchParams.get('includeSocial') !== 'false';
 
   try {
     const pipInfo = getPipInfo(symbol);
@@ -103,7 +105,7 @@ export async function GET(request: Request) {
 
     const [macroSentiment, news] = await Promise.all([
       MacroSentimentService.fetchMacroSentiment(),
-      NewsService.getNewsPayload(5),
+      includeNews ? NewsService.getNewsPayload(5) : Promise.resolve({ summaryForPrompt: '', articles: [], newsSentimentIndex: 0 }),
     ]);
 
     if (!ticker || ticker.price <= 0) {
@@ -290,8 +292,8 @@ export async function GET(request: Request) {
     let socialIntel: SocialIntelContext | undefined;
     try {
       [newsIntelligence, socialIntel] = await Promise.all([
-        NewsIntelligenceService.getSymbolNewsContext(symbol, btcCorrelation),
-        buildSocialIntel(symbol, news?.articles ?? null),
+        includeNews ? NewsIntelligenceService.getSymbolNewsContext(symbol, btcCorrelation) : Promise.resolve(undefined),
+        includeSocial ? buildSocialIntel(symbol, news?.articles ?? null) : Promise.resolve(undefined),
       ]);
     } catch (e) {
       console.warn(

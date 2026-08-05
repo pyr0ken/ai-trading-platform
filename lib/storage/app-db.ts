@@ -12,6 +12,8 @@ export interface SessionState {
   selectedExchange: string;
   selectedTimeframe: string;
   analysisMode: 'scalp' | 'swing';
+  includeNews: boolean;
+  includeSocial: boolean;
   sidebarOpen: boolean;
   activeWorkspace: string;
   theme: 'dark' | 'light';
@@ -105,6 +107,8 @@ const DEFAULT_SESSION: SessionState = {
   selectedExchange: 'kucoin',
   selectedTimeframe: '1h',
   analysisMode: 'swing',
+  includeNews: true,
+  includeSocial: true,
   sidebarOpen: true,
   activeWorkspace: 'default',
   theme: 'dark',
