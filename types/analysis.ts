@@ -1,5 +1,6 @@
 import { MarketTicker, ProcessedTimeframeData, DerivativesMetrics, MicrostructureMetrics, MacroSentiment, MarketTechnicalFacts } from './market';
 import { NewsPayload, SymbolNewsContext } from './news';
+import type { SocialIntelContext } from '@/lib/intel/social-intel';
 import type { MarketRegime } from '@/lib/analysis/market-regime';
 import { DecisionZoneMap } from '@/lib/analysis/decision-zones';
 import { TradingCostModel } from '@/lib/analysis/trading-costs';
@@ -34,6 +35,14 @@ export interface FullMarketContextPayload {
    * prompt builder falls back to the raw `news` summary.
    */
   newsIntelligence?: SymbolNewsContext;
+  /**
+   * Social/X intelligence for this symbol from the deterministic intel layer
+   * (lib/intel/). Optional: absent when the tweet feed has not been scraped or
+   * contains nothing relevant. Rendered as its own prompt block, separate from
+   * RSS news, because tweets are pre-publication signals (the origin of a
+   * shock) while articles are post-publication coverage.
+   */
+  socialIntel?: SocialIntelContext;
   timeframes: Record<string, ProcessedTimeframeData>;
   technicalFacts?: MarketTechnicalFacts;
   mode?: 'scalp' | 'swing';

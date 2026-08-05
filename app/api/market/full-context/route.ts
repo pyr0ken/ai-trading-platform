@@ -5,6 +5,7 @@ import { TechnicalIndicatorEngine } from '@/lib/market/indicators';
 import { MacroSentimentService } from '@/lib/market/macro-service';
 import { NewsService } from '@/lib/news/news-service';
 import { NewsIntelligenceService } from '@/lib/news/news-intelligence';
+import { buildSocialIntel, SocialIntelContext } from '@/lib/intel/social-intel';
 import { EconomicCalendar } from '@/lib/market/economic-calendar';
 import { FullMarketContextPayload } from '@/types/analysis';
 import { ProcessedTimeframeData, CalculatedIndicators } from '@/types/market';
@@ -286,14 +287,15 @@ export async function GET(request: Request) {
     // headlines can be discounted for weakly-correlated assets.
     // Never fatal — on any failure the prompt falls back to the raw news summary.
     let newsIntelligence: SymbolNewsContext | undefined;
+    let socialIntel: SocialIntelContext | undefined;
     try {
-      newsIntelligence = await NewsIntelligenceService.getSymbolNewsContext(
-        symbol,
-        btcCorrelation
-      );
+      [newsIntelligence, socialIntel] = await Promise.all([
+        NewsIntelligenceService.getSymbolNewsContext(symbol, btcCorrelation),
+        buildSocialIntel(symbol, news?.articles ?? null),
+      ]);
     } catch (e) {
       console.warn(
-        '[API /market/full-context] News intelligence unavailable:',
+        '[API /market/full-context] Intelligence layer warning:',
         e instanceof Error ? e.message : e
       );
     }
@@ -312,6 +314,7 @@ export async function GET(request: Request) {
       microstructure,
       news,
       newsIntelligence,
+      socialIntel,
       timeframes: timeframesData,
       technicalFacts,
       marketRegime,

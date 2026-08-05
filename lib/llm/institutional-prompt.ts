@@ -1,4 +1,5 @@
 import { FullMarketContextPayload, HistoricalSignalFeedback } from '@/types/analysis';
+import { renderSocialIntelBlock } from '@/lib/intel/social-intel';
 import { CandleData, CalculatedIndicators } from '@/types/market';
 import { renderRegimeForPrompt } from '@/lib/analysis/market-regime';
 import { renderDecisionZonesForPrompt } from '@/lib/analysis/decision-zones';
@@ -294,6 +295,7 @@ ${warnings.map((w, idx) => `* ALERT ${idx + 1}: ${w}`).join('\n')}
   const newsSentimentLabel = newsSentimentIndex > 0.3 ? 'BULLISH' : newsSentimentIndex < -0.3 ? 'BEARISH' : 'NEUTRAL';
 
   const newsIntel = marketContext.newsIntelligence;
+  const socialIntelText = renderSocialIntelBlock(marketContext.socialIntel);
 
   /**
    * Render the pre-analysed, symbol-filtered news brief.
@@ -508,6 +510,8 @@ RAW QUANTITATIVE MARKET DATA PAYLOAD:
 - Macro: Fear&Greed=${marketContext.macroSentiment?.fearAndGreed?.value ?? 'N/A'} (${marketContext.macroSentiment?.fearAndGreed?.classification ?? 'N/A'}) | Stablecoin Mcap=$${marketContext.macroSentiment?.stablecoinLiquidity?.totalStablecoinMarketCapUsd ?? 'N/A'}
 
 ${newsIntelligenceText}
+
+${socialIntelText}
 
 MULTI-TIMEFRAME INDICATORS & PRICE ACTION ANATOMY:
 ${mtfText}
