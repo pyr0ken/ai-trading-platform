@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ['ccxt'],
   experimental: {
-    // Enable memory optimizations during builds and dev
     memoryBasedWorkersCount: true,
     webpackMemoryOptimizations: true,
     optimizePackageImports: [
