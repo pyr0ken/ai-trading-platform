@@ -317,6 +317,24 @@ export async function pollWhaleAlerts(): Promise<{
   totalUsd: number;
   count: number;
 }> {
+  const result = await fetchWhaleSnapshot({ markSeen: true });
+  return result;
+}
+
+/**
+ * Fetch a fresh snapshot of recent large on-chain transfers.
+ *
+ * Used by the LLM prompt pipeline (route.ts). Unlike pollWhaleAlerts(),
+ * this does NOT mark transactions as seen in the dedup set, so every
+ * analysis call gets the current transactions rather than an empty array
+ * after the first poll.
+ */
+export async function fetchWhaleSnapshot(options: { markSeen?: boolean } = {}): Promise<{
+  transactions: WhaleTransaction[];
+  totalUsd: number;
+  count: number;
+}> {
+  const { markSeen = false } = options;
   const apiKey = process.env.ETHERSCAN_API_KEY || '';
   const hasApiKey = apiKey.length > 0;
 
@@ -372,7 +390,9 @@ export async function pollWhaleAlerts(): Promise<{
     ) ? 'ethereum' : 'ethereum'; // rough; we track by chain context
 
     const id = generateId(chain, raw.hash);
-    if (markTxSeen(id)) continue;
+    if (markSeen && markTxSeen(id)) continue;
+    // Even without markSeen, skip within-snapshot duplicates
+    if (!markSeen && transactions.some((t) => t.id === id)) continue;
 
     const tx: WhaleTransaction = {
       id,

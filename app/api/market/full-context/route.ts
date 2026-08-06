@@ -16,7 +16,7 @@ import { detectMarketRegime, type MarketRegime } from '@/lib/analysis/market-reg
 import { buildDecisionZones, type DecisionZoneMap } from '@/lib/analysis/decision-zones';
 import { splitClosedCandles } from '@/lib/market/closed-candle';
 import { buildCostModel } from '@/lib/analysis/trading-costs';
-import { pollWhaleAlerts } from '@/lib/whale/whale-service';
+import { fetchWhaleSnapshot } from '@/lib/whale/whale-service';
 import type { WhaleTransaction } from '@/lib/whale/types';
 
 /**
@@ -304,10 +304,12 @@ export async function GET(request: Request) {
       [newsIntelligence, socialIntel, whaleAlerts] = await Promise.all([
         includeNews ? NewsIntelligenceService.getSymbolNewsContext(symbol, btcCorrelation) : Promise.resolve(undefined),
         includeSocial ? buildSocialIntel(symbol, news?.articles ?? null) : Promise.resolve(undefined),
-        // Whale flow: fetch the latest on-chain transactions for the prompt.
-        // Timeout is generous (8s) because this runs in parallel; a slow
-        // Etherscan response does not block candles or indicators.
-        pollWhaleAlerts().then((r) => (r.transactions?.length ? r.transactions : undefined)).catch(() => undefined),
+        // Whale flow: hard-capped at 5s so a slow/hanging Etherscan call
+        // never blocks news and social intel from reaching the prompt.
+        Promise.race([
+          fetchWhaleSnapshot().then((r) => (r.transactions?.length ? r.transactions : undefined)),
+          new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 5000)),
+        ]).catch(() => undefined),
       ]);
     } catch (e) {
       console.warn(

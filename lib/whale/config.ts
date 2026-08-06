@@ -5,7 +5,9 @@ import type { SeverityLevel } from './types';
    ─────────────────────────────────────────────── */
 
 /** Minimum transaction value in USD before we consider it a "whale" */
-export const WHALE_MIN_USD = 500_000;
+export const WHALE_MIN_USD = process.env.WHALE_MIN_USD
+  ? parseInt(process.env.WHALE_MIN_USD, 10)
+  : 500_000;
 
 /** Thresholds for severity levels */
 export const SEVERITY_THRESHOLDS: { level: SeverityLevel; minUsd: number }[] = [
