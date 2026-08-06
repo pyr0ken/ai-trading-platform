@@ -26,6 +26,7 @@
 
 /** Credibility tiers, ordered from most to least market-moving. */
 export type SourceTier =
+  | 'MACRO_SHOCK'     // Geopolitical / central-bank / regulatory — bypass keyword filter entirely
   | 'PRIMARY_MOVER'
   | 'INSTITUTIONAL'
   | 'EXCHANGE'
@@ -58,6 +59,7 @@ export const UNKNOWN_SOURCE_WEIGHT = 0.35;
  * Exposed for tests and for reasoning about new additions.
  */
 export const TIER_BASELINE: Record<SourceTier, number> = {
+  MACRO_SHOCK:   0.97,
   PRIMARY_MOVER: 0.94,
   INSTITUTIONAL: 0.82,
   EXCHANGE: 0.76,
@@ -74,17 +76,33 @@ export const TIER_BASELINE: Record<SourceTier, number> = {
  * configured account silently falls through to the unknown default.
  */
 const PROFILES: readonly SourceProfile[] = [
+  // ── MACRO_SHOCK ─────────────────────────────────────────────────────────
+  // These accounts bypass keyword filtering entirely. A war declaration,
+  // sanctions order, or Fed rate-hike has no crypto keyword but reprices
+  // gold, BTC, and risk assets within minutes. Every tweet goes into the
+  // MACRO SHOCK SIGNALS block regardless of asset match.
+  { id: 'realdonaldtrump',   tier: 'MACRO_SHOCK',   weight: 0.97, note: 'Head of state; tariff, sanctions, and policy posts move FX, metals, and risk assets within minutes' },
+  { id: 'potus',             tier: 'MACRO_SHOCK',   weight: 0.96, note: 'Official White House account; executive orders and major policy' },
+  { id: 'federalreserve',    tier: 'MACRO_SHOCK',   weight: 0.97, note: 'Fed rate decisions and forward guidance are the single largest macro driver' },
+  { id: 'eucentbank',        tier: 'MACRO_SHOCK',   weight: 0.93, note: 'ECB policy shifts EUR and global risk sentiment' },
+  { id: 'bankofengland',     tier: 'MACRO_SHOCK',   weight: 0.91, note: 'BoE decisions move GBP and correlate with risk appetite' },
+  { id: 'secgov_official',   tier: 'MACRO_SHOCK',   weight: 0.94, note: 'ETF approvals, enforcement actions, and trading halts are legally binding and directly move crypto' },
+  { id: 'cftc',              tier: 'MACRO_SHOCK',   weight: 0.90, note: 'Derivatives regulator; position limits and enforcement orders affect perp venues' },
+  { id: 'un_news',           tier: 'MACRO_SHOCK',   weight: 0.88, note: 'UN Security Council resolutions and war/ceasefire declarations drive gold and safe-haven flows' },
+  { id: 'reuters',           tier: 'MACRO_SHOCK',   weight: 0.87, note: 'Fastest tier-1 newswire; breaking geopolitical and macro scoops' },
+  { id: 'axios',             tier: 'MACRO_SHOCK',   weight: 0.84, note: 'Fast political reporting; White House and Congress scoops' },
+  { id: 'marketwatch',       tier: 'MACRO_SHOCK',   weight: 0.82, note: 'Fed, CPI, and macro data releases' },
+
   // ── PRIMARY_MOVER ─────────────────────────────────────────────────────
   // Individuals whose posts reprice assets directly, regardless of accuracy.
-  { id: 'realdonaldtrump', tier: 'PRIMARY_MOVER', weight: 0.96, note: 'Head of state; tariff/policy posts move FX, metals, and risk assets within minutes' },
-  { id: 'elonmusk', tier: 'PRIMARY_MOVER', weight: 0.90, note: 'Demonstrated single-tweet repricing of DOGE/BTC; high noise ratio caps this below Trump' },
+  { id: 'elonmusk',         tier: 'PRIMARY_MOVER', weight: 0.90, note: 'Demonstrated single-tweet repricing of DOGE/BTC; high noise ratio caps this below Trump' },
 
   // ── INSTITUTIONAL ─────────────────────────────────────────────────────
   // Regulators and asset managers. Slow but authoritative; rarely retracted.
-  { id: 'secgov', tier: 'INSTITUTIONAL', weight: 0.88, note: 'Enforcement and approval actions are legally binding' },
-  { id: 'cftc', tier: 'INSTITUTIONAL', weight: 0.86, note: 'Derivatives regulator; directly governs perp/futures venues' },
+  // secgov and cftc are covered by MACRO_SHOCK above at higher weight.
+  { id: 'secgov',    tier: 'INSTITUTIONAL', weight: 0.88, note: 'SECGov — alias for scraper handle; deduped at aggregation' },
   { id: 'blackrock', tier: 'INSTITUTIONAL', weight: 0.84, note: 'Largest ETF issuer; flow announcements shift spot demand' },
-  { id: 'fidelity', tier: 'INSTITUTIONAL', weight: 0.80, note: 'Major custodian and ETF issuer' },
+  { id: 'fidelity',  tier: 'INSTITUTIONAL', weight: 0.80, note: 'Major custodian and ETF issuer' },
   { id: 'grayscale', tier: 'INSTITUTIONAL', weight: 0.76, note: 'Large trust issuer; unlock/conversion events matter' },
 
   // ── EXCHANGE ──────────────────────────────────────────────────────────
@@ -181,7 +199,8 @@ export function getSourceWeight(raw: string | null | undefined): number {
 
 /** True when the source is a registered market mover (used for urgency flags). */
 export function isPrimaryMover(raw: string | null | undefined): boolean {
-  return getSourceProfile(raw).tier === 'PRIMARY_MOVER';
+  const tier = getSourceProfile(raw).tier;
+  return tier === 'PRIMARY_MOVER' || tier === 'MACRO_SHOCK';
 }
 
 /** All registered profiles. Exposed for tests and diagnostics. */
