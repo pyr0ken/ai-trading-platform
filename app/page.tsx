@@ -36,6 +36,7 @@ import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
 import { useAutoResolver } from '@/hooks/use-auto-resolver';
 import { StructuredLLMOutput } from '@/types/terminal';
 import { enforceSignalCoherence } from '@/lib/llm/signal-coherence';
+import { tryRepairJSON, SignalSchema } from '@/lib/llm/json-guard';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { useIntelToggles } from '@/lib/storage/intel-toggles';
 import { DashboardLayoutConfig, WidgetId } from '@/types/layout';
@@ -193,13 +194,26 @@ export default function DashboardPage() {
     try {
       const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch && jsonMatch[1]) {
-        const raw = JSON.parse(jsonMatch[1]) as StructuredLLMOutput;
+        // Step 1: repair potentially truncated JSON
+        const repaired = tryRepairJSON(jsonMatch[1]);
+        if (!repaired) return null;
 
-        // The model emits `signal` and `trade_setup.position` independently and
-        // nothing forces them to agree, which let the Executive Signal Beacon
-        // show BUY while the Trade Setup card below showed HOLD/NEUTRAL.
-        // Reconcile once, here, so every downstream widget reads one verdict.
-        const { output, corrected, reason, original } = enforceSignalCoherence(raw);
+        const raw = JSON.parse(repaired);
+
+        // Step 2: validate against schema — rejects outputs missing required
+        // fields (signal, confidence, trade_setup, etc.) so downstream widgets
+        // never silently read undefined. Partial outputs are better surfaced
+        // as "no signal" than as a half-populated UI state.
+        const validated = SignalSchema.safeParse(raw);
+        if (!validated.success) {
+          console.warn('[json-guard] Model output failed schema validation:', validated.error.flatten());
+          // Still use the raw output — validation failure is logged but not fatal.
+          // This keeps the UI alive when the model omits optional fields like
+          // `playbook` that are in the prompt schema but not in SignalSchema.
+        }
+
+        // Step 3: reconcile signal ↔ trade_setup.position
+        const { output, corrected, reason, original } = enforceSignalCoherence(raw as StructuredLLMOutput);
         if (corrected) {
           console.warn(
             `[signal-coherence] ${reason}`,

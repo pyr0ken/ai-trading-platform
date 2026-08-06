@@ -4,6 +4,7 @@ import type { SocialIntelContext } from '@/lib/intel/social-intel';
 import type { MarketRegime } from '@/lib/analysis/market-regime';
 import { DecisionZoneMap } from '@/lib/analysis/decision-zones';
 import { TradingCostModel } from '@/lib/analysis/trading-costs';
+import type { WhaleTransaction } from '@/lib/whale/types';
 
 /**
  * Full Structured Market Context Payload sent to LLM
@@ -69,6 +70,14 @@ export interface FullMarketContextPayload {
   costModel?: TradingCostModel;
   recentHistoricalSignals?: HistoricalSignalFeedback[];
   economicWarnings?: string[];
+  /**
+   * Recent large on-chain transfers fetched at analysis time.
+   * Included in the prompt as a dedicated WHALE FLOW block so the model
+   * can factor in exchange inflows/outflows when sizing conviction.
+   * Optional: absent when the whale API is unavailable or returns nothing
+   * above the minimum threshold.
+   */
+  whaleAlerts?: WhaleTransaction[];
 }
 
 export interface AnalysisRequestOptions {

@@ -16,6 +16,8 @@ import { detectMarketRegime, type MarketRegime } from '@/lib/analysis/market-reg
 import { buildDecisionZones, type DecisionZoneMap } from '@/lib/analysis/decision-zones';
 import { splitClosedCandles } from '@/lib/market/closed-candle';
 import { buildCostModel } from '@/lib/analysis/trading-costs';
+import { pollWhaleAlerts } from '@/lib/whale/whale-service';
+import type { WhaleTransaction } from '@/lib/whale/types';
 
 /**
  * Process up to N items at a time to avoid memory spikes from concurrent fetches.
@@ -77,20 +79,24 @@ export async function GET(request: Request) {
           bestAsk: ticker.ask,
           spread: Number((ticker.ask - ticker.bid).toFixed(pipInfo.decimals)),
           spreadPercentage: 0.01,
-          bidDepthVolumeTop20: 10000,
-          askDepthVolumeTop20: 10000,
+          // Forex venues do not expose order book depth via free APIs.
+          // Set to 0 so the prompt builder's hasRealDepth check renders
+          // "N/A (Data Unavailable)" instead of presenting fake numbers.
+          bidDepthVolumeTop20: 0,
+          askDepthVolumeTop20: 0,
           imbalanceRatio: 1.0,
           orderBookPressure: 'NEUTRAL' as const,
         },
         volumeDeltaCvd: {
-          sampleTradesCount: 100,
-          takerBuyVolume: 500,
-          takerSellVolume: 500,
+          // sampleTradesCount=0 triggers hasRealCvd=false → "N/A" in prompt.
+          sampleTradesCount: 0,
+          takerBuyVolume: 0,
+          takerSellVolume: 0,
           volumeDelta: 0,
           buySellRatio: 1.0,
           cvdSignal: 'BALANCED' as const,
         },
-        liquidationsStatus: 'Balanced',
+        liquidationsStatus: 'N/A (Forex — no liquidation data)',
       };
     } else {
       const [t, d, m] = await Promise.all([
@@ -284,6 +290,10 @@ export async function GET(request: Request) {
 
     const economicWarnings = EconomicCalendar.getEconomicWarnings();
 
+    // Whale on-chain flow — fetched in parallel with news intelligence.
+    // Never fatal: missing whale data degrades the prompt, it never breaks it.
+    let whaleAlerts: WhaleTransaction[] | undefined;
+
     // Stage-1 news intelligence: a shared, pre-analysed brief filtered down to
     // this symbol. Must run AFTER btcCorrelation is known so Bitcoin-driven
     // headlines can be discounted for weakly-correlated assets.
@@ -291,9 +301,13 @@ export async function GET(request: Request) {
     let newsIntelligence: SymbolNewsContext | undefined;
     let socialIntel: SocialIntelContext | undefined;
     try {
-      [newsIntelligence, socialIntel] = await Promise.all([
+      [newsIntelligence, socialIntel, whaleAlerts] = await Promise.all([
         includeNews ? NewsIntelligenceService.getSymbolNewsContext(symbol, btcCorrelation) : Promise.resolve(undefined),
         includeSocial ? buildSocialIntel(symbol, news?.articles ?? null) : Promise.resolve(undefined),
+        // Whale flow: fetch the latest on-chain transactions for the prompt.
+        // Timeout is generous (8s) because this runs in parallel; a slow
+        // Etherscan response does not block candles or indicators.
+        pollWhaleAlerts().then((r) => (r.transactions?.length ? r.transactions : undefined)).catch(() => undefined),
       ]);
     } catch (e) {
       console.warn(
@@ -323,6 +337,7 @@ export async function GET(request: Request) {
       decisionZones,
       costModel,
       economicWarnings,
+      whaleAlerts,
     };
 
     return NextResponse.json(payload);

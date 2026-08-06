@@ -6,7 +6,7 @@ import { MacroSentiment } from '@/types/market';
 export class MacroSentimentService {
   private static cachedSentiment: { data: MacroSentiment; fetchedAt: number } | null = null;
   private static inFlightPromise: Promise<MacroSentiment> | null = null;
-  private static readonly CACHE_TTL_MS = 300_000; // 5 minutes
+  private static readonly CACHE_TTL_MS = 3_600_000; // 1 hour — F&G only updates once per day
 
   /**
    * Fetch Alternative.me Fear & Greed Index + DefiLlama Stablecoin Market Cap

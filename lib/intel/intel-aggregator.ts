@@ -379,15 +379,34 @@ export function aggregateIntel(
 export async function loadTweetFeed(feedPath?: string): Promise<RawTweet[]> {
   if (typeof window !== 'undefined') return [];
 
-  // Candidate locations, most authoritative first. The scraper writes to its own
-  // data dir; the env var lets deployments point elsewhere.
+  const fs = await import('node:fs/promises');
+
+  // When an explicit path is given (e.g. from tests or env), use ONLY that path.
+  // Do NOT fall back to the hardcoded default — the caller said exactly where to
+  // look, so a missing file should return [] rather than silently reading a
+  // production feed that poisons the test.
+  if (feedPath) {
+    try {
+      const raw = await fs.readFile(feedPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) return [];
+
+      const real = parsed.filter((t: RawTweet) => {
+        const text = safeString(t?.text) || safeString(t?.content_text);
+        const user = safeString(t?.target_account) || safeString(t?.user);
+        return text.length > 15 && user.length > 2;
+      });
+      return real;
+    } catch {
+      return [];
+    }
+  }
+
+  // No explicit path — try env var then hardcoded scraper location.
   const candidatePaths = [
-    feedPath,
     process.env.X_FEED_PATH,
     'C:\\Users\\Lenovo\\Desktop\\Trade\\market-data-ai-analyzer\\x_feed_engine\\data\\tweets_ai_feed.json',
   ].filter(Boolean) as string[];
-
-  const fs = await import('node:fs/promises');
 
   for (const p of candidatePaths) {
     try {
@@ -395,9 +414,6 @@ export async function loadTweetFeed(feedPath?: string): Promise<RawTweet[]> {
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed) || parsed.length === 0) continue;
 
-      // Reject scraper placeholder rows. The x_feed_engine schema seeds a dummy
-      // row (user "u", text "t") before its first real run; feeding that to the
-      // model would be fabricated market intelligence.
       const real = parsed.filter((t: RawTweet) => {
         const text = safeString(t?.text) || safeString(t?.content_text);
         const user = safeString(t?.target_account) || safeString(t?.user);
@@ -409,7 +425,5 @@ export async function loadTweetFeed(feedPath?: string): Promise<RawTweet[]> {
     }
   }
 
-  // No real feed available. Returning [] is the honest answer: the prompt then
-  // states "no social signal" instead of inventing one.
   return [];
 }

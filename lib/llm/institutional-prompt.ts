@@ -7,6 +7,7 @@ import { describeFormingCandle } from '@/lib/market/closed-candle';
 import { renderCostModelForPrompt } from '@/lib/analysis/trading-costs';
 import { renderGateRulesForPrompt } from '@/lib/analysis/no-trade-gate';
 import { computeVolumeSurgeRatio } from '@/lib/market/volume-surge';
+import type { WhaleTransaction } from '@/lib/whale/types';
 
 /**
  * Institutional Quantitative LLM System Prompt Construction Engine
@@ -198,6 +199,61 @@ function filterWarmupCandles(candles: Array<CandleData & { indicators: Calculate
     return !placeholderSignature && !hasNaNIndicator;
   });
 }
+
+/**
+ * Render the whale on-chain flow block for the LLM prompt.
+ *
+ * Large exchange inflows are historically correlated with sell pressure
+ * (coins moving to exchange = preparing to sell). Large outflows correlate
+ * with accumulation (coins leaving exchange = self-custody / long-term hold).
+ * The model should use this to calibrate conviction, not as a standalone signal.
+ */
+function renderWhaleFlowBlock(alerts: WhaleTransaction[] | undefined): string {
+  if (!alerts || alerts.length === 0) return '';
+
+  const fmt = (n: number) =>
+    n >= 1_000_000_000
+      ? `$${(n / 1_000_000_000).toFixed(2)}B`
+      : n >= 1_000_000
+      ? `$${(n / 1_000_000).toFixed(1)}M`
+      : `$${(n / 1_000).toFixed(0)}K`;
+
+  // Show up to 8 most recent transactions sorted by USD value descending
+  const top = [...alerts]
+    .sort((a, b) => b.valueUsd - a.valueUsd)
+    .slice(0, 8);
+
+  const totalInflow = alerts
+    .filter((t) => t.direction === 'exchange_inflow')
+    .reduce((s, t) => s + t.valueUsd, 0);
+  const totalOutflow = alerts
+    .filter((t) => t.direction === 'exchange_outflow')
+    .reduce((s, t) => s + t.valueUsd, 0);
+  const netFlow = totalOutflow - totalInflow; // positive = net outflow (bullish)
+
+  const rows = top
+    .map((t) => {
+      const dir =
+        t.direction === 'exchange_inflow'
+          ? '→ EXCHANGE (INFLOW ⚠️)'
+          : t.direction === 'exchange_outflow'
+          ? '← WALLET (OUTFLOW ✅)'
+          : '↔ UNKNOWN';
+      const age = t.timestamp
+        ? `${Math.round((Date.now() / 1000 - t.timestamp) / 60)}m ago`
+        : 'unknown age';
+      return `  [${t.severity.toUpperCase()}] ${t.token} ${t.value} (${fmt(t.valueUsd)}) | ${t.fromLabel} → ${t.toLabel} | ${dir} | ${age}`;
+    })
+    .join('\n');
+
+  return `\nON-CHAIN WHALE FLOW (last poll — ${alerts.length} transactions above $500K threshold):
+- Net Flow: ${netFlow >= 0 ? `+${fmt(netFlow)} NET OUTFLOW (coins leaving exchanges — accumulation signal)` : `${fmt(Math.abs(netFlow))} NET INFLOW (coins entering exchanges — potential sell pressure)`}
+- Total Exchange Inflow: ${fmt(totalInflow)} | Total Exchange Outflow: ${fmt(totalOutflow)}
+- Top transactions:
+${rows}
+- USAGE: Exchange inflows increase sell-side liquidity. Large net inflows into exchange ahead of resistance = distribution risk. Large net outflows = accumulation / long-term conviction. Use to adjust stop tightness and position sizing, NOT as a primary entry trigger.\n`;
+}
+
 
 export function buildInstitutionalUserPrompt(
   symbol: string,
@@ -495,6 +551,8 @@ ${raw}`;
       `\n${renderGateRulesForPrompt(marketContext.costModel, marketContext.mode || 'swing')}\n`
     : '';
 
+  const whaleFlowText = renderWhaleFlowBlock(marketContext.whaleAlerts);
+
   const userPrompt = `TARGET ASSET: ${symbol} (${timeframe})
 EXCHANGE VENUE: ${exchange.toUpperCase()}
 CURRENT PRICE: $${price} (24h Change: ${change24h}%)
@@ -512,7 +570,7 @@ RAW QUANTITATIVE MARKET DATA PAYLOAD:
 ${newsIntelligenceText}
 
 ${socialIntelText}
-
+${whaleFlowText}
 MULTI-TIMEFRAME INDICATORS & PRICE ACTION ANATOMY:
 ${mtfText}
 
