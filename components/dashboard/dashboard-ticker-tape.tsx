@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { formatPrice, priceDecimals } from '@/lib/utils/price-format';
 import { CoinIcon } from '@/components/common/coin-icon';
 
 interface DashboardTickerTapeProps {
@@ -17,6 +18,12 @@ interface DashboardTickerTapeProps {
 type MetricMode = 'absolute' | 'percentage';
 const VALID_PRICE = (p?: number) => p !== undefined && p !== null && p > 0;
 
+interface FearGreedState {
+  value: number;
+  label: string;
+  loaded: boolean;
+}
+
 export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   symbol,
   price,
@@ -30,6 +37,33 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   const [metricMode, setMetricMode] = useState<MetricMode>('percentage');
   const [fading, setFading] = useState(false);
   const hasPrice = VALID_PRICE(price);
+
+  // Live Fear & Greed — fetched from alternative.me (same source as sidebar)
+  const [fearGreed, setFearGreed] = useState<FearGreedState>({ value: 0, label: '', loaded: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchFG = async () => {
+      try {
+        const res = await fetch('https://api.alternative.me/fng/?limit=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.data?.[0]) {
+          setFearGreed({
+            value: parseInt(data.data[0].value, 10),
+            label: data.data[0].value_classification,
+            loaded: true,
+          });
+        }
+      } catch {
+        // Non-fatal — pill just stays hidden until next refetch
+      }
+    };
+    fetchFG();
+    // Refresh every hour (F&G updates once/day but we don't want stale pill on long sessions)
+    const id = setInterval(fetchFG, 3_600_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   // Cycle between absolute change and percentage change every 4 seconds
   useEffect(() => {
@@ -53,25 +87,59 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   const activeValue = metricMode === 'absolute' ? change24h : change24hPercentage;
   const isPositive = activeValue !== undefined && activeValue >= 0;
 
+  // Decimal-aware formatting
+  const d = price ? priceDecimals(price) : 2;
+
+  const formattedPrice = price
+    ? price.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
+    : '—';
+
+  const formattedChange = (() => {
+    if (activeValue === undefined) return null;
+    if (metricMode === 'absolute' && change24h !== undefined) {
+      const ad = priceDecimals(Math.abs(change24h) || (price ?? 1));
+      return `${isPositive ? '+' : ''}$${change24h.toLocaleString('en-US', {
+        minimumFractionDigits: ad,
+        maximumFractionDigits: ad,
+      })}`;
+    }
+    return `${isPositive ? '+' : ''}${change24hPercentage!.toFixed(2)}%`;
+  })();
+
+  const changeTooltip = (() => {
+    if (metricMode === 'percentage' && VALID_PRICE(change24h)) {
+      const ad = priceDecimals(Math.abs(change24h!) || (price ?? 1));
+      return `$${change24h!.toLocaleString('en-US', { minimumFractionDigits: ad, maximumFractionDigits: ad })}`;
+    }
+    return `${change24hPercentage?.toFixed(2)}%`;
+  })();
+
+  // Fear & Greed colour
+  const fgColor = fearGreed.value >= 75 ? 'text-rose-400'
+    : fearGreed.value >= 55 ? 'text-amber-400'
+    : fearGreed.value >= 45 ? 'text-[#e2e3e9]'
+    : fearGreed.value >= 25 ? 'text-sky-400'
+    : 'text-blue-400';
+
   return (
     <div className="sticky top-0 z-50 w-full bg-[#040406]/95 backdrop-blur-md border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
       <div className="relative flex items-center">
-        {/* Left: market stats */}
+        {/* Left: live market meta */}
         <div className="flex items-center gap-4 pl-4">
-          <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
-            <span>24h Vol: <strong className="text-[#e2e3e9] font-medium">$94.2B</strong></span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-1.5 text-[#5e616e]">
-            <span>BTC Dom: <strong className="text-[#e2e3e9] font-medium">54.2%</strong></span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-2 bg-[#08080a] border border-[#1c1d22] px-3 py-1 rounded-[9999px] text-[#e2e3e9]">
-            <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#cc9166]"></span>
-            </span>
-            <span className="text-[10px] text-[#9194a1]">Fear & Greed: <strong className="text-[#e2e3e9]">68 (Greed)</strong></span>
-          </div>
+          {/* Fear & Greed — hidden until loaded to avoid flicker */}
+          {fearGreed.loaded && (
+            <div className="hidden lg:flex items-center gap-2 bg-[#08080a] border border-[#1c1d22] px-3 py-1 rounded-[9999px]">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#cc9166]" />
+              </span>
+              <span className="text-[10px] text-[#9194a1]">
+                Fear &amp; Greed:{' '}
+                <strong className={`${fgColor}`}>
+                  {fearGreed.value} ({fearGreed.label})
+                </strong>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Center: selected coin — interactive pill */}
@@ -85,32 +153,19 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
           {hasPrice ? (
             <>
               <span className="font-mono font-bold text-[#e2e3e9]">
-                ${price!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${formattedPrice}
               </span>
-              {activeValue !== undefined ? (
+              {formattedChange !== null && (
                 <span
                   className={`flex items-center gap-0.5 font-medium transition-opacity duration-300 ${
                     fading ? 'opacity-30' : 'opacity-100'
                   } ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}
-                  title={
-                    metricMode === 'percentage' && VALID_PRICE(change24h)
-                      ? `$${change24h!.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                      : `${change24hPercentage?.toFixed(2)}%`
-                  }
+                  title={changeTooltip}
                 >
                   {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  <span>
-                    {isPositive ? '+' : ''}
-                    {metricMode === 'absolute'
-                      ? `$${change24h!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : `${change24hPercentage!.toFixed(2)}%`
-                    }
-                  </span>
-                  <span className="text-[8px] text-[#5e616e] ml-0.5 font-mono">
-                    {metricMode === 'percentage' ? '%' : '$'}
-                  </span>
+                  <span>{formattedChange}</span>
                 </span>
-              ) : null}
+              )}
             </>
           ) : (
             <span className="text-[#5e616e] italic text-[11px]">—</span>

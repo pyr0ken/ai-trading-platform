@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { History, ArrowUpRight, ArrowDownRight, Eye, Trash2, RotateCw, RefreshCw, Sparkles } from 'lucide-react';
+import { formatPrice } from '@/lib/utils/price-format';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { resolvePendingSignals } from '@/hooks/use-auto-resolver';
 import { showToast } from '@/components/terminal/toast';
@@ -173,12 +174,13 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                   className="hover:bg-[#121317] transition-colors cursor-pointer group"
                 >
                   <td className="py-3 px-3 text-[#9194a1] text-[11px]">
-                    {new Date(record.created_at).toLocaleString('en-US', {
+                    {new Date(record.created_at).toLocaleString('en-GB', {
+                      timeZone: 'UTC',
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
-                    })}
+                    })} UTC
                   </td>
                   <td className="py-3 px-3 font-bold text-[#e2e3e9]">
                     {record.symbol}
@@ -197,7 +199,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                     </span>
                   </td>
                   <td className="py-3 px-3 text-[#e2e3e9]">{record.confidence}%</td>
-                  <td className="py-3 px-3 font-bold">${record.price.toLocaleString()}</td>
+                  <td className="py-3 px-3 font-bold">{formatPrice(record.price)}</td>
                   <td className="py-3 px-3">
                     {evalStatus === 'WIN' && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 font-mono">

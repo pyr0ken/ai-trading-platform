@@ -453,7 +453,7 @@ export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<NewsCategory | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<NewsCategory | 'all' | 'x-feed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('latest');
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => getBookmarks());
@@ -617,8 +617,6 @@ export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
       <div className="flex gap-0 max-w-[1400px] mx-auto w-full items-stretch">
         {/* ═══ Left: News Content ═══ */}
         <div className="flex-1 min-w-0 space-y-5">
-          {/* X / Twitter Real-time Intelligence Log */}
-          <SocialFeedLogWidget symbol={symbol} />
           {/* ═══ Header ═══ */}
           <div className="bg-[#040406] border border-[#1c1d22] rounded-[2px] p-6 md:p-8">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -736,6 +734,16 @@ export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
               onClick={() => setSelectedCategory(cat)}
             />
           ))}
+
+          {/* X / Twitter feed tab */}
+          <CategoryPill
+            label="X Feed"
+            emoji="𝕏"
+            count={0}
+            active={selectedCategory === 'x-feed'}
+            accentColor="border-[#cc9166]/40 text-[#cc9166]"
+            onClick={() => setSelectedCategory('x-feed')}
+          />
         </div>
 
         {/* ═══ Error State ═══ */}
@@ -759,7 +767,7 @@ export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
         )}
 
         {/* ═══ Loading State ═══ */}
-        {isLoading && articles.length === 0 && (
+        {isLoading && articles.length === 0 && selectedCategory !== 'x-feed' && (
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <SkeletonCard key={i} index={i} />
@@ -767,8 +775,13 @@ export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
           </div>
         )}
 
+        {/* ═══ X / Twitter Feed View ═══ */}
+        {selectedCategory === 'x-feed' && (
+          <SocialFeedLogWidget symbol={symbol} />
+        )}
+
         {/* ═══ Empty State ═══ */}
-        {!isLoading && !error && displayArticles.length === 0 && (
+        {!isLoading && !error && displayArticles.length === 0 && selectedCategory !== 'x-feed' && (
           <div className="bg-[#040406] border border-[#1c1d22] rounded-[2px] p-12 text-center">
             <div className="text-4xl mb-4">📭</div>
             <h3 className="font-ivy-presto text-[22px] text-[#e2e3e9] mb-2">
@@ -802,7 +815,7 @@ export function NewsTabPage({ symbol = 'BTC/USDT' }: NewsTabPageProps) {
         )}
 
         {/* ═══ Article Cards ═══ */}
-        {!isLoading && !error && paginatedArticles.length > 0 && (
+        {!isLoading && !error && paginatedArticles.length > 0 && selectedCategory !== 'x-feed' && (
           <>
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-mono text-[#5e616e]">

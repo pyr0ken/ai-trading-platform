@@ -15,6 +15,7 @@ import {
   DerivativesMetrics,
   MicrostructureMetrics,
 } from '@/types/market';
+import { priceDecimals } from '@/lib/utils/price-format';
 
 const MAX_EXCHANGE_INSTANCES = 3;
 const EXCHANGE_POOL = new Map<string, { instance: Exchange; marketsReady: Promise<void> }>();
@@ -119,17 +120,18 @@ export class CCXTMarketService {
       if (price > 0) {
         const change24hPct = ticker.percentage || 0;
         const change24hVal = ticker.change || (price * change24hPct) / 100;
+        const d = priceDecimals(price);
         return {
           symbol,
           exchange: exchangeId,
-          price: Number(price.toFixed(price < 1 ? 4 : 2)),
-          change24h: Number(change24hVal.toFixed(price < 1 ? 4 : 2)),
+          price: Number(price.toFixed(d)),
+          change24h: Number(change24hVal.toFixed(d)),
           change24hPercentage: Number(change24hPct.toFixed(2)),
-          high24h: Number((ticker.high || price * 1.02).toFixed(price < 1 ? 4 : 2)),
-          low24h: Number((ticker.low || price * 0.98).toFixed(price < 1 ? 4 : 2)),
+          high24h: Number((ticker.high || price * 1.02).toFixed(d)),
+          low24h: Number((ticker.low || price * 0.98).toFixed(d)),
           volume24h: Number((ticker.baseVolume || ticker.quoteVolume || 1500000).toFixed(2)),
-          bid: Number((ticker.bid || price * 0.9995).toFixed(price < 1 ? 4 : 2)),
-          ask: Number((ticker.ask || price * 1.0005).toFixed(price < 1 ? 4 : 2)),
+          bid: Number((ticker.bid || price * 0.9995).toFixed(d)),
+          ask: Number((ticker.ask || price * 1.0005).toFixed(d)),
         };
       }
     } catch {
@@ -139,21 +141,9 @@ export class CCXTMarketService {
     const directTicker = await this.fetchDirectTicker(symbol);
     if (directTicker) return directTicker;
 
-    // Final fallback: cached benchmark price
-    const fallbackPrice = this.getCryptoFallbackPrice(symbol);
-    const decimals = fallbackPrice < 1 ? (fallbackPrice < 0.001 ? 7 : 4) : 2;
-    return {
-      symbol,
-      exchange: exchangeId,
-      price: Number(fallbackPrice.toFixed(decimals)),
-      change24h: Number((fallbackPrice * 0.015).toFixed(decimals)),
-      change24hPercentage: 1.5,
-      high24h: Number((fallbackPrice * 1.025).toFixed(decimals)),
-      low24h: Number((fallbackPrice * 0.975).toFixed(decimals)),
-      volume24h: 1500000,
-      bid: Number((fallbackPrice * 0.999).toFixed(decimals)),
-      ask: Number((fallbackPrice * 1.001).toFixed(decimals)),
-    };
+    // All live sources exhausted — return null so the UI shows "—" instead of
+    // a stale hardcoded price that could mislead the trader.
+    return null;
   }
 
   /**
@@ -175,17 +165,18 @@ export class CCXTMarketService {
         const price = parseFloat(data.lastPrice);
         const changePct = parseFloat(data.priceChangePercent);
         if (price > 0) {
+          const d = priceDecimals(price);
           return {
             symbol,
             exchange: 'binance',
-            price: Number(price.toFixed(price < 1 ? 4 : 2)),
-            change24h: Number(parseFloat(data.priceChange).toFixed(price < 1 ? 4 : 2)),
+            price: Number(price.toFixed(d)),
+            change24h: Number(parseFloat(data.priceChange).toFixed(d)),
             change24hPercentage: Number(changePct.toFixed(2)),
-            high24h: Number(parseFloat(data.highPrice).toFixed(price < 1 ? 4 : 2)),
-            low24h: Number(parseFloat(data.lowPrice).toFixed(price < 1 ? 4 : 2)),
+            high24h: Number(parseFloat(data.highPrice).toFixed(d)),
+            low24h: Number(parseFloat(data.lowPrice).toFixed(d)),
             volume24h: Number(parseFloat(data.volume).toFixed(2)),
-            bid: Number(parseFloat(data.bidPrice).toFixed(price < 1 ? 4 : 2)),
-            ask: Number(parseFloat(data.askPrice).toFixed(price < 1 ? 4 : 2)),
+            bid: Number(parseFloat(data.bidPrice).toFixed(d)),
+            ask: Number(parseFloat(data.askPrice).toFixed(d)),
           };
         }
       }
@@ -207,17 +198,18 @@ export class CCXTMarketService {
           const price = parseFloat(data.last);
           const changePct = parseFloat(data.changeRate) * 100;
           if (price > 0) {
+            const d = priceDecimals(price);
             return {
               symbol,
               exchange: 'kucoin',
-              price: Number(price.toFixed(price < 1 ? 4 : 2)),
-              change24h: Number(parseFloat(data.changePrice).toFixed(price < 1 ? 4 : 2)),
+              price: Number(price.toFixed(d)),
+              change24h: Number(parseFloat(data.changePrice).toFixed(d)),
               change24hPercentage: Number(changePct.toFixed(2)),
-              high24h: Number(parseFloat(data.high).toFixed(price < 1 ? 4 : 2)),
-              low24h: Number(parseFloat(data.low).toFixed(price < 1 ? 4 : 2)),
+              high24h: Number(parseFloat(data.high).toFixed(d)),
+              low24h: Number(parseFloat(data.low).toFixed(d)),
               volume24h: Number(parseFloat(data.vol).toFixed(2)),
-              bid: Number(parseFloat(data.buy).toFixed(price < 1 ? 4 : 2)),
-              ask: Number(parseFloat(data.sell).toFixed(price < 1 ? 4 : 2)),
+              bid: Number(parseFloat(data.buy).toFixed(d)),
+              ask: Number(parseFloat(data.sell).toFixed(d)),
             };
           }
         }
@@ -331,7 +323,7 @@ export class CCXTMarketService {
           const timestamp = Number(c[0]);
           const dt = new Date(timestamp);
           const priceVal = Number(c[4] || 0);
-          const decimalPlaces = priceVal < 1 ? (priceVal < 0.001 ? 7 : 4) : 2;
+          const decimalPlaces = priceDecimals(priceVal);
 
           return {
             timestamp,
@@ -382,7 +374,7 @@ export class CCXTMarketService {
           const timestamp = Number(c[0]);
           const dt = new Date(timestamp);
           const priceVal = Number(c[4] || 0);
-          const decimalPlaces = priceVal < 1 ? (priceVal < 0.001 ? 7 : 4) : 2;
+          const decimalPlaces = priceDecimals(priceVal);
 
           return {
             timestamp,
@@ -452,7 +444,7 @@ export class CCXTMarketService {
             const timestamp = Number(c[0]);
             const dt = new Date(timestamp);
             const priceVal = parseFloat(c[4]);
-            const decimalPlaces = priceVal < 1 ? (priceVal < 0.001 ? 7 : 4) : 2;
+            const decimalPlaces = priceDecimals(priceVal);
 
             return {
               timestamp,
