@@ -46,18 +46,12 @@ export async function POST() {
     return NextResponse.json({ status: 'already_running', pid: scraperPid });
   }
 
-  // Resolve paths.
-  const engineDir = path.resolve(
-    process.cwd(),
-    '..',
-    '..',
-    'market-data-ai-analyzer',
-    'x_feed_engine'
-  );
-  const pythonExe = path.join(engineDir, '.venv', 'Scripts', 'python.exe');
-  const mainPy = path.join(engineDir, 'main.py');
+  // Resolve paths to the internal x_feed_engine inside the repo.
+    const engineDir = path.join(process.cwd(), 'scripts', 'x_feed_engine');
+    const pythonExe = path.join(engineDir, '.venv', 'Scripts', 'python.exe');
+    const mainPy = path.join(engineDir, 'main.py');
 
-  if (!fs.existsSync(pythonExe) || !fs.existsSync(mainPy)) {
+    if (!fs.existsSync(pythonExe) || !fs.existsSync(mainPy)) {
     return NextResponse.json(
       { status: 'skipped', reason: 'x_feed_engine not found at expected path' },
       { status: 200 }

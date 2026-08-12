@@ -380,6 +380,7 @@ export async function loadTweetFeed(feedPath?: string): Promise<RawTweet[]> {
   if (typeof window !== 'undefined') return [];
 
   const fs = await import('node:fs/promises');
+  const path = await import('node:path');
 
   // When an explicit path is given (e.g. from tests or env), use ONLY that path.
   // Do NOT fall back to the hardcoded default — the caller said exactly where to
@@ -403,10 +404,10 @@ export async function loadTweetFeed(feedPath?: string): Promise<RawTweet[]> {
   }
 
   // No explicit path — try env var then hardcoded scraper location.
-  const candidatePaths = [
-    process.env.X_FEED_PATH,
-    'C:\\Users\\Lenovo\\Desktop\\Trade\\market-data-ai-analyzer\\x_feed_engine\\data\\tweets_ai_feed.json',
-  ].filter(Boolean) as string[];
+    const candidatePaths = [
+      process.env.X_FEED_PATH,
+      path.join(process.cwd(), 'scripts', 'x_feed_engine', 'data', 'tweets_ai_feed.json'),
+    ].filter(Boolean) as string[];
 
   for (const p of candidatePaths) {
     try {

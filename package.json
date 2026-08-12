@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "x:setup": "python scripts/setup_x_feed.py",
+    "x:run": "node scripts/run_x_feed.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",

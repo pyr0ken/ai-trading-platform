@@ -48,4 +48,13 @@ next-env.d.ts
 /logs/*
 logs/
 
+# x_feed_engine local data & venv
+scripts/x_feed_engine/.venv/
+scripts/x_feed_engine/data/storage_state.json
+scripts/x_feed_engine/data/tweets.db
+scripts/x_feed_engine/logs/
+scripts/x_feed_engine/.env
+scripts/x_feed_engine/**/__pycache__/
+scripts/x_feed_engine/**/*.pyc
+
 
