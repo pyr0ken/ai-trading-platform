@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { ModelSelectorCombobox } from '@/components/settings/model-selector-combobox';
 import { formatPrice, priceDecimals } from '@/lib/utils/price-format';
 import { CoinIcon } from '@/components/common/coin-icon';
 
@@ -173,8 +174,9 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
           <ChevronDown className="w-3 h-3 text-[#5e616e] group-hover:text-[#e2e3e9] transition-colors duration-300" />
         </button>
 
-        {/* Right: status */}
-        <div className="ml-auto pr-4 shrink-0 flex items-center gap-2">
+        {/* Right: status & active model */}
+        <div className="ml-auto pr-4 shrink-0 flex items-center gap-3">
+          <ModelSelectorCombobox variant="compact" />
           <div className="hidden sm:flex items-center gap-1.5 text-[#5e616e]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#cc9166]" />
             <span className="text-[10px] tracking-wide">Encryption Active</span>

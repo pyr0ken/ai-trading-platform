@@ -5,7 +5,7 @@ import { Cpu, Search, Check, ChevronDown, Sparkles, X, RefreshCw } from 'lucide-
 import { useActiveLLMModel, setLLMModel } from '@/lib/storage/intel-toggles';
 
 interface ModelSelectorComboboxProps {
-  availableModels: string[];
+  availableModels?: string[];
   modelsLoading?: boolean;
   modelsError?: string | null;
   onRefresh?: () => void;
