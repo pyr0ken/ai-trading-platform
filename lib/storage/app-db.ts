@@ -17,6 +17,10 @@ export interface SessionState {
   sidebarOpen: boolean;
   activeWorkspace: string;
   theme: 'dark' | 'light';
+  /** LLM inference engine base URL (OpenAI-compatible, e.g. 9router/OmniRoute). */
+  llmUrl: string;
+  /** Model id selected in Terminal Settings, sent with every analysis/chat call. */
+  llmModel: string;
   lastUpdated: string;
 }
 
@@ -112,6 +116,8 @@ const DEFAULT_SESSION: SessionState = {
   sidebarOpen: true,
   activeWorkspace: 'default',
   theme: 'dark',
+  llmUrl: 'http://127.0.0.1:20128/v1',
+  llmModel: 'hermes',
   lastUpdated: new Date().toISOString(),
 };
 

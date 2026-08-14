@@ -39,8 +39,12 @@ export async function POST(req: NextRequest) {
       mode,
     };
 
+    // Model selected in Terminal Settings (optional — server falls back to
+    // LLM_MODEL env var / default when absent).
+    const requestedModel = typeof rawPayload.model === 'string' ? rawPayload.model.trim() : undefined;
+
     // Get stream from LLM Client
-    const llmStream = await createLLMAnalysisStream(marketContext, req.signal);
+    const llmStream = await createLLMAnalysisStream(marketContext, req.signal, requestedModel);
 
     return new Response(llmStream, {
       headers: {

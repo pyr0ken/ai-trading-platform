@@ -5,11 +5,14 @@ const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, symbol, analysisSummary } = await req.json();
+    const { question, symbol, analysisSummary, model } = await req.json();
 
     if (!question) {
       return NextResponse.json({ error: 'Question is required' }, { status: 400 });
     }
+
+    // Model selected in Terminal Settings wins; fall back to env/default.
+    const resolvedModel = typeof model === 'string' && model.trim() ? model.trim() : LLM_MODEL;
 
     const systemPrompt = `You are a Senior Quantitative Trading Analyst assisting a trader on a Bloomberg-style Terminal.
 The user is inspecting asset ${symbol || 'BTC/USDT'}.
@@ -30,7 +33,7 @@ Provide a crisp, Markdown-formatted answer in the user's language:`;
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: LLM_MODEL,
+        model: resolvedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

@@ -10,8 +10,12 @@ const LLM_MODEL = process.env.LLM_MODEL || 'hermes';
 
 export async function createLLMAnalysisStream(
   marketContext: FullMarketContextPayload & { symbol?: string; exchange?: string; timeframe?: string; mode?: 'scalp' | 'swing' },
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  model?: string
 ): Promise<ReadableStream<Uint8Array>> {
+  // Explicit per-request model (from Terminal Settings) wins; otherwise fall
+  // back to the env var, then to the hardcoded default.
+  const resolvedModel = model?.trim() || LLM_MODEL;
   const symbol = marketContext.symbol || marketContext.metadata?.symbol || 'BTC/USDT';
   const exchange = marketContext.exchange || marketContext.metadata?.exchange || 'kucoin';
   const timeframe = marketContext.timeframe || marketContext.metadata?.primaryTimeframe || '1h';
@@ -45,7 +49,7 @@ export async function createLLMAnalysisStream(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: LLM_MODEL,
+        model: resolvedModel,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

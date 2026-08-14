@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Settings,
   Cpu,
@@ -13,12 +13,26 @@ import {
   Newspaper,
   Radio,
   Share2,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
+import { ModelSelectorCombobox } from '@/components/settings/model-selector-combobox';
 import { AppStorageEngine } from '@/lib/storage/app-db';
-import { INTEL_TOGGLE_EVENT } from '@/lib/storage/intel-toggles';
+import { INTEL_TOGGLE_EVENT, useActiveLLMModel } from '@/lib/storage/intel-toggles';
 
 export const TerminalSettingsPage: React.FC = () => {
-  const [llmUrl, setLlmUrl] = useState('http://127.0.0.1:20128/v1');
+  const [llmUrl, setLlmUrl] = useState(() => {
+    const session = AppStorageEngine.getSession();
+    return session.llmUrl || 'http://127.0.0.1:20128/v1';
+  });
+  const [llmModel, setLlmModel] = useState(() => {
+    const session = AppStorageEngine.getSession();
+    return session.llmModel || 'hermes';
+  });
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  // Starts true because the dropdown always fetches on mount.
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   const [defaultExchange, setDefaultExchange] = useState(() => {
     const session = AppStorageEngine.getSession();
     return session.selectedExchange || 'kucoin';
@@ -37,12 +51,55 @@ export const TerminalSettingsPage: React.FC = () => {
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Fetch the model list for the currently-typed LLM URL (server-side proxy,
+  // so the browser never hits the engine directly — no CORS issues).
+  const loadModels = useCallback(async (url: string) => {
+    try {
+      const res = await fetch(`/api/llm/models?url=${encodeURIComponent(url.trim())}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      const models: string[] = data?.models || [];
+      setModelsError(null);
+      setAvailableModels(models);
+      // Keep stored model if available; otherwise use current or first available
+      const savedModel = AppStorageEngine.getSession().llmModel;
+      if (savedModel && models.includes(savedModel)) {
+        setLlmModel(savedModel);
+      } else if (models.length > 0) {
+        setLlmModel((prev) => (models.includes(prev) ? prev : models[0]));
+      }
+    } catch (err) {
+      setModelsError(err instanceof Error ? err.message : 'Failed to load models');
+      setAvailableModels([]);
+    } finally {
+      setModelsLoading(false);
+    }
+  }, []);
+
+  // Load models on mount so the dropdown is populated immediately.
+  useEffect(() => {
+    const mountLoad = async () => {
+      await loadModels(llmUrl);
+    };
+    mountLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const refreshModels = useCallback(() => {
+    setModelsLoading(true);
+    loadModels(llmUrl);
+  }, [loadModels, llmUrl]);
+
   const handleSaveSettings = () => {
     AppStorageEngine.saveSession({
       selectedExchange: defaultExchange,
       selectedTimeframe: defaultTimeframe,
       includeNews,
       includeSocial,
+      llmUrl: llmUrl.trim() || 'http://127.0.0.1:20128/v1',
+      llmModel,
     });
     // Wake up the header pill and the dashboard query key in this same tab.
     window.dispatchEvent(new CustomEvent(INTEL_TOGGLE_EVENT));
@@ -109,24 +166,39 @@ export const TerminalSettingsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[#9194a1] font-semibold">Local LLM Endpoint URL</label>
-            <input
-              type="text"
-              value={llmUrl}
-              onChange={(e) => setLlmUrl(e.target.value)}
-              className="w-full bg-[#121317] border border-[#1c1d22] rounded-[9999px] px-4 py-2 text-xs text-[#e2e3e9] focus:border-[#777a88] focus:outline-none"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={llmUrl}
+                onChange={(e) => setLlmUrl(e.target.value)}
+                className="w-full bg-[#121317] border border-[#1c1d22] rounded-[9999px] px-4 py-2 text-xs text-[#e2e3e9] focus:border-[#777a88] focus:outline-none"
+              />
+              <button
+                onClick={() => refreshModels()}
+                disabled={modelsLoading}
+                title="Refresh available models from this URL"
+                className="shrink-0 px-3 py-2 rounded-[9999px] bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] text-[#cc9166] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+              >
+                <RefreshCw className={`w-4 h-4 ${modelsLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
             <span className="text-[10px] text-[#5e616e]">Default: 9router / Ollama at http://127.0.0.1:20128/v1</span>
           </div>
 
           <div className="space-y-1.5">
             <label className="text-[#9194a1] font-semibold">Institutional Model Engine</label>
-            <div className="p-2.5 bg-[#121317] border border-[#1c1d22] rounded-[9999px] flex items-center justify-between">
-              <span className="text-[#ffffff] font-bold">Hermes / DeepSeek R1 / Qwen 2.5</span>
-              <span className="text-[10px] bg-[#1c1d22] text-[#cc9166] border border-[#cc9166]/40 px-2 py-0.5 rounded-[9999px] font-semibold">
-                Online (12ms)
-              </span>
-            </div>
-            <span className="text-[10px] text-[#5e616e]">Auto-detected from local 9router LLM server</span>
+            <ModelSelectorCombobox
+              availableModels={availableModels}
+              modelsLoading={modelsLoading}
+              modelsError={modelsError}
+              onRefresh={refreshModels}
+              variant="full"
+            />
+            <span className="text-[10px] text-[#5e616e]">
+              {availableModels.length > 0
+                ? `${availableModels.length} models available — search by typing or select from popover`
+                : 'Models are fetched automatically from the endpoint URL above'}
+            </span>
           </div>
         </div>
       </div>

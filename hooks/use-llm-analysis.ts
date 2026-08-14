@@ -286,12 +286,19 @@ export function useLLMAnalysis() {
         recentHistoricalSignals: symbolAnalyses,
       };
 
+      // Send the model selected in Terminal Settings (saved in the session)
+      // so the analysis stream route uses the same engine the trader chose.
+      const session = AppStorageEngine.getSession();
+      const selectedModel = session.llmModel?.trim() || undefined;
+
       const response = await fetch('/api/analysis/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(enrichedPayload),
+        body: JSON.stringify(
+          selectedModel ? { ...enrichedPayload, model: selectedModel } : enrichedPayload
+        ),
         signal: abortControllerRef.current.signal,
       });
 

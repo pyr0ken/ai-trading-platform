@@ -20,6 +20,7 @@ import {
   Newspaper,
   Share2,
 } from 'lucide-react';
+import { ModelSelectorCombobox } from '@/components/settings/model-selector-combobox';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { CoinIcon } from '@/components/common/coin-icon';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
@@ -421,6 +422,9 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
         )}
 
         <AnalysisReplayModal onReplayAnalysis={onReplayAnalysis} />
+
+        {/* Active AI Model Badge & Combobox */}
+        <ModelSelectorCombobox variant="compact" availableModels={[]} />
 
         {/* Quick Intel Input Toggles */}
         <div className="hidden md:flex items-center gap-1 bg-[#121317] border border-[#1c1d22] rounded-[9999px] p-0.5 shrink-0">

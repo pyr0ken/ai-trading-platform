@@ -101,13 +101,18 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ symbol, analysisSumm
     });
 
     try {
+      // Model selected in Terminal Settings — send it so the chat uses the
+      // same engine the trader chose (route falls back to env/default).
+      const selectedModel = AppStorageEngine.getSession().llmModel?.trim() || undefined;
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           symbol,
-          message: q,
+          question: q,
           analysisSummary,
+          ...(selectedModel ? { model: selectedModel } : {}),
         }),
       });
 
@@ -116,7 +121,7 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ symbol, analysisSumm
       }
 
       const data = await response.json();
-      const assistantContent = data.reply || 'No response generated.';
+      const assistantContent = data.answer || 'No response generated.';
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
