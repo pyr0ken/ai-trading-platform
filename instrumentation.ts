@@ -14,18 +14,18 @@ export async function register() {
   // Skip in production.
   if (process.env.NODE_ENV === 'production') return;
 
-  // Small delay — let the server fully bind its port before we call ourselves.
-  await new Promise((r) => setTimeout(r, 3000));
-
-  try {
+  // Non-blocking background trigger after server is fully listening
+  setTimeout(() => {
     const port = process.env.PORT ?? '3000';
-    const res = await fetch(`http://localhost:${port}/api/intel/scrape-trigger`, {
+    fetch(`http://127.0.0.1:${port}/api/intel/scrape-trigger`, {
       method: 'POST',
-    });
-    const data = await res.json();
-    console.log('[x_feed_engine] startup trigger:', data.status, data.reason ?? data.pid ?? '');
-  } catch {
-    // Server might not be ready yet — not fatal, trader can scrape manually.
-    console.warn('[x_feed_engine] startup trigger failed (server not ready)');
-  }
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log('[x_feed_engine] startup trigger:', data?.status, data?.reason ?? data?.pid ?? '');
+      })
+      .catch(() => {
+        console.warn('[x_feed_engine] startup trigger failed (server not ready)');
+      });
+  }, 5000);
 }

@@ -47,13 +47,21 @@ export async function POST() {
   }
 
   // Resolve paths to the internal x_feed_engine inside the repo.
-    const engineDir = path.join(process.cwd(), 'scripts', 'x_feed_engine');
-    const pythonExe = path.join(engineDir, '.venv', 'Scripts', 'python.exe');
-    const mainPy = path.join(engineDir, 'main.py');
+  const engineDir = path.join(process.cwd(), 'scripts', 'x_feed_engine');
+  let pythonExe =
+    process.platform === 'win32'
+      ? path.join(engineDir, '.venv', 'Scripts', 'python.exe')
+      : path.join(engineDir, '.venv', 'bin', 'python');
 
-    if (!fs.existsSync(pythonExe) || !fs.existsSync(mainPy)) {
+  if (!fs.existsSync(pythonExe)) {
+    pythonExe = 'python3';
+  }
+
+  const mainPy = path.join(engineDir, 'main.py');
+
+  if (!fs.existsSync(mainPy)) {
     return NextResponse.json(
-      { status: 'skipped', reason: 'x_feed_engine not found at expected path' },
+      { status: 'skipped', reason: 'main.py not found at expected path' },
       { status: 200 }
     );
   }
