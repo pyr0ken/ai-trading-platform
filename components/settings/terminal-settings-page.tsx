@@ -7,6 +7,7 @@ import {
   Database,
   Trash2,
   Download,
+  Upload,
   CheckCircle2,
   Globe2,
   Save,
@@ -47,7 +48,7 @@ export const TerminalSettingsPage: React.FC = () => {
   });
   const [includeSocial, setIncludeSocial] = useState(() => {
     const session = AppStorageEngine.getSession();
-    return session.includeSocial ?? true;
+    return session.includeSocial ?? false;
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -115,19 +116,34 @@ export const TerminalSettingsPage: React.FC = () => {
   };
 
   const handleExportBackup = () => {
-    const data = {
-      session: AppStorageEngine.getSession(),
-      watchlist: AppStorageEngine.getWatchlist(),
-      analyses: AppStorageEngine.getAnalyses(),
-      exported_at: new Date().toISOString(),
-    };
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
+    const jsonStr = AppStorageEngine.exportFullBackup();
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(jsonStr);
     const link = document.createElement('a');
     link.setAttribute('href', dataStr);
-    link.setAttribute('download', 'Workstation_Backup.json');
+    link.setAttribute('download', `Workstation_Full_Backup_${new Date().toISOString().slice(0, 10)}.json`);
     document.body.appendChild(link);
     link.click();
     link.remove();
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (!content) return;
+      const res = AppStorageEngine.importFullBackup(content);
+      if (res.success) {
+        alert(`✅ Backup imported successfully! ${res.importedCount} keys restored.`);
+        window.location.reload();
+      } else {
+        alert(`❌ Import failed: ${res.error || 'Invalid file format'}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -309,14 +325,26 @@ export const TerminalSettingsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleExportBackup}
               className="flex items-center gap-1.5 px-4 py-2 rounded-[9999px] bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] text-[#e2e3e9] transition-all cursor-pointer font-semibold"
+              title="Export all LocalStorage settings, watchlists, paper account, and signal history"
             >
               <Download className="w-4 h-4 text-[#cc9166]" />
-              <span>Backup Workspace JSON</span>
+              <span>Export Full Backup</span>
             </button>
+
+            <label className="flex items-center gap-1.5 px-4 py-2 rounded-[9999px] bg-[#121317] hover:bg-[#1c1d22] border border-[#1c1d22] text-[#e2e3e9] transition-all cursor-pointer font-semibold">
+              <Upload className="w-4 h-4 text-[#cc9166]" />
+              <span>Import Backup JSON</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportBackup}
+                className="hidden"
+              />
+            </label>
           </div>
 
           <button

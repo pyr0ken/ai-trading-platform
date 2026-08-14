@@ -81,15 +81,15 @@ export function useActiveLLMModel(): {
   return { ...config, setModel };
 }
 
-/** Read current toggles, defaulting to enabled. SSR-safe. */
+/** Read current toggles, defaulting to News ON and Social OFF. SSR-safe. */
 export function readIntelToggles(): IntelToggles {
   if (typeof window === 'undefined') {
-    return { includeNews: true, includeSocial: true };
+    return { includeNews: true, includeSocial: false };
   }
   const session = AppStorageEngine.getSession();
   return {
     includeNews: session.includeNews ?? true,
-    includeSocial: session.includeSocial ?? true,
+    includeSocial: session.includeSocial ?? false,
   };
 }
 
@@ -113,7 +113,7 @@ export function useIntelToggles(): IntelToggles & {
 } {
   const [toggles, setToggles] = useState<IntelToggles>({
     includeNews: true,
-    includeSocial: true,
+    includeSocial: false,
   });
 
   useEffect(() => {

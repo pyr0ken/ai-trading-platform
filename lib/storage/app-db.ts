@@ -112,7 +112,7 @@ const DEFAULT_SESSION: SessionState = {
   selectedTimeframe: '1h',
   analysisMode: 'swing',
   includeNews: true,
-  includeSocial: true,
+  includeSocial: false,
   sidebarOpen: true,
   activeWorkspace: 'default',
   theme: 'dark',
@@ -519,5 +519,80 @@ export class AppStorageEngine {
       localStorage.removeItem(STORAGE_KEYS.PAPER_POSITIONS);
       localStorage.removeItem(STORAGE_KEYS.PAPER_ACCOUNT);
     } catch {}
+  }
+
+  // --- Full LocalStorage Backup Export / Import ---
+  public static exportFullBackup(): string {
+    if (typeof window === 'undefined') return '{}';
+    const storageMap: Record<string, unknown> = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('steep_quant_') || key.startsWith('hermes_'))) {
+          const raw = localStorage.getItem(key);
+          if (raw !== null) {
+            try {
+              storageMap[key] = JSON.parse(raw);
+            } catch {
+              storageMap[key] = raw;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('exportFullBackup error:', e);
+    }
+
+    const payload = {
+      app: 'Steep Market Intelligence',
+      version: '2.0',
+      exportedAt: new Date().toISOString(),
+      storage: storageMap,
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  public static importFullBackup(jsonStr: string): { success: boolean; importedCount: number; error?: string } {
+    if (typeof window === 'undefined') return { success: false, importedCount: 0, error: 'SSR environment' };
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const storageObj = parsed?.storage || (typeof parsed === 'object' ? parsed : null);
+
+      if (!storageObj || typeof storageObj !== 'object') {
+        return { success: false, importedCount: 0, error: 'Invalid backup file format' };
+      }
+
+      let count = 0;
+      for (const [key, value] of Object.entries(storageObj)) {
+        if (key && (key.startsWith('steep_quant_') || key.startsWith('hermes_'))) {
+          const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+          localStorage.setItem(key, valStr);
+          count++;
+        }
+      }
+
+      // Clear in-memory caches
+      this.cachedSession = null;
+      this.cachedWatchlist = null;
+      this.cachedAnalyses = null;
+      this.cachedChats = null;
+      this.cachedPaperAccount = null;
+      this.cachedPaperPositions = null;
+      this.cachedLayout = null;
+
+      // Dispatch global sync events
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('intel-toggles-changed'));
+        window.dispatchEvent(new Event('storage'));
+      }
+
+      return { success: true, importedCount: count };
+    } catch (err) {
+      return {
+        success: false,
+        importedCount: 0,
+        error: err instanceof Error ? err.message : 'Invalid JSON backup',
+      };
+    }
   }
 }
