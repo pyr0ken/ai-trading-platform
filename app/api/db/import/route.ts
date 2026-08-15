@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }
 
       // Import watchlist
-      watchlist.forEach((w: any, idx: number) => {
+      watchlist.forEach((w: Record<string, unknown>, idx: number) => {
         insertWatchlistStmt.run(
           w.symbol,
           w.exchange || 'kucoin',

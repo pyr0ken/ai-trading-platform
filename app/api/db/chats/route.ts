@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     query += ' ORDER BY timestamp ASC';
 
-    const rows = db.prepare(query).all(...params) as any[];
+    const rows = db.prepare(query).all(...params) as Record<string, unknown>[];
 
     return NextResponse.json({ success: true, chats: rows });
   } catch (error) {

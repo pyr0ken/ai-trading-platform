@@ -4,7 +4,7 @@ import { getDatabase } from '@/lib/db/sqlite-client';
 export async function GET() {
   try {
     const db = getDatabase();
-    const rows = db.prepare('SELECT * FROM watchlist ORDER BY order_index ASC').all() as any[];
+    const rows = db.prepare('SELECT * FROM watchlist ORDER BY order_index ASC').all() as Record<string, unknown>[];
 
     const watchlist = rows.map((r) => ({
       symbol: r.symbol,
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
     `);
 
-    const transaction = db.transaction((items: any[]) => {
+    const transaction = db.transaction((items: Record<string, unknown>[]) => {
       deleteStmt.run();
       items.forEach((item, index) => {
         insertStmt.run(

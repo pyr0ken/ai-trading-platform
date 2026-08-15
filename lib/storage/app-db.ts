@@ -88,6 +88,15 @@ const DEFAULT_WATCHLIST: WatchlistItem[] = [
   { symbol: 'AVAX/USDT', exchange: 'kucoin', pinned: false, favorite: false, addedAt: new Date().toISOString(), order: 6 },
 ];
 
+const STORAGE_KEYS = {
+  SESSION: 'steep_quant_session_v2',
+  WATCHLIST: 'steep_quant_watchlist_v2',
+  ANALYSES: 'steep_quant_analyses_v2',
+  CHATS: 'steep_quant_chats_v2',
+  SETTINGS: 'steep_quant_settings_v2',
+  LAYOUT: 'steep_quant_layout_v1',
+};
+
 export class AppStorageEngine {
   private static cachedSession: SessionState | null = null;
   private static cachedWatchlist: WatchlistItem[] | null = null;
@@ -97,36 +106,62 @@ export class AppStorageEngine {
   private static cachedPaperPositions: PaperPosition[] | null = null;
   private static cachedLayout: DashboardLayoutConfig | null = null;
 
-  // --- Layout Configuration ---
+  // --- Layout Configuration (Instant LocalStorage + SQLite Backup) ---
   public static getLayoutConfig(): DashboardLayoutConfig {
+    if (typeof window === 'undefined') return DEFAULT_LAYOUT_CONFIG;
     if (this.cachedLayout) return this.cachedLayout;
-    return DEFAULT_LAYOUT_CONFIG;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.LAYOUT);
+      this.cachedLayout = data ? { ...DEFAULT_LAYOUT_CONFIG, ...JSON.parse(data) } : DEFAULT_LAYOUT_CONFIG;
+    } catch {
+      this.cachedLayout = DEFAULT_LAYOUT_CONFIG;
+    }
+    return this.cachedLayout || DEFAULT_LAYOUT_CONFIG;
   }
 
   public static saveLayoutConfig(config: DashboardLayoutConfig): void {
-    this.cachedLayout = config;
-    fetch('/api/db/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layoutConfig: config }),
-    }).catch(() => {});
+    if (typeof window === 'undefined') return;
+    try {
+      this.cachedLayout = config;
+      localStorage.setItem(STORAGE_KEYS.LAYOUT, JSON.stringify(config));
+      fetch('/api/db/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ layoutConfig: config }),
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('saveLayoutConfig error:', e);
+    }
   }
 
-  // --- Session Restoration ---
+  // --- Session & UI Panel Toggles (Instant LocalStorage + SQLite Backup) ---
   public static getSession(): SessionState {
+    if (typeof window === 'undefined') return DEFAULT_SESSION;
     if (this.cachedSession) return this.cachedSession;
-    return DEFAULT_SESSION;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.SESSION);
+      this.cachedSession = data ? { ...DEFAULT_SESSION, ...JSON.parse(data) } : DEFAULT_SESSION;
+    } catch {
+      this.cachedSession = DEFAULT_SESSION;
+    }
+    return this.cachedSession || DEFAULT_SESSION;
   }
 
   public static saveSession(session: Partial<SessionState>): void {
-    const current = this.getSession();
-    const updated = { ...current, ...session, lastUpdated: new Date().toISOString() };
-    this.cachedSession = updated;
-    fetch('/api/db/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session: updated }),
-    }).catch(() => {});
+    if (typeof window === 'undefined') return;
+    try {
+      const current = this.getSession();
+      const updated = { ...current, ...session, lastUpdated: new Date().toISOString() };
+      this.cachedSession = updated;
+      localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(updated));
+      fetch('/api/db/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: updated }),
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('saveSession error:', e);
+    }
   }
 
   // --- Watchlist Manager ---

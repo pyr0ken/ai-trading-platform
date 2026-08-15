@@ -91,7 +91,7 @@ async function getWarmedExchange(exchangeId: string): Promise<Exchange> {
     throw new Error(`Unsupported exchange: ${exchangeId}`);
   }
 
-  const instance = new (ExchangeClass as new (cfg: any) => Exchange)({
+  const instance = new (ExchangeClass as new (cfg: unknown) => Exchange)({
     enableRateLimit: true,
     timeout: 5000,
     has: {
@@ -440,20 +440,20 @@ export class CCXTMarketService {
       if (res.ok) {
         const raw = await res.json();
         if (Array.isArray(raw) && raw.length > 0) {
-          return raw.map((c: any[]) => {
+          return raw.map((c: unknown[]) => {
             const timestamp = Number(c[0]);
             const dt = new Date(timestamp);
-            const priceVal = parseFloat(c[4]);
+            const priceVal = parseFloat(String(c[4]));
             const decimalPlaces = priceDecimals(priceVal);
 
             return {
               timestamp,
               gregorianDate: dt.toISOString().replace('T', ' ').substring(0, 19) + ' UTC',
-              open: Number(parseFloat(c[1]).toFixed(decimalPlaces)),
-              high: Number(parseFloat(c[2]).toFixed(decimalPlaces)),
-              low: Number(parseFloat(c[3]).toFixed(decimalPlaces)),
+              open: Number(parseFloat(String(c[1])).toFixed(decimalPlaces)),
+              high: Number(parseFloat(String(c[2])).toFixed(decimalPlaces)),
+              low: Number(parseFloat(String(c[3])).toFixed(decimalPlaces)),
               close: Number(priceVal.toFixed(decimalPlaces)),
-              volume: Number(parseFloat(c[5]).toFixed(2)),
+              volume: Number(parseFloat(String(c[5])).toFixed(2)),
             };
           });
         }

@@ -30,7 +30,7 @@ describe('SQLite Server Database Schema & Queries', () => {
 
     stmt.run('test-123', 'BTC/USDT', 'kucoin', '1h', 65000, 'BUY', 85, 'MEDIUM', 'Test markdown report');
 
-    const record = db.prepare('SELECT * FROM analyses WHERE id = ?').get('test-123') as any;
+    const record = db.prepare('SELECT * FROM analyses WHERE id = ?').get('test-123') as Record<string, unknown>;
 
     expect(record).toBeDefined();
     expect(record.symbol).toBe('BTC/USDT');
@@ -48,7 +48,7 @@ describe('SQLite Server Database Schema & Queries', () => {
       UPDATE analyses SET status = 'WIN', pnl_percentage = 4.2, current_price = 3065 WHERE id = 'test-456'
     `).run();
 
-    const record = db.prepare('SELECT * FROM analyses WHERE id = ?').get('test-456') as any;
+    const record = db.prepare('SELECT * FROM analyses WHERE id = ?').get('test-456') as Record<string, unknown>;
 
     expect(record.status).toBe('WIN');
     expect(record.pnl_percentage).toBe(4.2);
@@ -64,7 +64,7 @@ describe('SQLite Server Database Schema & Queries', () => {
     insert.run('BTC/USDT', 'kucoin', 1, 1, 0);
     insert.run('SOL/USDT', 'kucoin', 0, 1, 1);
 
-    const items = db.prepare('SELECT * FROM watchlist ORDER BY order_index ASC').all() as any[];
+    const items = db.prepare('SELECT * FROM watchlist ORDER BY order_index ASC').all() as Record<string, unknown>[];
 
     expect(items.length).toBe(2);
     expect(items[0].symbol).toBe('BTC/USDT');

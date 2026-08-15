@@ -6,7 +6,7 @@ export async function GET() {
     const db = getDatabase();
     const rows = db.prepare('SELECT key, value FROM user_settings').all() as { key: string; value: string }[];
 
-    const settings: Record<string, any> = {};
+    const settings: Record<string, unknown> = {};
     rows.forEach((r) => {
       try {
         settings[r.key] = JSON.parse(r.value);
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       VALUES (?, ?, datetime('now'))
     `);
 
-    const transaction = db.transaction((obj: Record<string, any>) => {
+    const transaction = db.transaction((obj: Record<string, unknown>) => {
       Object.entries(obj).forEach(([key, val]) => {
         const valStr = typeof val === 'object' ? JSON.stringify(val) : String(val);
         stmt.run(key, valStr);

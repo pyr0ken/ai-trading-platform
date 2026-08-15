@@ -4,7 +4,7 @@ import { getDatabase } from '@/lib/db/sqlite-client';
 export async function GET() {
   try {
     const db = getDatabase();
-    const rows = db.prepare('SELECT * FROM whale_transactions ORDER BY timestamp DESC LIMIT 100').all() as any[];
+    const rows = db.prepare('SELECT * FROM whale_transactions ORDER BY timestamp DESC LIMIT 100').all() as Record<string, unknown>[];
 
     const transactions = rows.map((r) => ({
       id: r.id,

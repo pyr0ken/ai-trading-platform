@@ -5,8 +5,8 @@ export async function GET() {
   try {
     const db = getDatabase();
 
-    const accountRow = db.prepare('SELECT * FROM paper_account WHERE id = 1').get() as any;
-    const positionsRows = db.prepare("SELECT * FROM paper_positions WHERE status = 'OPEN'").all() as any[];
+    const accountRow = db.prepare('SELECT * FROM paper_account WHERE id = 1').get() as Record<string, unknown> | undefined;
+    const positionsRows = db.prepare("SELECT * FROM paper_positions WHERE status = 'OPEN'").all() as Record<string, unknown>[];
 
     const account = accountRow
       ? {
@@ -15,7 +15,7 @@ export async function GET() {
           totalTrades: accountRow.total_trades,
           wins: accountRow.wins,
           losses: accountRow.losses,
-          balanceHistory: accountRow.balance_history ? JSON.parse(accountRow.balance_history) : [],
+          balanceHistory: typeof accountRow.balance_history === 'string' ? JSON.parse(accountRow.balance_history) : [],
         }
       : {
           balance: 10000,

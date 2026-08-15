@@ -11,10 +11,14 @@ import { NewsArticle } from '@/types/news';
 const DISMISSED_KEY = 'hermes_breaking_dismissed';
 const POLL_INTERVAL = 60_000; // check every 60s
 
-const dismissedIdsMemory = new Set<string>();
-
 function getDismissedIds(): Set<string> {
-  return dismissedIdsMemory;
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(DISMISSED_KEY);
+    return new Set<string>(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
 }
 
 /* ───────────────────────────────────────────────
@@ -98,6 +102,11 @@ export function BreakingNewsBanner() {
     // Persist dismissal
     const dismissedIds = getDismissedIds();
     dismissedIds.add(breaking.articleId!);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissedIds]));
+      } catch {}
+    }
   }, [breaking]);
 
   if (!breaking || dismissed) return null;

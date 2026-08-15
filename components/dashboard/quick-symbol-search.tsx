@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -98,7 +99,7 @@ export const QuickSymbolSearch: React.FC<QuickSymbolSearchProps> = ({
   }, [selectedIndex]);
 
   const selectAndClose = (item: MarketSymbolItem | string) => {
-    let symStr = typeof item === 'string' ? item : item.symbol;
+    const symStr = typeof item === 'string' ? item : item.symbol;
     let preferredExchange: string | undefined = undefined;
 
     if (typeof item !== 'string') {

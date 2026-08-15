@@ -20,28 +20,28 @@ export async function GET(request: Request) {
     query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(limit);
 
-    const rows = db.prepare(query).all(...params) as any[];
+    const rows = db.prepare(query).all(...params) as Record<string, unknown>[];
 
     const records = rows.map((row) => ({
-      id: row.id,
-      symbol: row.symbol,
-      exchange: row.exchange,
-      timeframe: row.timeframe,
-      price: row.price,
-      signal: row.signal,
-      confidence: row.confidence,
-      risk_level: row.risk_level,
-      json_output: row.json_output ? JSON.parse(row.json_output) : null,
-      markdown_report: row.markdown_report,
-      pine_script: row.pine_script || undefined,
-      created_at: row.created_at,
-      round_trip_cost_pct: row.round_trip_cost_pct,
+      id: String(row.id),
+      symbol: String(row.symbol),
+      exchange: String(row.exchange),
+      timeframe: String(row.timeframe),
+      price: Number(row.price),
+      signal: String(row.signal),
+      confidence: Number(row.confidence),
+      risk_level: String(row.risk_level),
+      json_output: row.json_output ? JSON.parse(String(row.json_output)) : null,
+      markdown_report: String(row.markdown_report),
+      pine_script: row.pine_script ? String(row.pine_script) : undefined,
+      created_at: String(row.created_at),
+      round_trip_cost_pct: Number(row.round_trip_cost_pct ?? 0.3),
       accuracy_evaluation: row.status !== 'PENDING' || row.current_price !== null ? {
-        status: row.status,
-        current_price: row.current_price ?? undefined,
-        pnl_percentage: row.pnl_percentage ?? undefined,
-        gross_pnl_percentage: row.gross_pnl_percentage ?? undefined,
-        entry_fill_price: row.entry_fill_price ?? undefined,
+        status: String(row.status) as 'PENDING' | 'WIN' | 'LOSS' | 'INVALIDATED' | 'NOT_FILLED',
+        current_price: row.current_price !== null ? Number(row.current_price) : undefined,
+        pnl_percentage: row.pnl_percentage !== null ? Number(row.pnl_percentage) : undefined,
+        gross_pnl_percentage: row.gross_pnl_percentage !== null ? Number(row.gross_pnl_percentage) : undefined,
+        entry_fill_price: row.entry_fill_price !== null ? Number(row.entry_fill_price) : undefined,
       } : undefined,
     }));
 
