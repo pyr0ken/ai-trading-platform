@@ -40,6 +40,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local databases
+data/
+*.db
+*.db-wal
+*.db-shm
+
 # hermes agent configs & plans
 .hermes/
 

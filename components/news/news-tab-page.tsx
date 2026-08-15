@@ -37,13 +37,10 @@ interface NewsTabPageProps {
 
 const BOOKMARK_KEY = 'hermes_news_bookmarks';
 
+const bookmarkedSetMemory = new Set<string>();
+
 function getBookmarks(): Set<string> {
-  try {
-    const raw = localStorage.getItem(BOOKMARK_KEY);
-    return new Set<string>(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
+  return bookmarkedSetMemory;
 }
 
 function toggleBookmark(id: string): boolean {
@@ -51,7 +48,6 @@ function toggleBookmark(id: string): boolean {
   const exists = bm.has(id);
   if (exists) bm.delete(id);
   else bm.add(id);
-  localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...bm]));
   return !exists;
 }
 

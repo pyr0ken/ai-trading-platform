@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { WhaleTransaction } from '@/lib/whale/types';
-import { POLL_INTERVAL, STORAGE_KEY } from '@/lib/whale/config';
+import { getWhaleHistory, addWhaleHistory } from '@/lib/whale/whale-history-store';
+import { POLL_INTERVAL } from '@/lib/whale/config';
 import { formatUsd } from '@/lib/whale/whale-service';
 import { WhaleCard } from './whale-card';
 import {
@@ -45,11 +46,8 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
   /* ── Load history from storage ── */
   const loadHistory = useCallback(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed: WhaleTransaction[] = JSON.parse(raw);
-        setTransactions(parsed);
-      }
+      const history = getWhaleHistory();
+      setTransactions(history);
     } catch {
       // ignore
     }
@@ -60,11 +58,7 @@ export function WhaleSidebar({ open, onClose, onCountChange, mode = 'sidebar' }:
     setTransactions((prev) => {
       if (prev.some((h) => h.id === tx.id)) return prev;
       const updated = [tx, ...prev].slice(0, 200);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
+      addWhaleHistory(tx);
       return updated;
     });
   }, []);

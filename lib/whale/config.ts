@@ -32,11 +32,8 @@ export const POLL_INTERVAL = 10_000; // 10s
 /** Max blocks to scan backwards on each poll */
 export const MAX_BLOCKS_BACK = 3;
 
-/** Max whale transactions to keep in localStorage history */
+/** Max whale transactions to keep in history */
 export const MAX_HISTORY = 200;
-
-/** localStorage key */
-export const STORAGE_KEY = 'hermes_whale_history';
 
 /** API endpoints (with or without api key) */
 export const API_SOURCES = {
