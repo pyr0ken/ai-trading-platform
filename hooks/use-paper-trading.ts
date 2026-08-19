@@ -55,6 +55,19 @@ export function usePaperTrading() {
     setAccount(AppStorageEngine.getPaperAccount());
   }, []);
 
+  useEffect(() => {
+    AppStorageEngine.fetchPaperFromDb().then(() => {
+      refresh();
+    });
+    const handleStorage = () => refresh();
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('app-storage-updated', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('app-storage-updated', handleStorage);
+    };
+  }, [refresh]);
+
   const openPosition = useCallback((
     pos: Omit<PaperPosition, 'id' | 'pnl' | 'pnlPct' | 'status' | 'openedAt' | 'currentPrice'>
   ) => {

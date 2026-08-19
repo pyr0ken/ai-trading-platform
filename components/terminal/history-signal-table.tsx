@@ -25,6 +25,21 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
     setRecords(AppStorageEngine.getAnalyses());
   }, []);
 
+  React.useEffect(() => {
+    AppStorageEngine.fetchAnalysesFromDb().then((fetched) => {
+      setRecords(fetched);
+    });
+    const handleStorageChange = () => {
+      setRecords(AppStorageEngine.getAnalyses());
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('app-storage-updated', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('app-storage-updated', handleStorageChange);
+    };
+  }, []);
+
   const handleDelete = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     AppStorageEngine.deleteAnalysis(id);

@@ -81,6 +81,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setMounted(true);
+    AppStorageEngine.initializeFromDatabase().catch((e) => {
+      console.warn('Failed to initialize database storage:', e);
+    });
   }, []);
 
   useEffect(() => {

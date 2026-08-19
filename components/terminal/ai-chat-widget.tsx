@@ -37,15 +37,12 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ symbol, analysisSumm
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Load chat history from IndexedDB/localStorage
+  // Load chat history from SQLite / LocalStorage
   useEffect(() => {
-    const stored = AppStorageEngine.getChats(symbol);
-    if (stored && stored.length > 0) {
-      queueMicrotask(() => {
+    const updateMessages = (stored = AppStorageEngine.getChats(symbol)) => {
+      if (stored && stored.length > 0) {
         setMessages(stored.map((c) => ({ id: c.id, role: c.role, content: c.content })));
-      });
-    } else {
-      queueMicrotask(() => {
+      } else {
         setMessages([
           {
             id: '1',
@@ -53,8 +50,20 @@ export const AIChatWidget: React.FC<AIChatWidgetProps> = ({ symbol, analysisSumm
             content: `**AI Terminal Assistant**\n\nAsk questions in **English** or **Persian (فارسی)** regarding ${symbol}'s trade setup, indicators, risk levels, or leverage bounds.`,
           },
         ]);
-      });
-    }
+      }
+    };
+
+    updateMessages();
+    AppStorageEngine.fetchChatsFromDb(symbol).then((chats) => {
+      updateMessages(chats);
+    });
+
+    window.addEventListener('storage', () => updateMessages());
+    window.addEventListener('app-storage-updated', () => updateMessages());
+    return () => {
+      window.removeEventListener('storage', () => updateMessages());
+      window.removeEventListener('app-storage-updated', () => updateMessages());
+    };
   }, [symbol]);
 
   // Scroll ONLY inside the chat container (never scroll the main window page!)

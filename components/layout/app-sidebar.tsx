@@ -86,9 +86,15 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     fetchStats();
     fetchFearGreed();
 
-    // Refresh stats every 5 seconds in case user saves a new analysis
+    window.addEventListener('storage', fetchStats);
+    window.addEventListener('app-storage-updated', fetchStats);
+
     const interval = setInterval(fetchStats, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', fetchStats);
+      window.removeEventListener('app-storage-updated', fetchStats);
+    };
   }, []);
 
   const navItems = [

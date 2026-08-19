@@ -3,8 +3,9 @@ import { PaperPosition, PaperAccount } from '@/types/paper-trading';
 import { DashboardLayoutConfig, DEFAULT_LAYOUT_CONFIG } from '@/types/layout';
 
 /**
- * Server SQLite Database Wrapper (Zero LocalStorage dependency).
- * All persistence is performed via SQLite API routes (/api/db/*) with in-memory caching.
+ * Server SQLite Database Wrapper with LocalStorage Caching (Hybrid Storage Engine).
+ * Fast synchronous reads via LocalStorage & in-memory cache for 0ms UI render.
+ * Durable persistence via SQLite API routes (/api/db/*).
  */
 
 export interface SessionState {
@@ -95,6 +96,8 @@ const STORAGE_KEYS = {
   CHATS: 'steep_quant_chats_v2',
   SETTINGS: 'steep_quant_settings_v2',
   LAYOUT: 'steep_quant_layout_v1',
+  PAPER_POSITIONS: 'steep_quant_paper_positions_v2',
+  PAPER_ACCOUNT: 'steep_quant_paper_account_v2',
 };
 
 export class AppStorageEngine {
@@ -105,6 +108,13 @@ export class AppStorageEngine {
   private static cachedPaperAccount: PaperAccount | null = null;
   private static cachedPaperPositions: PaperPosition[] | null = null;
   private static cachedLayout: DashboardLayoutConfig | null = null;
+
+  private static notifyStorageChange(): void {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('app-storage-updated'));
+    }
+  }
 
   // --- Layout Configuration (Instant LocalStorage + SQLite Backup) ---
   public static getLayoutConfig(): DashboardLayoutConfig {
@@ -129,6 +139,7 @@ export class AppStorageEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ layoutConfig: config }),
       }).catch(() => {});
+      this.notifyStorageChange();
     } catch (e) {
       console.warn('saveLayoutConfig error:', e);
     }
@@ -159,6 +170,7 @@ export class AppStorageEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session: updated }),
       }).catch(() => {});
+      this.notifyStorageChange();
     } catch (e) {
       console.warn('saveSession error:', e);
     }
@@ -167,11 +179,28 @@ export class AppStorageEngine {
   // --- Watchlist Manager ---
   public static getWatchlist(): WatchlistItem[] {
     if (this.cachedWatchlist) return this.cachedWatchlist;
+    if (typeof window !== 'undefined') {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.WATCHLIST);
+        if (data) {
+          this.cachedWatchlist = JSON.parse(data);
+          return this.cachedWatchlist || DEFAULT_WATCHLIST;
+        }
+      } catch {}
+    }
     return DEFAULT_WATCHLIST;
   }
 
   public static saveWatchlist(list: WatchlistItem[]): void {
     this.cachedWatchlist = list;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEYS.WATCHLIST, JSON.stringify(list));
+      } catch (e) {
+        console.warn('saveWatchlist error:', e);
+      }
+    }
+    this.notifyStorageChange();
     fetch('/api/db/watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -224,11 +253,30 @@ export class AppStorageEngine {
 
   // --- Analyses History & Replay ---
   public static getAnalyses(): StoredAnalysisRecord[] {
-    return this.cachedAnalyses || [];
+    if (this.cachedAnalyses) return this.cachedAnalyses;
+    if (typeof window !== 'undefined') {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.ANALYSES);
+        if (data) {
+          this.cachedAnalyses = JSON.parse(data);
+          return this.cachedAnalyses || [];
+        }
+      } catch {}
+    }
+    return [];
   }
 
   public static saveAnalyses(list: StoredAnalysisRecord[]): void {
-    this.cachedAnalyses = list.slice(0, 100);
+    const capped = list.slice(0, 100);
+    this.cachedAnalyses = capped;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(capped));
+      } catch (e) {
+        console.warn('saveAnalyses error:', e);
+      }
+    }
+    this.notifyStorageChange();
   }
 
   public static saveAnalysis(record: StoredAnalysisRecord): void {
@@ -241,7 +289,7 @@ export class AppStorageEngine {
     }
     const list = this.getAnalyses();
     const updated = [record, ...list.filter((a) => a.id !== record.id)].slice(0, 100);
-    this.cachedAnalyses = updated;
+    this.saveAnalyses(updated);
     fetch('/api/db/analyses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -267,7 +315,7 @@ export class AppStorageEngine {
         ...(extra?.grossPnl !== undefined ? { gross_pnl_percentage: extra.grossPnl } : {}),
       };
       list[index].accuracy_evaluation = evaluation;
-      this.cachedAnalyses = [...list];
+      this.saveAnalyses([...list]);
       fetch('/api/db/analyses', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -278,7 +326,8 @@ export class AppStorageEngine {
 
   public static deleteAnalysis(id: string): void {
     const list = this.getAnalyses();
-    this.cachedAnalyses = list.filter((a) => a.id !== id);
+    const updated = list.filter((a) => a.id !== id);
+    this.saveAnalyses(updated);
     fetch(`/api/db/analyses?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }).catch(() => {});
@@ -286,11 +335,25 @@ export class AppStorageEngine {
 
   public static clearAnalyses(): void {
     this.cachedAnalyses = [];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.ANALYSES);
+      } catch {}
+    }
+    this.notifyStorageChange();
     fetch('/api/db/analyses', { method: 'DELETE' }).catch(() => {});
   }
 
   // --- Chat Messages Persistence ---
   public static getChats(symbol?: string): StoredChatMessage[] {
+    if (!this.cachedChats && typeof window !== 'undefined') {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.CHATS);
+        if (data) {
+          this.cachedChats = JSON.parse(data);
+        }
+      } catch {}
+    }
     const chats = this.cachedChats || [];
     if (symbol) {
       return chats.filter((c) => c.symbol.toUpperCase() === symbol.toUpperCase());
@@ -302,6 +365,14 @@ export class AppStorageEngine {
     const chats = this.getChats();
     const updated = [...chats, msg].slice(-200);
     this.cachedChats = updated;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(updated));
+      } catch (e) {
+        console.warn('saveChat error:', e);
+      }
+    }
+    this.notifyStorageChange();
     fetch('/api/db/chats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -316,6 +387,12 @@ export class AppStorageEngine {
     } else {
       this.cachedChats = [];
     }
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(this.cachedChats));
+      } catch {}
+    }
+    this.notifyStorageChange();
   }
 
   // --- Paper Trading Storage ---
@@ -328,11 +405,30 @@ export class AppStorageEngine {
       losses: 0,
       balanceHistory: [{ timestamp: new Date().toISOString(), balance: 10000 }],
     };
-    return this.cachedPaperAccount || defaultAccount;
+    if (this.cachedPaperAccount) return this.cachedPaperAccount;
+    if (typeof window !== 'undefined') {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.PAPER_ACCOUNT);
+        if (data) {
+          const accountObj: PaperAccount = { ...defaultAccount, ...JSON.parse(data) };
+          this.cachedPaperAccount = accountObj;
+          return accountObj;
+        }
+      } catch {}
+    }
+    return defaultAccount;
   }
 
   public static savePaperAccount(account: PaperAccount): void {
     this.cachedPaperAccount = account;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEYS.PAPER_ACCOUNT, JSON.stringify(account));
+      } catch (e) {
+        console.warn('savePaperAccount error:', e);
+      }
+    }
+    this.notifyStorageChange();
     fetch('/api/db/paper', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -341,11 +437,29 @@ export class AppStorageEngine {
   }
 
   public static getPaperPositions(): PaperPosition[] {
-    return this.cachedPaperPositions || [];
+    if (this.cachedPaperPositions) return this.cachedPaperPositions;
+    if (typeof window !== 'undefined') {
+      try {
+        const data = localStorage.getItem(STORAGE_KEYS.PAPER_POSITIONS);
+        if (data) {
+          this.cachedPaperPositions = JSON.parse(data);
+          return this.cachedPaperPositions || [];
+        }
+      } catch {}
+    }
+    return [];
   }
 
   public static savePaperPositions(list: PaperPosition[]): void {
     this.cachedPaperPositions = list;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_KEYS.PAPER_POSITIONS, JSON.stringify(list));
+      } catch (e) {
+        console.warn('savePaperPositions error:', e);
+      }
+    }
+    this.notifyStorageChange();
     fetch('/api/db/paper', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -417,6 +531,13 @@ export class AppStorageEngine {
   public static resetPaperTrading(): void {
     this.cachedPaperPositions = [];
     this.cachedPaperAccount = null;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.PAPER_POSITIONS);
+        localStorage.removeItem(STORAGE_KEYS.PAPER_ACCOUNT);
+      } catch {}
+    }
+    this.notifyStorageChange();
     fetch('/api/db/paper', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -434,18 +555,102 @@ export class AppStorageEngine {
     }).catch(() => {});
   }
 
-  // --- SQLite Backup Export / Import ---
+  // --- SQLite Async Sync Operations ---
+  public static async fetchAnalysesFromDb(): Promise<StoredAnalysisRecord[]> {
+    try {
+      const res = await fetch('/api/db/analyses');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.records)) {
+          this.saveAnalyses(json.records);
+          return json.records;
+        }
+      }
+    } catch (e) {
+      console.warn('fetchAnalysesFromDb error:', e);
+    }
+    return this.getAnalyses();
+  }
+
+  public static async fetchWatchlistFromDb(): Promise<WatchlistItem[]> {
+    try {
+      const res = await fetch('/api/db/watchlist');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.watchlist) && json.watchlist.length > 0) {
+          this.saveWatchlist(json.watchlist);
+          return json.watchlist;
+        }
+      }
+    } catch (e) {
+      console.warn('fetchWatchlistFromDb error:', e);
+    }
+    return this.getWatchlist();
+  }
+
+  public static async fetchChatsFromDb(symbol?: string): Promise<StoredChatMessage[]> {
+    try {
+      const url = symbol ? `/api/db/chats?symbol=${encodeURIComponent(symbol)}` : '/api/db/chats';
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.chats)) {
+          const chats = json.chats as StoredChatMessage[];
+          this.cachedChats = chats;
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(STORAGE_KEYS.CHATS, JSON.stringify(chats));
+            } catch {}
+          }
+          this.notifyStorageChange();
+          return this.getChats(symbol);
+        }
+      }
+    } catch (e) {
+      console.warn('fetchChatsFromDb error:', e);
+    }
+    return this.getChats(symbol);
+  }
+
+  public static async fetchPaperFromDb(): Promise<{ account: PaperAccount; positions: PaperPosition[] }> {
+    try {
+      const res = await fetch('/api/db/paper');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          if (json.account) this.savePaperAccount(json.account);
+          if (Array.isArray(json.positions)) this.savePaperPositions(json.positions);
+        }
+      }
+    } catch (e) {
+      console.warn('fetchPaperFromDb error:', e);
+    }
+    return { account: this.getPaperAccount(), positions: this.getPaperPositions() };
+  }
+
+  public static async initializeFromDatabase(): Promise<void> {
+    await Promise.allSettled([
+      this.fetchAnalysesFromDb(),
+      this.fetchWatchlistFromDb(),
+      this.fetchChatsFromDb(),
+      this.fetchPaperFromDb(),
+    ]);
+  }
+
+  // --- Backup Export / Import ---
   public static exportFullBackup(): string {
     const payload = {
       app: 'Steep Market Intelligence',
       version: '3.0 (SQLite Powered)',
       exportedAt: new Date().toISOString(),
       data: {
-        analyses: this.cachedAnalyses || [],
-        watchlist: this.cachedWatchlist || [],
-        session: this.cachedSession || DEFAULT_SESSION,
-        paperAccount: this.cachedPaperAccount,
-        paperPositions: this.cachedPaperPositions || [],
+        analyses: this.getAnalyses(),
+        watchlist: this.getWatchlist(),
+        session: this.getSession(),
+        paperAccount: this.getPaperAccount(),
+        paperPositions: this.getPaperPositions(),
+        chats: this.getChats(),
+        layout: this.getLayoutConfig(),
       },
     };
     return JSON.stringify(payload, null, 2);
@@ -462,13 +667,14 @@ export class AppStorageEngine {
         body: JSON.stringify(dataObj),
       }).catch(() => {});
 
-      this.cachedSession = null;
-      this.cachedWatchlist = null;
-      this.cachedAnalyses = null;
-      this.cachedChats = null;
-      this.cachedPaperAccount = null;
-      this.cachedPaperPositions = null;
-      this.cachedLayout = null;
+      if (Array.isArray(dataObj.analyses)) this.saveAnalyses(dataObj.analyses);
+      if (Array.isArray(dataObj.watchlist)) this.saveWatchlist(dataObj.watchlist);
+      if (dataObj.session) this.saveSession(dataObj.session);
+      if (dataObj.paperAccount) this.savePaperAccount(dataObj.paperAccount);
+      if (Array.isArray(dataObj.paperPositions)) this.savePaperPositions(dataObj.paperPositions);
+      if (dataObj.layout) this.saveLayoutConfig(dataObj.layout);
+
+      this.notifyStorageChange();
 
       return { success: true, importedCount: 1 };
     } catch (err) {
