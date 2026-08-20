@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { FullMarketContextPayload } from '@/types/analysis';
+import { StructuredLLMOutput } from '@/types/terminal';
 import { LogStep } from '@/components/analysis/live-status-logger';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { generateAdvancedPineScriptCode } from '@/lib/tradingview/pine-generator';
@@ -10,6 +11,7 @@ import { validateAndCorrectPlaybook } from '@/lib/analysis/playbook-validator';
 import { evaluateNoTradeGate } from '@/lib/analysis/no-trade-gate';
 import { buildCostModel } from '@/lib/analysis/trading-costs';
 import { normaliseSetupPaths } from '@/lib/analysis/setup-resolver';
+import { extractAndParseJSON } from '@/lib/llm/json-guard';
 
 export function useLLMAnalysis() {
   const [analysisText, setAnalysisTextState] = useState<string>('');
@@ -67,14 +69,8 @@ export function useLLMAnalysis() {
   const autoSaveToLocalStorage = useCallback((text: string, contextPayload: FullMarketContextPayload) => {
     if (!text) return;
     try {
-      let parsedJson = null;
-      // Captured inside the parse block, read when building the record below,
-      // so the resolver later charges the cost this signal actually faced.
+      let parsedJson: StructuredLLMOutput | null = extractAndParseJSON(text) as StructuredLLMOutput | null;
       let roundTripCostPct: number | undefined;
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch && jsonMatch[1]) {
-        parsedJson = JSON.parse(jsonMatch[1]);
-      }
 
       if (parsedJson) {
         // Step 1: Validate and auto-correct model targets/SL against deterministic zones
@@ -124,8 +120,8 @@ export function useLLMAnalysis() {
         if (gate.decision !== 'ALLOW' && parsedJson.playbook?.actionable) {
           parsedJson.playbook.actionable.status =
             gate.decision === 'NO_TRADE' ? 'NO_TRADE' : 'WAIT_FOR_ZONE';
-          parsedJson.playbook.actionable.reasoning =
-            `${gate.summary}\n\n${parsedJson.playbook.actionable.reasoning ?? ''}`.trim();
+          parsedJson.playbook.actionable.waiting_for =
+            `${gate.summary}${parsedJson.playbook.actionable.waiting_for ? ` | ${parsedJson.playbook.actionable.waiting_for}` : ''}`.trim();
           if (gate.decision === 'NO_TRADE') {
             parsedJson.playbook.actionable.setup = null;
           }

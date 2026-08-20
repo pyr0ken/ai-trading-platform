@@ -88,3 +88,56 @@ export function tryRepairJSON(raw: string): string {
     }
   }
 }
+
+/**
+ * Robust, fail-safe JSON extractor that parses JSON from LLM output across multiple format strategies
+ * (```json blocks, generic markdown code blocks, raw { ... } bracket matches).
+ */
+export function extractAndParseJSON(text: string): Record<string, any> | null {
+  if (!text) return null;
+
+  // Strategy 1: Explicit ```json ... ``` code block
+  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
+  if (jsonMatch && jsonMatch[1]) {
+    const repaired = tryRepairJSON(jsonMatch[1]);
+    if (repaired) {
+      try {
+        return JSON.parse(repaired);
+      } catch {}
+    }
+  }
+
+  // Strategy 2: Generic ``` ... ``` code block containing curly braces
+  const genericMatch = text.match(/```\s*([\s\S]*?)\s*```/);
+  if (genericMatch && genericMatch[1] && genericMatch[1].includes('{')) {
+    const repaired = tryRepairJSON(genericMatch[1]);
+    if (repaired) {
+      try {
+        return JSON.parse(repaired);
+      } catch {}
+    }
+  }
+
+  // Strategy 3: Direct bracket extraction from first '{' to last '}'
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const candidate = text.substring(firstBrace, lastBrace + 1);
+    const repaired = tryRepairJSON(candidate);
+    if (repaired) {
+      try {
+        return JSON.parse(repaired);
+      } catch {}
+    }
+  }
+
+  // Strategy 4: Full text repair fallback
+  const repaired = tryRepairJSON(text);
+  if (repaired) {
+    try {
+      return JSON.parse(repaired);
+    } catch {}
+  }
+
+  return null;
+}

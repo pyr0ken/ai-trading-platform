@@ -37,7 +37,7 @@ import { useLLMAnalysis } from '@/hooks/use-llm-analysis';
 import { useAutoResolver } from '@/hooks/use-auto-resolver';
 import { StructuredLLMOutput } from '@/types/terminal';
 import { enforceSignalCoherence } from '@/lib/llm/signal-coherence';
-import { tryRepairJSON, SignalSchema } from '@/lib/llm/json-guard';
+import { tryRepairJSON, extractAndParseJSON, SignalSchema } from '@/lib/llm/json-guard';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { useIntelToggles } from '@/lib/storage/intel-toggles';
 import { DashboardLayoutConfig, WidgetId } from '@/types/layout';
@@ -196,24 +196,12 @@ export default function DashboardPage() {
 
   const parsedJson: StructuredLLMOutput | null = useMemo(() => {
     try {
-      const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch && jsonMatch[1]) {
-        // Step 1: repair potentially truncated JSON
-        const repaired = tryRepairJSON(jsonMatch[1]);
-        if (!repaired) return null;
-
-        const raw = JSON.parse(repaired);
-
-        // Step 2: validate against schema — rejects outputs missing required
-        // fields (signal, confidence, trade_setup, etc.) so downstream widgets
-        // never silently read undefined. Partial outputs are better surfaced
-        // as "no signal" than as a half-populated UI state.
+      const raw = extractAndParseJSON(analysisText);
+      if (raw) {
+        // Step 2: validate against schema
         const validated = SignalSchema.safeParse(raw);
         if (!validated.success) {
           console.warn('[json-guard] Model output failed schema validation:', validated.error.flatten());
-          // Still use the raw output — validation failure is logged but not fatal.
-          // This keeps the UI alive when the model omits optional fields like
-          // `playbook` that are in the prompt schema but not in SignalSchema.
         }
 
         // Step 3: reconcile signal ↔ trade_setup.position

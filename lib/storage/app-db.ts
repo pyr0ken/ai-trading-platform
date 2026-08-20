@@ -271,9 +271,27 @@ export class AppStorageEngine {
     this.cachedAnalyses = capped;
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(capped));
+        // Prepare lightweight payload for LocalStorage to avoid 5MB quota limits.
+        // Keep full markdown/pine_script only for the 5 most recent records in LocalStorage;
+        // older records store metadata only (SQLite retains full fields).
+        const lightweightList = capped.map((rec, idx) => {
+          if (idx < 5) return rec;
+          const { markdown_report, pine_script, ...rest } = rec;
+          return {
+            ...rest,
+            markdown_report: markdown_report ? markdown_report.slice(0, 200) + '...' : '',
+          };
+        });
+
+        localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(lightweightList));
       } catch (e) {
-        console.warn('saveAnalyses error:', e);
+        console.warn('saveAnalyses LocalStorage quota warning, falling back to top 20 metadata:', e);
+        try {
+          const minimalList = capped.slice(0, 20).map(({ markdown_report, pine_script, ...rest }) => rest);
+          localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(minimalList));
+        } catch {
+          // If still over quota, ignore LocalStorage error — SQLite persistence remains active
+        }
       }
     }
     this.notifyStorageChange();

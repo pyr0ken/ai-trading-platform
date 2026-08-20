@@ -103,8 +103,15 @@ const TIMEFRAME_WEIGHTS: Record<string, number> = {
   '1w': 7,
 };
 
-const ADX_TRENDING = 25;
-const ADX_RANGING = 20;
+function getAdxThresholds(timeframe: string): { trending: number; ranging: number } {
+  if (['1m', '5m', '15m'].includes(timeframe)) {
+    return { trending: 28, ranging: 22 };
+  }
+  if (['4h', '6h', '12h', '1d', '3d', '1w'].includes(timeframe)) {
+    return { trending: 20, ranging: 15 };
+  }
+  return { trending: 24, ranging: 18 };
+}
 
 function weightFor(timeframe: string): number {
   return TIMEFRAME_WEIGHTS[timeframe] ?? 1;
@@ -140,6 +147,8 @@ function voteForTimeframe(tf: string, data: ProcessedTimeframeData): TimeframeVo
 
   let vote: DirectionalVote = 'NEUTRAL';
   let basis: string;
+
+  const { trending: ADX_TRENDING, ranging: ADX_RANGING } = getAdxThresholds(tf);
 
   if (stackBullish && priceAboveStack) {
     vote = 'BULLISH';
@@ -347,6 +356,7 @@ export function detectMarketRegime(
   let type: RegimeType;
   let strength: number;
 
+  const { trending: ADX_TRENDING, ranging: ADX_RANGING } = getAdxThresholds(primaryTf);
   const hasTrendEnergy = primaryAdx !== null && primaryAdx >= ADX_TRENDING;
   const isDirectional = dominantDirection !== 'NEUTRAL';
 
