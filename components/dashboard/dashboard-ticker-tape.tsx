@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, ChevronDown, LogOut } from 'lucide-react';
 import { ModelSelectorCombobox } from '@/components/settings/model-selector-combobox';
 import { formatPrice, priceDecimals } from '@/lib/utils/price-format';
 import { CoinIcon } from '@/components/common/coin-icon';
+import { useAuth } from '@/components/providers/auth-provider';
 
 interface DashboardTickerTapeProps {
   symbol: string;
@@ -34,6 +35,7 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
   onWhaleToggle,
   whaleAlertCount,
 }) => {
+  const { activeUsername, signOut } = useAuth();
   const baseAsset = symbol ? symbol.split('/')[0] : 'BTC';
   const [metricMode, setMetricMode] = useState<MetricMode>('percentage');
   const [fading, setFading] = useState(false);
@@ -126,7 +128,32 @@ export const DashboardTickerTape: React.FC<DashboardTickerTapeProps> = ({
     <div className="sticky top-0 z-50 w-full bg-[#040406]/95 backdrop-blur-md border-b border-[#1c1d22] text-[#e2e3e9] text-[12px] font-sans py-2.5 select-none">
       <div className="relative flex items-center">
         {/* Left: live market meta */}
-        <div className="flex items-center gap-4 pl-4">
+        <div className="flex items-center gap-2.5 pl-4">
+          {/* Premium Active Trader Profile Badge */}
+          {activeUsername && (
+            <div className="flex items-center gap-2 bg-[#08080a] border border-[#1c1d22] hover:border-[#cc9166]/40 pl-1.5 pr-2.5 py-1 rounded-[9999px] text-[11px] font-mono shrink-0 transition-all duration-300 shadow-sm group">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-full bg-[#cc9166]/15 border border-[#cc9166]/40 text-[#cc9166] flex items-center justify-center font-bold text-[10px] uppercase shrink-0 shadow-[0_0_8px_rgba(204,145,102,0.2)]">
+                  {activeUsername.slice(0, 1)}
+                </div>
+                <div className="flex flex-col text-left leading-tight">
+                  <span className="font-bold text-[#ffffff] text-[11px] tracking-tight">@{activeUsername}</span>
+                </div>
+              </div>
+
+              <div className="w-px h-3.5 bg-[#1c1d22] mx-0.5" />
+
+              <button
+                onClick={signOut}
+                title="Sign out of active account"
+                className="flex items-center gap-1 text-[10px] text-[#9194a1] hover:text-rose-400 hover:bg-rose-950/40 px-2 py-0.5 rounded-full transition-all duration-200 cursor-pointer"
+              >
+                <LogOut className="w-3 h-3 text-[#5e616e] group-hover:text-rose-400 transition-colors" />
+                <span className="font-sans font-semibold">Exit</span>
+              </button>
+            </div>
+          )}
+
           {/* Fear & Greed — hidden until loaded to avoid flicker */}
           {fearGreed.loaded && (
             <div className="hidden lg:flex items-center gap-2 bg-[#08080a] border border-[#1c1d22] px-3 py-1 rounded-[9999px]">

@@ -19,11 +19,13 @@ import {
   RotateCcw,
   Newspaper,
   Share2,
+  LogOut,
 } from 'lucide-react';
 import { ModelSelectorCombobox } from '@/components/settings/model-selector-combobox';
 import { WatchlistManager } from '@/components/market/watchlist-manager';
 import { CoinIcon } from '@/components/common/coin-icon';
 import { AnalysisReplayModal } from '@/components/terminal/analysis-replay-modal';
+import { useAuth } from '@/components/providers/auth-provider';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { useIntelToggles } from '@/lib/storage/intel-toggles';
 import {
@@ -86,6 +88,7 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
 }) => {
   const [showWidgetMenu, setShowWidgetMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const { activeUsername, signOut } = useAuth();
   const topBarRef = useRef<HTMLDivElement>(null);
   const { includeNews, includeSocial, toggleIntelSource } = useIntelToggles();
   const intelToggles = { includeNews, includeSocial };
@@ -225,33 +228,6 @@ export const CoinSelector: React.FC<CoinSelectorProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Center: Minimal Layout Preset Switcher */}
-      {layoutConfig && onChangeLayoutConfig && (
-        <div className="hidden lg:flex items-center gap-0.5 bg-[#121317] border border-[#1c1d22] p-0.5 rounded-[6px]">
-          {(Object.keys(LAYOUT_PRESETS) as LayoutPreset[]).map((key) => {
-            const preset = LAYOUT_PRESETS[key];
-            const isSelected = layoutConfig.preset === key;
-            const Icon = getPresetIcon(key);
-
-            return (
-              <button
-                key={key}
-                onClick={() => handleSelectPreset(key)}
-                className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-[4px] transition-all cursor-pointer font-sans font-medium ${
-                  isSelected
-                    ? 'bg-[#1c1d22] text-[#cc9166] border border-[#cc9166]/50 font-semibold'
-                    : 'text-[#5e616e] hover:text-[#e2e3e9]'
-                }`}
-                title={preset.description}
-              >
-                <Icon className={`w-3 h-3 ${isSelected ? 'text-[#cc9166]' : 'text-[#5e616e]'}`} />
-                <span>{preset.name.split(' ')[0]}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Right: Widgets Dropdown · Settings · Watchlist · Replay · Run CTA */}
       <div className="flex items-center gap-1.5 shrink-0">

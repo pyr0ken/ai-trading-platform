@@ -40,9 +40,12 @@ import { enforceSignalCoherence } from '@/lib/llm/signal-coherence';
 import { tryRepairJSON, extractAndParseJSON, SignalSchema } from '@/lib/llm/json-guard';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { useIntelToggles } from '@/lib/storage/intel-toggles';
+import { useAuth } from '@/components/providers/auth-provider';
+import { TeamLoginPage } from '@/components/auth/team-login-page';
 import { DashboardLayoutConfig, WidgetId } from '@/types/layout';
 
 export default function DashboardPage() {
+  const { user, isLoading: isAuthLoading } = useAuth();
   useAutoResolver();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -205,7 +208,7 @@ export default function DashboardPage() {
         }
 
         // Step 3: reconcile signal ↔ trade_setup.position
-        const { output, corrected, reason, original } = enforceSignalCoherence(raw as StructuredLLMOutput);
+        const { output, corrected, reason, original } = enforceSignalCoherence(raw as unknown as StructuredLLMOutput);
         if (corrected) {
           console.warn(
             `[signal-coherence] ${reason}`,
@@ -222,12 +225,17 @@ export default function DashboardPage() {
 
   const currentTfData = marketContext?.timeframes[selectedTimeframe] || marketContext?.timeframes['1h'];
 
-  if (!mounted) {
+  if (!mounted || isAuthLoading) {
     return (
-      <div className="min-h-screen bg-[#08080a] text-[#e2e3e9] flex items-center justify-center text-[13px] tracking-wide uppercase font-mono">
-        Initializing Workstation...
+      <div className="min-h-screen w-full bg-[#040406] text-[#cc9166] flex flex-col items-center justify-center space-y-3 font-mono">
+        <div className="w-8 h-8 border-2 border-[#cc9166] border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs">Verifying System Authentication...</span>
       </div>
     );
+  }
+
+  if (!user) {
+    return <TeamLoginPage />;
   }
 
   const isVisible = (wId: WidgetId) => layoutConfig.visibleWidgets[wId] !== false;
