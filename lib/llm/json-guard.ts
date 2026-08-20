@@ -93,7 +93,7 @@ export function tryRepairJSON(raw: string): string {
  * Robust, fail-safe JSON extractor that parses JSON from LLM output across multiple format strategies
  * (```json blocks, generic markdown code blocks, raw { ... } bracket matches).
  */
-export function extractAndParseJSON(text: string): Record<string, any> | null {
+export function extractAndParseJSON(text: string): Record<string, unknown> | null {
   if (!text) return null;
 
   // Strategy 1: Explicit ```json ... ``` code block

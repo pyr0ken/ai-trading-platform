@@ -2,16 +2,16 @@
 
 import React from 'react';
 import { StructuredLLMOutput } from '@/types/terminal';
+import { useAuth } from '@/components/providers/auth-provider';
 import {
   TrendingUp,
   TrendingDown,
   PauseCircle,
   Eye,
   Sparkles,
-  ShieldCheck,
   Target,
   RotateCw,
-  Award,
+  UserCheck,
 } from 'lucide-react';
 
 interface ExecutiveSignalCardProps {
@@ -20,6 +20,7 @@ interface ExecutiveSignalCardProps {
 }
 
 export const ExecutiveSignalCard: React.FC<ExecutiveSignalCardProps> = ({ data, isLoading }) => {
+  const { activeUsername } = useAuth();
   if (isLoading) {
     return (
       <div className="bg-[#040406] border border-[#1c1d22] rounded-[12px] p-6 text-[#e2e3e9] flex flex-col items-center justify-center min-h-[160px] space-y-2">
@@ -79,11 +80,17 @@ export const ExecutiveSignalCard: React.FC<ExecutiveSignalCardProps> = ({ data, 
           <Sparkles className="w-4 h-4 text-[#cc9166]" />
           <span className="eyebrow-copper">EXECUTIVE SIGNAL BEACON</span>
         </div>
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[#5e616e]">AI Confidence:</span>
-          <span className="font-bold text-[#ffffff] bg-[#121317] border border-[#1c1d22] px-2.5 py-0.5 rounded-[6px]">
-            {data.confidence}%
+        <div className="flex items-center gap-3 text-xs font-mono">
+          <span className="text-[#9194a1] bg-[#121317] border border-[#1c1d22] px-2.5 py-0.5 rounded-[6px] flex items-center gap-1.5">
+            <UserCheck className="w-3 h-3 text-[#cc9166]" />
+            Trader: <span className="text-[#ffffff] font-bold">@{activeUsername}</span>
           </span>
+          <div className="flex items-center gap-1">
+            <span className="text-[#5e616e]">AI Confidence:</span>
+            <span className="font-bold text-[#ffffff] bg-[#121317] border border-[#1c1d22] px-2.5 py-0.5 rounded-[6px]">
+              {data.confidence}%
+            </span>
+          </div>
         </div>
       </div>
 

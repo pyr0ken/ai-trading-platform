@@ -1,6 +1,7 @@
 import { StructuredLLMOutput } from '@/types/terminal';
 import { PaperPosition, PaperAccount } from '@/types/paper-trading';
 import { DashboardLayoutConfig, DEFAULT_LAYOUT_CONFIG } from '@/types/layout';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 /**
  * Server SQLite Database Wrapper with LocalStorage Caching (Hybrid Storage Engine).
@@ -34,6 +35,8 @@ export interface WatchlistItem {
 
 export interface StoredAnalysisRecord {
   id: string;
+  user_id?: string;
+  username?: string;
   symbol: string;
   exchange: string;
   timeframe: string;
@@ -305,9 +308,23 @@ export class AppStorageEngine {
         pnl_percentage: 0,
       };
     }
+    
+    // Inject active user credentials from LocalStorage session
+    const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('steep_quant_user_session') : null;
+    if (sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        if (session && session.id) {
+          record.user_id = session.id;
+          record.username = session.username;
+        }
+      } catch (e) {}
+    }
+
     const list = this.getAnalyses();
     const updated = [record, ...list.filter((a) => a.id !== record.id)].slice(0, 100);
     this.saveAnalyses(updated);
+    
     fetch('/api/db/analyses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -580,8 +597,16 @@ export class AppStorageEngine {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.records)) {
-          this.saveAnalyses(json.records);
-          return json.records;
+          const dbRecords = json.records as StoredAnalysisRecord[];
+          const existingLocal = this.getAnalyses();
+
+          // Smart Merge: Preserve any local unsynced records alongside DB records
+          const dbIds = new Set(dbRecords.map((r) => r.id));
+          const localUnsynced = existingLocal.filter((r) => !dbIds.has(r.id));
+          const merged = [...dbRecords, ...localUnsynced];
+
+          this.saveAnalyses(merged);
+          return merged;
         }
       }
     } catch (e) {
@@ -647,12 +672,102 @@ export class AppStorageEngine {
   }
 
   public static async initializeFromDatabase(): Promise<void> {
+    // 1. Preserve local unsynced records before database fetch overwrites cache
+    const localAnalyses = this.getAnalyses();
+
+    // 2. Fetch from DB
     await Promise.allSettled([
       this.fetchAnalysesFromDb(),
       this.fetchWatchlistFromDb(),
       this.fetchChatsFromDb(),
       this.fetchPaperFromDb(),
     ]);
+
+    // 3. Sync any local analyses that were not in database yet
+    if (localAnalyses && localAnalyses.length > 0) {
+      this.syncListToSupabase(localAnalyses).catch(() => {});
+    }
+
+    // 4. Enable Supabase Realtime subscription for instant team sync
+    this.subscribeToRealtimeChanges();
+  }
+
+  private static isRealtimeSubscribed = false;
+
+  public static subscribeToRealtimeChanges(): void {
+    if (typeof window === 'undefined' || this.isRealtimeSubscribed) return;
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      supabase
+        .channel('team-realtime-channel')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'analyses' }, () => {
+          this.fetchAnalysesFromDb().catch(() => {});
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'paper_positions' }, () => {
+          this.fetchPaperFromDb().catch(() => {});
+        })
+        .subscribe();
+
+      this.isRealtimeSubscribed = true;
+    } catch (e) {
+      console.warn('[app-db] Realtime subscription warn:', e);
+    }
+  }
+
+  public static async syncListToSupabase(localRecords: StoredAnalysisRecord[]): Promise<void> {
+    const sessionStr = typeof window !== 'undefined' ? localStorage.getItem('steep_quant_user_session') : null;
+    let fallbackId = '';
+    let fallbackUsername = '';
+    if (sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        fallbackId = session.id || '';
+        fallbackUsername = session.username || '';
+      } catch {}
+    }
+
+    const currentDbAnalyses = this.cachedAnalyses || [];
+    const dbIds = new Set(currentDbAnalyses.map((r) => r.id));
+    const toSync = localRecords.filter((r) => !dbIds.has(r.id));
+
+    if (toSync.length === 0) return;
+
+    const generateUUID = () => {
+      if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    };
+
+    try {
+      for (const rec of toSync) {
+        // Convert legacy string IDs (e.g. analysis_17872...) to valid UUID
+        if (!rec.id.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {
+          rec.id = generateUUID();
+        }
+
+        if (!rec.user_id && fallbackId) {
+          rec.user_id = fallbackId;
+          rec.username = fallbackUsername;
+        }
+
+        await fetch('/api/db/analyses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(rec),
+        });
+      }
+      // Re-fetch to get merged list
+      await this.fetchAnalysesFromDb();
+    } catch (e) {
+      console.warn('[app-db] Failed to sync local analyses to Supabase:', e);
+    }
   }
 
   // --- Backup Export / Import ---

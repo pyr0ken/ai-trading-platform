@@ -69,7 +69,7 @@ export function useLLMAnalysis() {
   const autoSaveToLocalStorage = useCallback((text: string, contextPayload: FullMarketContextPayload) => {
     if (!text) return;
     try {
-      let parsedJson: StructuredLLMOutput | null = extractAndParseJSON(text) as StructuredLLMOutput | null;
+      const parsedJson: StructuredLLMOutput | null = extractAndParseJSON(text) as StructuredLLMOutput | null;
       let roundTripCostPct: number | undefined;
 
       if (parsedJson) {
@@ -151,8 +151,16 @@ export function useLLMAnalysis() {
       const sym = contextPayload.metadata?.symbol || 'BTC/USDT';
       const pineCode = generateAdvancedPineScriptCode(parsedJson, sym);
 
+      const uuid = typeof window !== 'undefined' && window.crypto?.randomUUID
+        ? window.crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+
       const record: StoredAnalysisRecord = {
-        id: 'analysis_' + Date.now(),
+        id: uuid,
         symbol: sym,
         exchange: contextPayload.metadata?.exchange || 'kucoin',
         timeframe: contextPayload.metadata?.primaryTimeframe || '1h',

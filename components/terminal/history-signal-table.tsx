@@ -168,6 +168,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
           <thead>
             <tr className="border-b border-[#1c1d22] eyebrow-fog text-[10px] uppercase font-mono">
               <th className="py-2.5 px-3">TIMESTAMP</th>
+              <th className="py-2.5 px-3">TRADER</th>
               <th className="py-2.5 px-3">ASSET</th>
               <th className="py-2.5 px-3">DIRECTION</th>
               <th className="py-2.5 px-3">CONFIDENCE</th>
@@ -196,6 +197,11 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                       hour: '2-digit',
                       minute: '2-digit',
                     })} UTC
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="px-2 py-0.5 rounded bg-[#121317] border border-[#1c1d22] text-[#cc9166] font-bold text-[10px]">
+                      @{record.username || 'omid'}
+                    </span>
                   </td>
                   <td className="py-3 px-3 font-bold text-[#e2e3e9]">
                     {record.symbol}
