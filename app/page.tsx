@@ -240,6 +240,7 @@ export default function DashboardPage() {
           onTabChange={setActiveTab}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onOpenSearch={() => setIsSearchOpen(true)}
         />
 
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-[#08080a] custom-scrollbar">
