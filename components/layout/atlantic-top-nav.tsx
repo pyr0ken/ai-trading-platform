@@ -19,7 +19,6 @@ export const AtlanticTopNav: React.FC<AtlanticTopNavProps> = ({
   const navItems: { id: NavTab; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'ai_assistant', label: 'AI Intelligence' },
-    { id: 'pine_studio', label: 'Pine Studio' },
     { id: 'watchlist', label: 'Watchlist' },
     { id: 'history', label: 'Audit Log' },
     { id: 'settings', label: 'Settings' },

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Bot,
-  Code2,
   Star,
   History,
   Settings,
@@ -18,10 +17,12 @@ import {
   BarChart2,
   Briefcase,
   Newspaper,
+  LogOut,
 } from 'lucide-react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
+import { useAuth } from '@/components/providers/auth-provider';
 
-export type NavTab = 'dashboard' | 'ai_assistant' | 'pine_studio' | 'watchlist' | 'news' | 'history' | 'settings' | 'backtest' | 'paper_portfolio';
+export type NavTab = 'dashboard' | 'ai_assistant' | 'watchlist' | 'news' | 'history' | 'settings' | 'backtest' | 'paper_portfolio';
 
 interface AppSidebarProps {
   activeTab: NavTab;
@@ -36,6 +37,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   collapsed,
   onToggleCollapse,
 }) => {
+  const { activeUsername, signOut } = useAuth();
   const [marketDataOpen, setMarketDataOpen] = useState(true);
   const [perfOpen, setPerfOpen] = useState(true);
   const [stats, setStats] = useState({ total: 0, winRate: 0, wins: 0, losses: 0 });
@@ -101,7 +103,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'ai_assistant', label: 'AI Intelligence', icon: Bot },
     { id: 'news', label: 'News Intelligence', icon: Newspaper },
-    { id: 'pine_studio', label: 'Pine Script Studio', icon: Code2 },
     { id: 'backtest', label: 'Strategy Backtester', icon: BarChart2 },
     { id: 'paper_portfolio', label: 'Paper Portfolio', icon: Briefcase },
     { id: 'watchlist', label: 'Watchlist', icon: Star },
@@ -249,21 +250,48 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         )}
       </div>
 
-      <div>
-        {!collapsed && (
-          <div className="p-4 border border-[#1c1d22] bg-[#040406] m-3 rounded-none space-y-2 text-[12px] text-[#5e616e]">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#cc9166]"></span>
-                </span>
-                <span className="text-[#e2e3e9] font-sans text-[12px] font-medium">System Online</span>
-              </span>
-              <span className="text-[10px] text-[#cc9166] uppercase tracking-wider">Active</span>
+      {/* Stylish Account & User Profile Box at Sidebar Bottom */}
+      <div className="p-3 border-t border-[#1c1d22] bg-[#040406]">
+        {!collapsed ? (
+          <div className="bg-[#121317] border border-[#1c1d22] hover:border-[#cc9166]/40 p-2.5 rounded-[8px] transition-all duration-300 shadow-md">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-[#cc9166]/15 border border-[#cc9166]/40 text-[#cc9166] flex items-center justify-center font-bold text-xs uppercase shrink-0 shadow-[0_0_10px_rgba(204,145,102,0.2)]">
+                  {activeUsername ? activeUsername.slice(0, 1) : 'U'}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-[#e2e3e9] text-xs truncate font-mono">
+                    @{activeUsername || 'trader'}
+                  </span>
+                  <span className="text-[10px] text-[#cc9166] flex items-center gap-1 font-sans">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Pro Trader
+                  </span>
+                </div>
+              </div>
+
+              {signOut && (
+                <button
+                  onClick={signOut}
+                  title="Sign out of active account"
+                  className="p-1.5 rounded-[6px] text-[#5e616e] hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer shrink-0"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <p className="text-[11px] text-[#5e616e] leading-tight">
-              Real-time data feed connected
-            </p>
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            {signOut && (
+              <button
+                onClick={signOut}
+                title={`Sign out (@${activeUsername || 'trader'})`}
+                className="w-10 h-10 rounded-full bg-[#121317] border border-[#1c1d22] hover:border-rose-500/50 text-[#cc9166] hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer shadow-md group"
+              >
+                <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              </button>
+            )}
           </div>
         )}
       </div>
