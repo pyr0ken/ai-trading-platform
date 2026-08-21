@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { History, ArrowUpRight, ArrowDownRight, Eye, Trash2, RotateCw, RefreshCw, Sparkles } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/price-format';
+import { getUserColor } from '@/lib/utils/user-colors';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
 import { resolvePendingSignals } from '@/hooks/use-auto-resolver';
 import { showToast } from '@/components/terminal/toast';
@@ -182,6 +183,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
               const isLong = record.signal.toUpperCase().includes('LONG') || record.signal.toUpperCase().includes('BUY');
               const evalStatus = record.accuracy_evaluation?.status || 'PENDING';
               const pnl = record.accuracy_evaluation?.pnl_percentage;
+              const userStyle = getUserColor(record.username);
 
               return (
                 <tr
@@ -199,7 +201,8 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                     })} UTC
                   </td>
                   <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded bg-[#121317] border border-[#1c1d22] text-[#cc9166] font-bold text-[10px]">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border text-[11px] font-mono font-bold shadow-sm ${userStyle.badgeClass}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${userStyle.dot}`} />
                       @{record.username || 'anonymous'}
                     </span>
                   </td>

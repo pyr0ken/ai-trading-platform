@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 import { useAuth } from '@/components/providers/auth-provider';
+import { getUserColor } from '@/lib/utils/user-colors';
 
 export type NavTab = 'dashboard' | 'ai_assistant' | 'watchlist' | 'news' | 'history' | 'settings' | 'backtest' | 'paper_portfolio';
 
@@ -252,48 +253,51 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Stylish Account & User Profile Box at Sidebar Bottom */}
       <div className="p-3 border-t border-[#1c1d22] bg-[#040406]">
-        {!collapsed ? (
-          <div className="bg-[#121317] border border-[#1c1d22] hover:border-[#cc9166]/40 p-2.5 rounded-[8px] transition-all duration-300 shadow-md">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#cc9166]/15 border border-[#cc9166]/40 text-[#cc9166] flex items-center justify-center font-bold text-xs uppercase shrink-0 shadow-[0_0_10px_rgba(204,145,102,0.2)]">
-                  {activeUsername ? activeUsername.slice(0, 1) : 'U'}
+        {(() => {
+          const userStyle = getUserColor(activeUsername);
+          return !collapsed ? (
+            <div className="bg-[#121317] border border-[#1c1d22] hover:border-[#cc9166]/40 p-2.5 rounded-[8px] transition-all duration-300 shadow-md">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs uppercase shrink-0 ${userStyle.avatarBg}`}>
+                    {activeUsername ? activeUsername.slice(0, 1) : 'U'}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className={`font-bold text-xs truncate font-mono ${userStyle.text}`}>
+                      @{activeUsername || 'trader'}
+                    </span>
+                    <span className="text-[10px] text-[#9194a1] flex items-center gap-1 font-sans">
+                      <span className={`w-1.5 h-1.5 rounded-full ${userStyle.dot} animate-pulse`} />
+                      Pro Trader
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-[#e2e3e9] text-xs truncate font-mono">
-                    @{activeUsername || 'trader'}
-                  </span>
-                  <span className="text-[10px] text-[#cc9166] flex items-center gap-1 font-sans">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Pro Trader
-                  </span>
-                </div>
-              </div>
 
+                {signOut && (
+                  <button
+                    onClick={signOut}
+                    title="Sign out of active account"
+                    className="p-1.5 rounded-[6px] text-[#5e616e] hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer shrink-0"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-center">
               {signOut && (
                 <button
                   onClick={signOut}
-                  title="Sign out of active account"
-                  className="p-1.5 rounded-[6px] text-[#5e616e] hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/30 transition-all cursor-pointer shrink-0"
+                  title={`Sign out (@${activeUsername || 'trader'})`}
+                  className={`w-10 h-10 rounded-full border text-xs font-bold uppercase flex items-center justify-center transition-all cursor-pointer shadow-md ${userStyle.avatarBg}`}
                 >
-                  <LogOut className="w-4 h-4" />
+                  {activeUsername ? activeUsername.slice(0, 1) : 'U'}
                 </button>
               )}
             </div>
-          </div>
-        ) : (
-          <div className="flex justify-center">
-            {signOut && (
-              <button
-                onClick={signOut}
-                title={`Sign out (@${activeUsername || 'trader'})`}
-                className="w-10 h-10 rounded-full bg-[#121317] border border-[#1c1d22] hover:border-rose-500/50 text-[#cc9166] hover:text-rose-400 flex items-center justify-center transition-all cursor-pointer shadow-md group"
-              >
-                <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              </button>
-            )}
-          </div>
-        )}
+          );
+        })()}
       </div>
     </aside>
   );
