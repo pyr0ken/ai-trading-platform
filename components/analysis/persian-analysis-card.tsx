@@ -25,7 +25,6 @@ import { TradeSetupCard } from '@/components/terminal/trade-setup-card';
 import { SignalVisualizerChart } from '@/components/terminal/signal-visualizer-chart';
 import { AIReasoningBadges } from '@/components/terminal/ai-reasoning-badges';
 import { AIChatWidget } from '@/components/terminal/ai-chat-widget';
-import { PineScriptEditor } from '@/components/terminal/pine-script-editor';
 import { SmartSuggestions } from '@/components/terminal/smart-suggestions';
 import { showToast } from '@/components/terminal/toast';
 
@@ -211,8 +210,6 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
 
       <SmartSuggestions data={parsedJson} symbol={symbol} onSelectAction={onSelectAction} />
 
-      <PineScriptEditor data={parsedJson} symbol={symbol} isLoading={isStreaming && !parsedJson} />
-
       <AIReasoningBadges badges={parsedJson?.reasoning_badges} isLoading={isStreaming && !parsedJson} />
 
       <AIChatWidget symbol={symbol} analysisSummary={parsedJson} />
@@ -235,17 +232,17 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
             </button>
           </div>
 
-          {showMarkdown && (
-            <div className="pt-2 max-h-[600px] overflow-y-auto pr-2 prose prose-invert max-w-none prose-headings:font-ivy-presto prose-headings:font-normal prose-headings:text-[#ffffff] prose-h2:text-base prose-h2:border-b prose-h2:border-[#1c1d22] prose-h2:pb-1.5 prose-h3:text-xs prose-p:text-[#e2e3e9] prose-p:text-xs prose-p:leading-relaxed prose-li:text-xs prose-li:text-[#e2e3e9] prose-strong:text-[#cc9166]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownText}</ReactMarkdown>
-            </div>
-          )}
+          <div className="pt-2 max-h-[600px] overflow-y-auto pr-2 prose prose-invert max-w-none prose-headings:font-ivy-presto prose-headings:font-normal prose-headings:text-[#ffffff] prose-h2:text-base prose-h2:border-b prose-h2:border-[#1c1d22] prose-h2:pb-1.5 prose-h3:text-xs prose-p:text-[#e2e3e9] prose-p:text-xs prose-p:leading-relaxed prose-li:text-xs prose-li:text-[#e2e3e9] prose-strong:text-[#cc9166]">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownText}</ReactMarkdown>
+          </div>
         </div>
       ) : (
         <div className="bg-[#040406] border border-rose-950/60 rounded-[10px] p-6 text-center text-rose-400 font-sans text-xs">
           <span>Scalp Mode Active: Deep report skipped for latency optimization.</span>
         </div>
       )}
+
+      <AIChatWidget symbol={symbol} analysisSummary={parsedJson} />
     </div>
   );
 };

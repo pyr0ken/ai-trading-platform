@@ -8,12 +8,14 @@ import { CoinSelector } from '@/components/market/coin-selector';
 import { DashboardLayoutToolbar } from '@/components/dashboard/dashboard-layout-toolbar';
 import { QuickSymbolSearch } from '@/components/dashboard/quick-symbol-search';
 import { WidgetCard } from '@/components/dashboard/widget-card';
+import { TabbedWidgetCard } from '@/components/dashboard/tabbed-widget-card';
+import { SingleExecutionBox } from '@/components/terminal/single-execution-box';
+import { BarChart2, Gauge, Table, Compass, GitBranch, History } from 'lucide-react';
 import { TradingViewChart } from '@/components/tradingview/tradingview-chart';
 import { PersianAnalysisCard as AnalysisCard } from '@/components/analysis/persian-analysis-card';
 import { MarketStatsCard } from '@/components/market/market-stats-card';
 import { IndicatorTable } from '@/components/market/indicator-table';
 import { NewsTabPage } from '@/components/news/news-tab-page';
-import { BreakingNewsBanner } from '@/components/news/breaking-news-banner';
 import { MultiTimeframeMatrix } from '@/components/terminal/multi-timeframe-matrix';
 import { TechnicalScoreRadar } from '@/components/terminal/technical-score-radar';
 import { BuySellMeter } from '@/components/terminal/buy-sell-meter';
@@ -21,7 +23,6 @@ import { ScenariosCard } from '@/components/terminal/scenarios-card';
 import { DecisionZonesMapComponent } from '@/components/terminal/decision-zones-map';
 import { ConvictionBreakdownComponent } from '@/components/terminal/conviction-breakdown';
 import { HistorySignalTable } from '@/components/terminal/history-signal-table';
-import { PineScriptEditor } from '@/components/terminal/pine-script-editor';
 import { AIChatWidget } from '@/components/terminal/ai-chat-widget';
 import { StandaloneWatchlistPage } from '@/components/market/standalone-watchlist-page';
 import { TerminalSettingsPage } from '@/components/settings/terminal-settings-page';
@@ -208,7 +209,7 @@ export default function DashboardPage() {
         }
 
         // Step 3: reconcile signal ↔ trade_setup.position
-        const { output, corrected, reason, original } = enforceSignalCoherence(raw as unknown as StructuredLLMOutput);
+        const { output, corrected, reason, original } = enforceSignalCoherence(raw as unknown as StructuredLLMOutput, analysisText);
         if (corrected) {
           console.warn(
             `[signal-coherence] ${reason}`,
@@ -241,7 +242,7 @@ export default function DashboardPage() {
   const isVisible = (wId: WidgetId) => layoutConfig.visibleWidgets[wId] !== false;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#08080a] text-[#e2e3e9]" suppressHydrationWarning>
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#08080a] text-[#e2e3e9] select-none" suppressHydrationWarning>
       <DashboardTickerTape
         symbol={selectedSymbol}
         price={liveTicker?.price ?? marketContext?.ticker?.price}
@@ -250,7 +251,7 @@ export default function DashboardPage() {
         onSymbolClick={() => setIsSearchOpen(true)}
       />
 
-      <div className="flex-1 flex w-full">
+      <div className="flex-1 flex w-full min-h-0 overflow-hidden">
         <AppSidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -258,8 +259,7 @@ export default function DashboardPage() {
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
-        <div className="flex-1 flex flex-col min-w-0 bg-[#08080a]">
-          <BreakingNewsBanner />
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto bg-[#08080a] custom-scrollbar">
           <WhalePopupContainer />
           <QuickSymbolSearch
             isOpen={isSearchOpen}
@@ -268,9 +268,9 @@ export default function DashboardPage() {
             currentSymbol={selectedSymbol}
           />
 
-          <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-2 space-y-4" suppressHydrationWarning>
+          <main id="workstation-controls" className="flex-1 w-full px-2 md:px-4 py-3 space-y-4" suppressHydrationWarning>
             {activeTab === 'dashboard' && (
-              <>
+              <div className="space-y-4">
                 {/* Workstation Header Bar */}
                 <div className="space-y-3">
                   <CoinSelector
@@ -296,9 +296,9 @@ export default function DashboardPage() {
 
                 {/* Error Banners */}
                 {marketError && (
-                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-[10px] text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
-                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-xs">
-                      <span className="text-xl">⚠️</span> Data Engine Failure
+                  <div className="bg-rose-950/40 border border-rose-500/50 p-3 rounded-[10px] text-rose-400 font-sans text-xs flex flex-col gap-1 shadow-lg">
+                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[11px]">
+                      <span className="text-base">⚠️</span> Data Engine Failure
                     </div>
                     <div className="leading-relaxed">
                       {marketError instanceof Error ? marketError.message : String(marketError)}
@@ -307,9 +307,9 @@ export default function DashboardPage() {
                 )}
 
                 {analysisError && (
-                  <div className="bg-rose-950/40 border border-rose-500/50 p-4 rounded-[10px] text-rose-400 font-sans text-sm flex flex-col gap-2 shadow-lg">
-                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-xs">
-                      <span className="text-xl">⚠️</span> Analysis System Failure
+                  <div className="bg-rose-950/40 border border-rose-500/50 p-3 rounded-[10px] text-rose-400 font-sans text-xs flex flex-col gap-1 shadow-lg">
+                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[11px]">
+                      <span className="text-base">⚠️</span> Analysis System Failure
                     </div>
                     <div className="leading-relaxed">{analysisError}</div>
                   </div>
@@ -331,94 +331,124 @@ export default function DashboardPage() {
                       )}
 
                       {isVisible('chart') && (
-                        <WidgetCard id="chart" onHideWidget={handleHideWidget} noPadding>
-                          <TradingViewChart
-                            symbol={selectedSymbol}
-                            exchange={selectedExchange}
-                            timeframe={selectedTimeframe}
-                            currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
-                            onTimeframeChange={handleTimeframeChange}
-                            setup={
-                              parsedJson?.trade_setup ||
-                              (marketContext?.ticker?.price
-                                ? {
-                                    position: 'NEUTRAL',
-                                    entry_range: [marketContext.ticker.price, marketContext.ticker.price],
-                                    stop_loss: marketContext.ticker.price,
-                                    take_profit_1: marketContext.ticker.price,
-                                    take_profit_2: marketContext.ticker.price,
-                                    take_profit_3: marketContext.ticker.price,
-                                    risk_reward_ratio: 0,
-                                    recommended_leverage: '1x',
-                                    invalidation_point: 0,
-                                    strategy_name: 'Analyzing...',
-                                  }
-                                : null)
-                            }
-                          />
-                        </WidgetCard>
-                      )}
-
-                      {isVisible('matrix') && (
-                        <WidgetCard id="matrix" onHideWidget={handleHideWidget} noPadding>
-                          <MultiTimeframeMatrix marketContext={marketContext} isLoading={isMarketLoading} />
-                        </WidgetCard>
-                      )}
-
-                      {isVisible('radar') && (
-                        <WidgetCard id="radar" onHideWidget={handleHideWidget} noPadding>
-                          <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isStreaming} />
-                        </WidgetCard>
-                      )}
-
-                      {isVisible('meter_scenarios') && (
                         <div className="space-y-4">
-                          <DecisionZonesMapComponent map={marketContext?.decisionZones} />
-                          <ConvictionBreakdownComponent score={parsedJson?.conviction} />
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <div className="md:col-span-5">
-                              <BuySellMeter
-                                buyPct={parsedJson?.probabilities?.bullish}
-                                sellPct={parsedJson?.probabilities?.bearish}
-                                microstructure={marketContext?.microstructure}
-                                isLoading={isStreaming}
-                              />
-                            </div>
-                            <div className="md:col-span-7">
-                              <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isStreaming} />
-                            </div>
-                          </div>
+                          <WidgetCard id="chart" onHideWidget={handleHideWidget} noPadding>
+                            <TradingViewChart
+                              symbol={selectedSymbol}
+                              exchange={selectedExchange}
+                              timeframe={selectedTimeframe}
+                              currentPrice={liveTicker?.price ?? marketContext?.ticker?.price}
+                              onTimeframeChange={handleTimeframeChange}
+                              setup={
+                                parsedJson?.trade_setup ||
+                                (marketContext?.ticker?.price
+                                  ? {
+                                      position: 'NEUTRAL',
+                                      entry_range: [marketContext.ticker.price, marketContext.ticker.price],
+                                      stop_loss: marketContext.ticker.price,
+                                      take_profit_1: marketContext.ticker.price,
+                                      take_profit_2: marketContext.ticker.price,
+                                      take_profit_3: marketContext.ticker.price,
+                                      risk_reward_ratio: 0,
+                                      recommended_leverage: '1x',
+                                      invalidation_point: 0,
+                                      strategy_name: 'Analyzing...',
+                                    }
+                                  : null)
+                              }
+                            />
+                          </WidgetCard>
+
+                          <SingleExecutionBox
+                            setup={parsedJson?.trade_setup}
+                            signal={parsedJson?.signal}
+                            confidence={parsedJson?.confidence}
+                            marketContext={marketContext}
+                            isLoading={isStreaming}
+                          />
                         </div>
                       )}
 
-                      {isVisible('stats') && (
-                        <WidgetCard id="stats" onHideWidget={handleHideWidget} noPadding>
-                          <MarketStatsCard
-                            ticker={marketContext?.ticker}
-                            derivatives={marketContext?.derivatives}
-                            microstructure={marketContext?.microstructure}
-                            macroSentiment={marketContext?.macroSentiment}
-                            isLoading={isMarketLoading}
-                          />
-                        </WidgetCard>
+                      {isVisible('matrix') && (
+                        <TabbedWidgetCard
+                          tabs={[
+                            {
+                              id: 'matrix',
+                              label: 'Timeframe Matrix',
+                              icon: BarChart2,
+                              content: <MultiTimeframeMatrix marketContext={marketContext} isLoading={isMarketLoading} />,
+                            },
+                            {
+                              id: 'radar',
+                              label: 'Technical Radar',
+                              icon: Gauge,
+                              content: <TechnicalScoreRadar scores={parsedJson?.scores} isLoading={isStreaming} />,
+                            },
+                            {
+                              id: 'indicators',
+                              label: 'Indicator Table',
+                              icon: Table,
+                              content: <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />,
+                            },
+                          ]}
+                        />
                       )}
 
-                      {isVisible('indicators_news') && (
-                        <WidgetCard id="indicators_news" onHideWidget={handleHideWidget} noPadding>
-                          <IndicatorTable timeframeData={currentTfData} isLoading={isMarketLoading} />
-                        </WidgetCard>
-                      )}
-
-                      {isVisible('history') && (
-                        <WidgetCard id="history" onHideWidget={handleHideWidget} noPadding>
-                          <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
-                        </WidgetCard>
+                      {isVisible('meter_scenarios') && (
+                        <TabbedWidgetCard
+                          tabs={[
+                            {
+                              id: 'meter_zones',
+                              label: 'Buy/Sell Meter & Decision Zones',
+                              icon: Compass,
+                              content: (
+                                <div className="p-3 space-y-4">
+                                  <DecisionZonesMapComponent map={marketContext?.decisionZones} />
+                                  <ConvictionBreakdownComponent score={parsedJson?.conviction} />
+                                  <BuySellMeter
+                                    buyPct={parsedJson?.probabilities?.bullish}
+                                    sellPct={parsedJson?.probabilities?.bearish}
+                                    microstructure={marketContext?.microstructure}
+                                    isLoading={isStreaming}
+                                  />
+                                </div>
+                              ),
+                            },
+                            {
+                              id: 'scenarios',
+                              label: 'Price Scenarios',
+                              icon: GitBranch,
+                              content: (
+                                <div className="p-3">
+                                  <ScenariosCard scenarios={parsedJson?.scenarios} isLoading={isStreaming} />
+                                </div>
+                              ),
+                            },
+                            {
+                              id: 'history_stats',
+                              label: 'Signal History & Market Stats',
+                              icon: History,
+                              content: (
+                                <div className="space-y-4">
+                                  <HistorySignalTable onSelectRecord={handleReplayAnalysis} />
+                                  <MarketStatsCard
+                                    ticker={marketContext?.ticker}
+                                    derivatives={marketContext?.derivatives}
+                                    microstructure={marketContext?.microstructure}
+                                    macroSentiment={marketContext?.macroSentiment}
+                                    isLoading={isMarketLoading}
+                                  />
+                                </div>
+                              ),
+                            },
+                          ]}
+                        />
                       )}
                     </div>
 
                     {/* AI Intelligence Side Panel */}
                     {isVisible('ai_card') && (
-                      <div className="lg:col-span-4 sticky top-20 max-h-[calc(100vh-100px)] overflow-y-auto pr-1 space-y-6">
+                      <div className="lg:col-span-4 sticky top-0 space-y-4">
                         <AnalysisCard
                           content={analysisText}
                           isStreaming={isStreaming}
@@ -572,7 +602,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* Other Workspace Tabs */}
@@ -596,23 +626,6 @@ export default function DashboardPage() {
                 <div className="lg:col-span-5">
                   <AIChatWidget symbol={selectedSymbol} analysisSummary={parsedJson} />
                 </div>
-              </div>
-            )}
-
-            {activeTab === 'pine_studio' && (
-              <div className="max-w-5xl mx-auto space-y-6">
-                <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-8 text-center space-y-3">
-                  <span className="text-[13px] font-sans font-semibold text-[#cc9166] uppercase tracking-wider block">
-                    Pine Script Studio
-                  </span>
-                  <h2 className="font-ivy-presto text-[32px] font-normal text-[#ffffff]">
-                    TradingView Pine Script v5 Generator
-                  </h2>
-                  <p className="text-[14px] text-[#9194a1] max-w-2xl mx-auto leading-relaxed">
-                    Generate, edit, copy, and download custom indicator and strategy code tailored to your AI quant signals.
-                  </p>
-                </div>
-                <PineScriptEditor data={parsedJson} symbol={selectedSymbol} isLoading={isMarketLoading} />
               </div>
             )}
 
