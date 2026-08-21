@@ -98,7 +98,7 @@ export function hasTradeableLevels(
  *
  * Returns a new object; the input is never mutated.
  */
-export function enforceSignalCoherence(output: StructuredLLMOutput): CoherenceResult {
+export function enforceSignalCoherence(output: StructuredLLMOutput, reportText?: string): CoherenceResult {
   const signal = output?.signal as SignalDirection | undefined;
   const setup = output?.trade_setup;
   const position = setup?.position as PositionDirection | undefined;
@@ -109,6 +109,34 @@ export function enforceSignalCoherence(output: StructuredLLMOutput): CoherenceRe
 
   const original = { signal, position };
   const expectedSignal = SIGNAL_FOR_POSITION[position];
+
+  // GUARD 1: Override directional signal if report text contains WAIT or NO ACTIONABLE ZONE
+  if (reportText) {
+    const textUpper = reportText.toUpperCase();
+    if (
+      textUpper.includes('WAIT FOR A PULLBACK') ||
+      textUpper.includes('NO ACTIONABLE ZONE') ||
+      textUpper.includes('NO ACTIONABLE SETUP') ||
+      textUpper.includes('STAND DOWN')
+    ) {
+      if (isDirectionalSignal(signal) || isDirectionalPosition(position)) {
+        const neutralSetup = { ...(setup as NonNullable<typeof setup>), position: 'NEUTRAL' as const };
+        return {
+          output: {
+            ...output,
+            signal: 'HOLD',
+            trade_setup: neutralSetup,
+          },
+          corrected: true,
+          reason:
+            `Report text explicit recommendation is WAIT / NO ACTIONABLE ZONE. ` +
+            `Signal override enforced: downgraded from "${signal}/${position}" to "HOLD/NEUTRAL".`,
+          original,
+        };
+      }
+    }
+  }
+
   const tradeable = hasTradeableLevels(setup, position);
 
   // Case 1: position is directional and executable — it defines the truth.
