@@ -1,76 +1,134 @@
-# 🚀 Market Data AI Analyzer — Full-Stack Next.js Application
+# 📈 AI Trading Platform (پلتفرم معاملاتی هوشمند)
 
-A production-quality full-stack **Next.js 14+ (App Router)** web application that migrates the Python quantitative fetcher pipeline into an interactive browser dashboard.
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.11-black?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.4-blue?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)](https://www.python.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4.0-38B2AC?logo=tailwindcss)](https://tailwindcss.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-Better--SQLite3-003B57?logo=sqlite)](https://sqlite.org/)
 
-Features **RTL Persian typography (Vazirmatn)**, **TradingView Chart Widget**, **Local OpenAI-Compatible LLM Streaming (`http://localhost:20128/v1`)**, **Node CCXT Market Integration**, **Server-Side Quantitative TA Indicators (EMA, SMA, RSI, MACD, Bollinger Bands, ATR, VWAP, S&R)**, and **Crypto News Aggregation**.
+An institutional-grade **AI-powered Quantitative Trading Platform** built with **Next.js 16 (React 19)** frontend gateway and a high-performance **Python FastAPI Microservice** for vectorized backtesting, machine learning S&R clustering, and financial NLP sentiment analysis.
 
----
-
-## 🏗️ Architecture
-
-```
-web/
-├── app/
-│   ├── page.tsx                      # Main Dashboard Page
-│   ├── layout.tsx                    # Root Layout (RTL & Vazirmatn Font)
-│   └── api/
-│       ├── market/full-context/      # Unified Market & Indicators Route Handler
-│       ├── news/                     # News Feed Route Handler
-│       └── analysis/stream/          # Local LLM SSE Stream Route Handler
-├── components/
-│   ├── layout/header.tsx             # Header & Local LLM Health Status
-│   ├── market/
-│   │   ├── coin-selector.tsx         # Coin & Timeframe Selector
-│   │   ├── market-stats-card.tsx     # Price, CVD, Orderbook Depth & Fear/Greed
-│   │   └── indicator-table.tsx       # Calculated TA Indicators & S&R Levels
-│   ├── analysis/
-│   │   ├── persian-analysis-card.tsx # RTL Markdown Analysis Container
-│   │   └── analysis-skeleton.tsx     # Loading Skeleton
-│   ├── news/news-feed.tsx            # Cleaned News Feed List
-│   └── tradingview/tradingview-chart.tsx # Synchronized TradingView Embed
-├── lib/
-│   ├── llm/llm-client.ts             # OpenAI-Compatible Client (http://localhost:20128/v1)
-│   ├── market/
-│   │   ├── ccxt-service.ts           # Node CCXT Exchange Fetcher
-│   │   ├── indicators.ts             # TypeScript TA Indicator Engine
-│   │   └── macro-service.ts          # Alternative.me & DefiLlama Fetchers
-│   ├── news/news-service.ts          # RSS Parser & Sanitizer
-│   └── prompts/analysis-prompt.ts    # Senior Trader Persian Prompt Builder
-└── types/                            # TypeScript Data Contracts
-```
+[English Description](#-system-architecture) • [توضیحات فارسی](#-درباره-پروژه-به-فارسی) • [Quick Start](#-quick-start) • [Documentation](#-documentation)
 
 ---
 
-## ⚙️ Environment Variables
+## 🇮🇷 درباره پروژه (به فارسی)
 
-Create or edit `.env.local`:
+این پلتفرم یک سیستم کامل **معاملات الگوریتمی و هوش مصنوعی** است که با ترکیب قدرت انعطافپذیر فرانتاند **Next.js** و سرعت بالای محاسبات ریاضی و ماشینی **Python (FastAPI)** پیادهسازی شده است:
 
-```env
-LLM_BASE_URL=http://localhost:20128/v1
-LLM_API_KEY=not-needed
-LLM_MODEL=default
-DEFAULT_EXCHANGE=kucoin
-DEFAULT_TIMEFRAME=1h
+* ⚡ **تشخیص وضعیت بازار (Market Regime Detection)**: محاسبه دقیق الگوی روند (ADX, ATR, EMA Stack) بدون اتکا به حدس هوش مصنوعی.
+* 🤖 **تحلیل هوشمند و پرامپت موسساتی**: استریمینگ آسنکرون پیشنهادهای معاملاتی، مدیریت ریسک، و نقاط ورود/خروج (SL/TP) بر اساس LLM.
+* 📊 **بکتست سریع برداری (Vectorized Backtesting)**: پردازش و شبیهسازی استراتژیها روی دادههای تاریخی سنگین با استفاده از Pandas/NumPy پایتون.
+* 🎯 **خوشهبندی هوشمند سطوح حمایت/مقاومت**: کشف زونهای واقعی نقدینگی با الگوریتم یادگیری ماشین **DBSCAN**.
+* 📰 **تحلیل سنتیمنت اخبار و توئیتر**: پردازش عمیق متن با مدلهای NLP مالی (VADER).
+
+---
+
+## 🏛️ System Architecture
+
+```
+                               ┌──────────────────────────────────────────────┐
+                               │               Client Web UI                  │
+                               │        React 19 + TradingView Charts         │
+                               └──────────────────────┬───────────────────────┘
+                                                      │ HTTP / EventStream
+                                                      ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │                                Next.js 16 Web Gateway (TypeScript)                                     │
+ │                                                                                                        │
+ │   ┌───────────────────────┐    ┌─────────────────────────┐    ┌──────────────────────────────────┐   │
+ │   │  Regime Engine (TS)   │    │  No-Trade Gate (TS)     │    │  LLM Streaming Router (TS)       │   │
+ │   │  `lib/analysis/`      │    │  `setup-resolver.ts`    │    │  `app/api/analysis/stream/`      │   │
+ │   └───────────────────────┘    └─────────────────────────┘    └──────────────────────────────────┘   │
+ └─────────────┬──────────────────────────────┬───────────────────────────────────┬───────────────────────┘
+               │                              │                                   │
+               │ REST API                     │ Local Storage / Sync              │ HTTP API / SSE
+               ▼                              ▼                                   ▼
+ ┌───────────────────────────┐  ┌───────────────────────────┐           ┌───────────────────────────┐
+ │   FastAPI Python Backend  │  │   SQLite / Supabase DB    │           │  Local LLM / 9router      │
+ │                           │  │                           │           │                           │
+ │  • DBSCAN S&R Clustering  │  │  • Signal History         │           │  • Institutional Analysis │
+ │  • Vectorized Backtest    │  │  • Watchlists & Settings  │           │  • Narrative Generation   │
+ │  • VADER NLP Sentiment    │  │  • Paper Portfolio        │           │  • Risk Auditing          │
+ └───────────────────────────┘  └───────────────────────────┘           └───────────────────────────┘
 ```
 
 ---
 
-## 💻 Getting Started
+## 🛠️ Tech Stack Matrix
 
-### 1. Install Dependencies
+| Domain | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend Framework** | Next.js 16 (App Router) + React 19 | SSR, Client UI, Routing & Streaming |
+| **UI Components & Styling** | Tailwind CSS v4 + Lucide React | High-density trading dashboard layout |
+| **Charting & Visualization** | TradingView `lightweight-charts` + Recharts | Interactive candlesticks & equity curves |
+| **Backend Microservice** | Python 3.12 + FastAPI + Uvicorn | Heavy Math, ML Clustering & NLP API |
+| **Quant Analytics** | Pandas + NumPy + Scikit-Learn | Vectorized backtesting & DBSCAN clustering |
+| **NLP Sentiment Analysis** | VADER Sentiment Analyzer | Financial & crypto lexicon-weighted scoring |
+| **Database & Persistence** | Better-SQLite3 + Supabase | Sub-50ms local persistence & cloud sync |
+| **Exchange Connectivity** | CCXT (Crypto Currency eXchange Trading) | Unified exchange REST & ticker integration |
+
+---
+
+## 📂 Project Layout
+
+```text
+ai-trading-platform/
+├── app/                        # Next.js App Router endpoints & UI pages
+├── components/                 # React components (Dashboard, Terminal, News, Widgets)
+├── lib/                        # Core TypeScript business logic & engines
+│   ├── analysis/               # Market Regime, No-Trade Gate, Decision Zones
+│   ├── llm/                    # LLM Client, Institutional Prompts, Signal Coherence
+│   ├── market/                 # CCXT Service, Technical Indicators
+│   └── python/                 # Python Backend HTTP Client (`python-client.ts`)
+├── backend/                    # Python FastAPI Microservice
+│   ├── pyproject.toml          # Python project dependencies (uv)
+│   ├── app/
+│   │   ├── main.py             # FastAPI entry point & CORS
+│   │   ├── routers/            # API endpoints (/sentiment, /clustering, /backtest)
+│   │   └── services/           # Python Quant & NLP engines
+│   └── README.md
+├── docs/                       # Project Documentation
+│   ├── ARCHITECTURE.md         # Detailed System Topology & Design Patterns
+│   ├── API_SPECIFICATION.md    # REST Endpoints & Data Models
+│   └── DEVELOPMENT_GUIDE.md    # Local Setup, Testing & Tooling Guide
+├── scripts/                    # Helper scripts (X Feed Scraper Engine)
+└── tests/                      # Vitest test suites
+```
+
+---
+
+## 🚀 Quick Start
+
+### 1. Launch Next.js Frontend
 ```bash
 npm install
-```
-
-### 2. Run Development Server
-```bash
 npm run dev
+# Frontend live at http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### 3. Build for Production
+### 2. Launch FastAPI Python Microservice
 ```bash
-npm run build
-npm run start
+cd backend
+uv venv .venv
+source .venv/bin/activate
+uv pip install -e .
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Python API live at http://127.0.0.1:8000
 ```
+
+### 3. Run Tests
+```bash
+npm test
+```
+
+---
+
+## 📖 Documentation
+
+For detailed architectural breakdown and API specifications, explore the **[`docs/`](./docs)** folder:
+* 📘 **[Architecture Overview](./docs/ARCHITECTURE.md)**
+* 📙 **[API Specification & Schemas](./docs/API_SPECIFICATION.md)**
+* 📗 **[Development & Setup Guide](./docs/DEVELOPMENT_GUIDE.md)**
