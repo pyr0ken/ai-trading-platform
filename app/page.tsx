@@ -297,29 +297,6 @@ export default function DashboardPage() {
             )}
 
             {/* Other Workspace Tabs */}
-            {activeTab === 'ai_assistant' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-7 space-y-6">
-                  <AnalysisCard
-                    content={analysisText}
-                    isStreaming={isStreaming}
-                    isLoading={isMarketLoading || isAnalysisLoading}
-                    symbol={selectedSymbol}
-                    exchange={selectedExchange}
-                    timeframe={selectedTimeframe}
-                    analysisMode={analysisMode}
-                    error={analysisError}
-                    logSteps={logSteps}
-                    hasRun={hasRun}
-                    onRunAnalysis={handleRunAnalysis}
-                  />
-                </div>
-                <div className="lg:col-span-5">
-                  <AIChatWidget symbol={selectedSymbol} analysisSummary={parsedJson} />
-                </div>
-              </div>
-            )}
-
             {activeTab === 'watchlist' && (
               <StandaloneWatchlistPage
                 onSelectCoin={(sym) => {
@@ -391,25 +368,6 @@ export default function DashboardPage() {
             {activeTab === 'settings' && <TerminalSettingsPage />}
           </main>
 
-          <footer className="border-t border-[#1c1d22] bg-[#040406] py-12 px-8 text-[12px] text-[#5e616e] select-none">
-            <div className="max-w-[1216px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
-                <span className="font-ivy-presto text-[15px] text-[#e2e3e9] tracking-[0.01em]">
-                  market<span className="text-[#cc9166]">.ai</span>
-                </span>
-                <span className="text-[#2e3038]">|</span>
-                <span className="text-[#5e616e]">Intelligence Terminal</span>
-              </div>
-
-              <div className="flex items-center gap-3 text-[#5e616e]">
-                <span>Real-time market intelligence and analysis</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-[#5e616e]">
-                <span>&copy; {new Date().getFullYear()} Market AI Analyzer</span>
-              </div>
-            </div>
-          </footer>
           <ToastContainer />
         </div>
       </div>
