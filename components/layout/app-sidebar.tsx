@@ -18,12 +18,13 @@ import {
   Briefcase,
   Newspaper,
   LogOut,
+  LineChart,
 } from 'lucide-react';
 import { AppStorageEngine } from '@/lib/storage/app-db';
 import { useAuth } from '@/components/providers/auth-provider';
 import { getUserColor } from '@/lib/utils/user-colors';
 
-export type NavTab = 'dashboard' | 'ai_assistant' | 'watchlist' | 'news' | 'history' | 'settings' | 'backtest' | 'paper_portfolio';
+export type NavTab = 'dashboard' | 'terminal' | 'ai_assistant' | 'watchlist' | 'news' | 'history' | 'settings' | 'backtest' | 'paper_portfolio';
 
 interface AppSidebarProps {
   activeTab: NavTab;
@@ -101,7 +102,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   }, []);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
+    { id: 'terminal', label: 'Live Terminal', icon: LineChart },
     { id: 'ai_assistant', label: 'AI Intelligence', icon: Bot },
     { id: 'news', label: 'News Intelligence', icon: Newspaper },
     { id: 'backtest', label: 'Strategy Backtester', icon: BarChart2 },
