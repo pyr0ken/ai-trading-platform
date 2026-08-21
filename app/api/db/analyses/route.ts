@@ -32,7 +32,7 @@ export async function GET(request: Request) {
         const records = data.map((row: Record<string, unknown> & { profiles?: { username?: string } }) => ({
           id: String(row.id),
           user_id: row.user_id ? String(row.user_id) : undefined,
-          username: row.profiles?.username || 'omid',
+          username: row.profiles?.username || 'anonymous',
           symbol: String(row.symbol),
           exchange: String(row.exchange),
           timeframe: String(row.timeframe),
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 
     const records = rows.map((row) => ({
       id: String(row.id),
-      username: 'omid',
+      username: 'anonymous',
       symbol: String(row.symbol),
       exchange: String(row.exchange),
       timeframe: String(row.timeframe),

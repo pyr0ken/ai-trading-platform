@@ -200,7 +200,7 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                   </td>
                   <td className="py-3 px-3">
                     <span className="px-2 py-0.5 rounded bg-[#121317] border border-[#1c1d22] text-[#cc9166] font-bold text-[10px]">
-                      @{record.username || 'omid'}
+                      @{record.username || 'anonymous'}
                     </span>
                   </td>
                   <td className="py-3 px-3 font-bold text-[#e2e3e9]">

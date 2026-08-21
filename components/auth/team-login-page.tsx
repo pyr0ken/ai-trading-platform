@@ -151,7 +151,7 @@ export const TeamLoginPage: React.FC = () => {
             <div className="space-y-1.5">
               <label className="text-[11px] text-[#9194a1] font-semibold flex items-center justify-between">
                 <span>Username</span>
-                <span className="text-[10px] text-[#5e616e]">e.g. omid, reza, ali</span>
+                <span className="text-[10px] text-[#5e616e]">e.g. trader, alex, reza</span>
               </label>
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5e616e]" />
