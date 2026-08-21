@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { History, ArrowUpRight, ArrowDownRight, Eye, Trash2, RotateCw, RefreshCw, Sparkles } from 'lucide-react';
+import { History, ArrowUpRight, ArrowDownRight, Eye, Trash2, RotateCw, RefreshCw, Sparkles, Check, X, AlertOctagon, Clock } from 'lucide-react';
 import { formatPrice } from '@/lib/utils/price-format';
 import { getUserColor } from '@/lib/utils/user-colors';
 import { AppStorageEngine, StoredAnalysisRecord } from '@/lib/storage/app-db';
@@ -227,22 +227,22 @@ export const HistorySignalTable: React.FC<HistorySignalTableProps> = ({
                   <td className="py-3 px-3">
                     {evalStatus === 'WIN' && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 font-mono">
-                        🎯 WIN ({pnl !== undefined && pnl > 0 ? `+${pnl}%` : `${pnl}%`})
+                        <Check className="w-3 h-3 text-emerald-400" /> WIN ({pnl !== undefined && pnl > 0 ? `+${pnl}%` : `${pnl}%`})
                       </span>
                     )}
                     {evalStatus === 'LOSS' && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-rose-950/60 text-rose-400 border border-rose-500/40 font-mono">
-                        🔻 LOSS ({pnl}% )
+                        <X className="w-3 h-3 text-rose-400" /> LOSS ({pnl}% )
                       </span>
                     )}
                     {evalStatus === 'INVALIDATED' && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-[#121317] text-[#9194a1] border border-[#1c1d22] font-mono">
-                        ⚪ INVALIDATED
+                        <AlertOctagon className="w-3 h-3 text-[#5e616e]" /> INVALIDATED
                       </span>
                     )}
                     {evalStatus === 'PENDING' && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[10px] font-bold bg-amber-950/60 text-amber-400 border border-amber-500/40 font-mono">
-                        ⏳ PENDING
+                        <Clock className="w-3 h-3 text-amber-400" /> PENDING
                       </span>
                     )}
                   </td>

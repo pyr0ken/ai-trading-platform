@@ -212,8 +212,6 @@ export const PersianAnalysisCard: React.FC<AnalysisCardProps> = ({
 
       <AIReasoningBadges badges={parsedJson?.reasoning_badges} isLoading={isStreaming && !parsedJson} />
 
-      <AIChatWidget symbol={symbol} analysisSummary={parsedJson} />
-
       {analysisMode !== 'scalp' ? (
         <div className="bg-[#040406] border border-[#1c1d22] rounded-[10px] p-6 text-[#e2e3e9] space-y-4">
           <div

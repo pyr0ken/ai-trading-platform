@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, ExternalLink, X } from 'lucide-react';
+import { AlertTriangle, ExternalLink, X, Zap } from 'lucide-react';
 import { NewsArticle } from '@/types/news';
 
 /* ───────────────────────────────────────────────
@@ -135,8 +135,8 @@ export function BreakingNewsBanner() {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-rose-400">
-                ⚡ Breaking News
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-rose-400 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-rose-400 animate-pulse" /> Breaking News
               </span>
               <span className="text-[9px] font-mono text-rose-400/50">·</span>
               <span className="text-[10px] font-mono text-[#777a88]">
