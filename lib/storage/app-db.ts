@@ -256,13 +256,25 @@ export class AppStorageEngine {
 
   // --- Analyses History & Replay ---
   public static getAnalyses(): StoredAnalysisRecord[] {
-    if (this.cachedAnalyses) return this.cachedAnalyses;
+    if (this.cachedAnalyses) {
+      return this.cachedAnalyses.map((rec) => ({
+        ...rec,
+        username: rec.username || 'anonymous',
+      }));
+    }
     if (typeof window !== 'undefined') {
       try {
         const data = localStorage.getItem(STORAGE_KEYS.ANALYSES);
         if (data) {
-          this.cachedAnalyses = JSON.parse(data);
-          return this.cachedAnalyses || [];
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed)) {
+            const sanitized = parsed.map((rec: StoredAnalysisRecord) => ({
+              ...rec,
+              username: rec.username || 'anonymous',
+            }));
+            this.cachedAnalyses = sanitized;
+            return sanitized;
+          }
         }
       } catch {}
     }
@@ -270,7 +282,11 @@ export class AppStorageEngine {
   }
 
   public static saveAnalyses(list: StoredAnalysisRecord[]): void {
-    const capped = list.slice(0, 100);
+    const sanitizedList = list.map((rec) => ({
+      ...rec,
+      username: rec.username || 'anonymous',
+    }));
+    const capped = sanitizedList.slice(0, 100);
     this.cachedAnalyses = capped;
     if (typeof window !== 'undefined') {
       try {

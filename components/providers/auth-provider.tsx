@@ -65,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const username = session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'trader';
         fetchProfile(session.user.id, username);
       } else {
-        // Check stored local session for 3-user offline mode
+        // Check stored local session for offline mode
         const storedUser = typeof window !== 'undefined' ? localStorage.getItem('steep_quant_user_session') : null;
         if (storedUser) {
           try {
