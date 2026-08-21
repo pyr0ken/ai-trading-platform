@@ -3,6 +3,14 @@
 
 @theme {
   /* Colors */
+  --color-surface-void: #08080a;
+  --color-surface-card: #0d0e12;
+  --color-surface-hover: #161820;
+  --color-surface-border: #1f222e;
+  --color-brand-copper: #cc9166;
+  --color-bullish: #10b981;
+  --color-bearish: #ef4444;
+
   --color-obsidian: #08080a;
   --color-onyx: #040406;
   --color-carbon: #121317;

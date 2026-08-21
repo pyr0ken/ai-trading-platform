@@ -68,7 +68,7 @@ export const MarketStatsCard: React.FC<MarketStatsCardProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-[#08080a] border border-[#1c1d22] rounded-[10px] p-4">
           <span className="text-[11px] text-[#5e616e] block mb-1 uppercase tracking-wider">Price</span>
-          <div className="font-ivy-presto text-[20px] text-[#ffffff]">
+          <div className="font-mono font-semibold text-[20px] text-[#ffffff] tabular-nums">
             ${ticker.price.toLocaleString()}
           </div>
         </div>
@@ -76,7 +76,7 @@ export const MarketStatsCard: React.FC<MarketStatsCardProps> = ({
         <div className="bg-[#08080a] border border-[#1c1d22] rounded-[10px] p-4">
           <span className="text-[11px] text-[#5e616e] block mb-1 uppercase tracking-wider">24h Change</span>
           <div
-            className={`font-sans text-[16px] font-medium flex items-center gap-1 ${
+            className={`font-mono text-[16px] font-medium tabular-nums flex items-center gap-1 ${
               isPositive ? 'text-emerald-400' : 'text-rose-400'
             }`}
           >
@@ -87,7 +87,7 @@ export const MarketStatsCard: React.FC<MarketStatsCardProps> = ({
 
         <div className="bg-[#08080a] border border-[#1c1d22] rounded-[10px] p-4">
           <span className="text-[11px] text-[#5e616e] block mb-1 uppercase tracking-wider">Funding Rate</span>
-          <div className="font-sans text-[16px] text-[#e2e3e9]">
+          <div className="font-mono text-[16px] text-[#e2e3e9] tabular-nums">
             {derivatives?.fundingRate !== null && derivatives?.fundingRate !== undefined
               ? `${(derivatives.fundingRate * 100).toFixed(4)}%`
               : 'N/A'}
