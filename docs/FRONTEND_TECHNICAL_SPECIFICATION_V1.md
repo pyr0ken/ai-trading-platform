@@ -1,8 +1,8 @@
-# Frontend Technical Core Specification (v1.4)
+# Frontend Technical Core Specification (v1.5)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.4.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Market Heatmap, Forex Data Service, Toggle State Management, Terminal UI Component Engine, Pip Calculations, and Persistence Subsystems.
+> **Version**: `v1.5.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Market Heatmap, Forex Data Service, Executive Reporting Dashboard Widgets, Persian Analysis Cards, Toggle State Management, Terminal UI Component Engine, Pip Calculations, and Persistence Subsystems.
 
 ---
 
@@ -125,9 +125,9 @@ Prompt assembly, streaming payload construction, JSON self-healing, and output c
 
 ---
 
-## 🖥️ 7. Trading Terminal UI Widgets & Analytics Components (`frontend/components/terminal/` & `frontend/components/market/`)
+## 🖥️ 7. Trading Terminal & Dashboard UI Components (`frontend/components/`)
 
-Visual analytics widgets, conviction breakdown meters, market heatmaps, and terminal execution components:
+Visual analytics widgets, conviction meters, executive dashboards, and Persian localized card renderers:
 
 | Component / Widget | Source File | UI Architecture Role |
 | :--- | :---: | :--- |
@@ -141,7 +141,14 @@ Visual analytics widgets, conviction breakdown meters, market heatmaps, and term
 | `AnalysisReplayModal` | `components/terminal/analysis-replay-modal.tsx` | Interactive modal replaying historical trade setups against market price outcomes. |
 | `HistorySignalTable` | `components/terminal/history-signal-table.tsx` | Searchable table listing historical signals with Win/Loss badges and accuracy metrics. |
 | `AIChatWidget` | `components/terminal/ai-chat-widget.tsx` | Embedded interactive chat widget communicating directly with the LLM API stream. |
-| `MarketHeatmap` | `components/market/market-heatmap.tsx` | Real-time 24h market heatmap fetching parallel price deltas & volume from Binance/KuCoin APIs with auto-refresh. |
+| `ExecutiveReportingDashboard` | `components/dashboard/executive-reporting-dashboard.tsx` | High-level executive reporting dashboard aggregating portfolio PnL, win rates, and active signals. |
+| `DashboardTickerTape` | `components/dashboard/dashboard-ticker-tape.tsx` | Real-time sliding price ticker tape rendering top market symbols. |
+| `QuickSymbolSearch` | `components/dashboard/quick-symbol-search.tsx` | Fast-access modal search component for Instant asset switching. |
+| `DashboardLayoutToolbar` | `components/dashboard/dashboard-layout-toolbar.tsx` | Custom dashboard grid toolbar allowing widget reordering and layout persistence. |
+| `PersianAnalysisCard` | `components/analysis/persian-analysis-card.tsx` | Right-to-Left (RTL) Persian translation card renderer formatting AI analysis markdown. |
+| `LiveStatusLogger` | `components/analysis/live-status-logger.tsx` | Step-by-step live status logger component displaying pipeline execution milestones. |
+| `AnalysisSkeleton` | `components/analysis/analysis-skeleton.tsx` | Progressive skeleton loader component preventing full-page blocking spinners during LLM stream load. |
+| `MarketHeatmap` | `components/market/market-heatmap.tsx` | Real-time 24h market heatmap fetching parallel price deltas & volume from Binance/KuCoin APIs. |
 | `WatchlistManager` | `components/market/watchlist-manager.tsx` | Interactive watchlist management grid with search, pinning, and symbol selection. |
 | `CoinSelector` | `components/market/coin-selector.tsx` | Searchable dropdown component for quick market asset switching across Top 300 coins. |
 
