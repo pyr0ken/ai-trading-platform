@@ -1,14 +1,14 @@
-# Frontend Technical Core Specification (v1.0)
+# Frontend Technical Core Specification (v1.1)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.0.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, and Persistence Subsystems.
+> **Version**: `v1.1.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, and Persistence Subsystems.
 
 ---
 
 ## 🧭 Executive Overview
 
-This document provides a exhaustive, structural registry of all technical functions, algorithms, risk gates, machine learning interfaces, paper trading engines, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
+This document provides an exhaustive, structural registry of all technical functions, algorithms, risk gates, machine learning interfaces, paper trading engines, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
 
 ---
 
@@ -147,7 +147,37 @@ Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase s
 | `saveAnalysis` / `getAnalyses` | `lib/storage/app-db.ts` | Stores and retrieves AI analysis records and win/loss trade evaluations. |
 | `updateAnalysisRecordStatus` | `lib/storage/app-db.ts` | Updates setup status (`WIN`, `LOSS`, `INVALIDATED`) based on market price tracking. |
 | `syncListToSupabase` | `lib/storage/app-db.ts` | Async background queue syncing client records to cloud Supabase tables. |
-| `subscribeToRealtimeChanges` | `lib/storage/app-db.ts` | Subscribes to Supabase WebSocket channels for multi-device realtime updates. |
+| `subscribeToRealtimeChanges` | `lib/storage/app-db.ts` | Subscribes to Supabase WebSocket channels for realtime cloud state updates. |
 | `exportFullBackup` / `importFullBackup` | `lib/storage/app-db.ts` | Exports/imports JSON archives containing watchlists, accounts, setups, and settings. |
 | `getDatabase` | `lib/db/sqlite-client.ts` | Server-side SQLite connection initializer (`better-sqlite3`). |
 | `useAutoResolver` | `hooks/use-auto-resolver.ts` | Background task hook auto-evaluating pending setups against market price outcomes. |
+
+---
+
+## 🐳 9. On-Chain Whale Analytics (`frontend/lib/whale/`)
+
+Multi-chain tracking services monitoring large movements of capital on Ethereum and BSC network RPCs:
+
+| Function / Component | Source File | On-Chain Analytics Role |
+| :--- | :---: | :--- |
+| `fetchWhaleSnapshot` | `lib/whale/whale-service.ts` | Orchestrates Ethereum & BSC RPC fetching to identify whale movements > $minUSD. |
+| `fetchEtherscanTransfers` | `lib/whale/whale-service.ts` | Ingests Etherscan & BscScan ERC20 token transfer events using API endpoints. |
+| `fetchRpcNativeTransfers` | `lib/whale/whale-service.ts` | RPC fallback client tracking native network assets (ETH/BNB) directly via JSON-RPC. |
+| `detectDirection` | `lib/whale/whale-service.ts` | Evaluates exchange inflows/outflows using classified hot exchange deposit targets. |
+| `lookupLabel` | `lib/whale/known-addresses.ts` | Cross-references hex addresses against a curated directory of exchanges and whales. |
+| `addWhaleHistory` | `lib/whale/whale-history-store.ts` | Appends and manages a persistent client-side ring history of recent whale transfer events. |
+| `getSeverity` | `lib/whale/whale-service.ts` | Scores whale threat/impact levels (`INFO` to `LEGENDARY`) based on USD transaction volume. |
+
+---
+
+## 🛠️ 10. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
+
+Helper modules providing formatting logic, color styling, and numeric rounding:
+
+| Function / Component | Source File | Utility Role |
+| :--- | :---: | :--- |
+| `formatPrice` | `lib/utils/price-format.ts` | Formats asset prices to appropriate significant decimals based on magnitude. |
+| `formatPriceChange` | `lib/utils/price-format.ts` | Formats percentage price delta with clean signed flags (`+` / `-`). |
+| `priceDecimals` | `lib/utils/price-format.ts` | Determines the correct decimal precision for an asset dynamically (DOGE vs BTC). |
+| `getUserColor` | `lib/utils/user-colors.ts` | Generates stable user color coding for chat interfaces based on username hash. |
+| `cn` | `utils/cn.ts` | Tailwind CSS utility merging packages smoothly (`clsx` + `tailwind-merge`). |
