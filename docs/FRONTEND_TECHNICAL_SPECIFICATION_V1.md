@@ -1,8 +1,8 @@
-# Frontend Technical Core Specification (v1.1)
+# Frontend Technical Core Specification (v1.2)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.1.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, and Persistence Subsystems.
+> **Version**: `v1.2.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Forex Data Service, and Persistence Subsystems.
 
 ---
 
@@ -49,6 +49,9 @@ Deterministic technical indicator implementations optimized for in-browser calcu
 | `dropUnclosedCandle` | `lib/market/closed-candle.ts` | Strips forming bar to prevent indicator skew during closed-bar analysis. |
 | `describeFormingCandle` | `lib/market/closed-candle.ts` | Analyzes intraday momentum and completion percentage of the active bar. |
 | `timeframeToMs` | `lib/market/closed-candle.ts` | Converts human timeframe strings (`1m`, `1h`, `1d`) to exact millisecond integers. |
+| `ForexMarketService` | `lib/market/forex-service.ts` | Dedicated fallback pricing and Pip value calculator for FX currency pairs (EUR/USD, GBP/USD). |
+| `MacroSentimentService` | `lib/market/macro-service.ts` | Fetches interest rates, inflation markers, and macro risk bias indicators. |
+| `EconomicCalendar` | `lib/market/economic-calendar.ts` | High-impact macroeconomic calendar events parser (CPI, NFP, FOMC decisions). |
 
 ---
 
@@ -117,10 +120,22 @@ Prompt assembly, streaming payload construction, JSON self-healing, and output c
 | `resolveTradeSetup` | `lib/analysis/setup-resolver.ts` | Normalizes legacy vs modern LLM output schemas into unified setup objects. |
 | `logPromptToFile` | `lib/llm/prompt-logger.ts` | Audit logger persisting exact prompt inputs to `./logs/` for prompt drift analysis. |
 | `useLLMAnalysis` | `hooks/use-llm-analysis.ts` | Main UI hook managing streaming state, progress log steps, and setup persistence. |
+| `AnalysisPromptBuilder` | `lib/prompts/analysis-prompt.ts` | Additional prompt builder template generator for custom analysis modes. |
 
 ---
 
-## 📰 7. News Intelligence & Social Intelligence Pipeline (`frontend/lib/news/` & `frontend/lib/intel/`)
+## 📈 7. TradingView PineScript Code Generator (`frontend/lib/tradingview/`)
+
+Automatic generation of institutional TradingView PineScript v4/v5 overlay strategies:
+
+| Function / Component | Source File | PineScript Generator Role |
+| :--- | :---: | :--- |
+| `generateAdvancedPineScriptCode` | `lib/tradingview/pine-generator.ts` | Converts LLM setups into executable PineScript v5 indicator overlays with Entry, SL, TP1–3 boxes, Trailing Stops, and Dashboard tables. |
+| `handleCopyPine` | `components/tradingview/tradingview-chart.tsx` | Helper copying generated PineScript code directly to clipboard. |
+
+---
+
+## 📰 8. News Intelligence & Social Intelligence Pipeline (`frontend/lib/news/` & `frontend/lib/intel/`)
 
 Headline scoring, source credibility profiling, and temporal decay algorithms:
 
@@ -137,7 +152,7 @@ Headline scoring, source credibility profiling, and temporal decay algorithms:
 
 ---
 
-## 💾 8. Hybrid Persistence & Synchronization (`frontend/lib/storage/` & `frontend/lib/db/`)
+## 💾 9. Hybrid Persistence & Synchronization (`frontend/lib/storage/` & `frontend/lib/db/`)
 
 Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase sync:
 
@@ -154,7 +169,7 @@ Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase s
 
 ---
 
-## 🐳 9. On-Chain Whale Analytics (`frontend/lib/whale/`)
+## 🐳 10. On-Chain Whale Analytics (`frontend/lib/whale/`)
 
 Multi-chain tracking services monitoring large movements of capital on Ethereum and BSC network RPCs:
 
@@ -170,7 +185,7 @@ Multi-chain tracking services monitoring large movements of capital on Ethereum 
 
 ---
 
-## 🛠️ 10. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
+## 🛠️ 11. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
 
 Helper modules providing formatting logic, color styling, and numeric rounding:
 
