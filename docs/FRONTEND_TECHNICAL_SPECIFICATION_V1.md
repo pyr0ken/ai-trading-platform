@@ -1,14 +1,14 @@
-# Frontend Technical Core Specification (v1.6)
+# Frontend Technical Core Specification (v1.7)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.6.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Data Models & Type Contract Matrix, Mathematical Engines, Risk Management, Paper Trading Engine, LLM Pipelines, News Intelligence, On-Chain Whales Analysis, TradingView PineScript Generator, Market Heatmap, Forex Data Service, Executive Dashboard UI, Persian Analysis Cards, and Persistence Subsystems.
+> **Version**: `v1.7.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Data Models & Type Contract Matrix, Mathematical Engines, Risk Management, Paper Trading Engine, LLM Pipelines, News Intelligence, On-Chain Whales Analysis, TradingView PineScript Generator, Market Heatmap, Forex Data Service, Executive Dashboard UI, Layout Components & Styling Systems, Supabase RLS Schema & Security Policies, Persian Analysis Cards, and Persistence Subsystems.
 
 ---
 
 ## 🧭 Executive Overview
 
-This document provides an exhaustive, structural registry of all technical functions, interfaces, algorithms, risk gates, machine learning interfaces, paper trading engines, UI component adapters, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
+This document provides an exhaustive, structural registry of all technical functions, interfaces, algorithms, risk gates, machine learning interfaces, paper trading engines, UI layout adapters, Supabase schema tables, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
 
 ---
 
@@ -146,9 +146,9 @@ Prompt assembly, streaming payload construction, JSON self-healing, and output c
 
 ---
 
-## 🖥️ 8. Trading Terminal & Dashboard UI Components (`frontend/components/`)
+## 🖥️ 8. Trading Terminal & Layout Components (`frontend/components/`)
 
-Visual analytics widgets, conviction meters, executive dashboards, and Persian localized card renderers:
+Visual analytics widgets, layout frames, top navbars, sidebars, and Persian localized card renderers:
 
 | Component / Widget | Source File | UI Architecture Role |
 | :--- | :---: | :--- |
@@ -172,6 +172,12 @@ Visual analytics widgets, conviction meters, executive dashboards, and Persian l
 | `MarketHeatmap` | `components/market/market-heatmap.tsx` | Real-time 24h market heatmap fetching parallel price deltas & volume from Binance/KuCoin APIs. |
 | `WatchlistManager` | `components/market/watchlist-manager.tsx` | Interactive watchlist management grid with search, pinning, and symbol selection. |
 | `CoinSelector` | `components/market/coin-selector.tsx` | Searchable dropdown component for quick market asset switching across Top 300 coins. |
+| `AppSidebar` | `components/layout/app-sidebar.tsx` | High-density Atlantic navigation sidebar with quick view tabs and active symbol selector. |
+| `AtlanticTopNav` | `components/layout/atlantic-top-nav.tsx` | Horizontal institutional top navigation bar displaying platform status and active mode. |
+| `Header` | `components/layout/header.tsx` | Global terminal header with search bar, notification indicators, and profile dropdown. |
+| `BorderedContainerFrame` | `components/layout/bordered-container-frame.tsx` | Specialized high-tech dark theme border container frame wrapping widgets. |
+| `DecorativeSparkle` | `components/layout/decorative-sparkle.tsx` | Vector sparkle asset decorator highlighting active AI recommendations and badges. |
+| `ParticleCloudCanvas` | `components/layout/particle-cloud-canvas.tsx` | High-performance HTML5 Canvas rendering animated background particle effects. |
 
 ---
 
@@ -252,3 +258,27 @@ Helper modules providing formatting logic, color styling, and numeric rounding:
 | `priceDecimals` | `lib/utils/price-format.ts` | Determines the correct decimal precision for an asset dynamically (DOGE vs BTC). |
 | `getUserColor` | `lib/utils/user-colors.ts` | Generates stable user color coding for chat interfaces based on username hash. |
 | `cn` | `utils/cn.ts` | Tailwind CSS utility merging packages smoothly (`clsx` + `tailwind-merge`). |
+
+---
+
+## ⚡ 14. Team Multi-Tenant Supabase Schema & RLS Policies (`frontend/supabase/schema.sql`)
+
+Postgres relational schema definitions and Row-Level Security (RLS) policies enforcing multi-tenant team isolation and realtime collaboration:
+
+| Table / Trigger | Schema Type | Technical & Security Role |
+| :--- | :---: | :--- |
+| `public.profiles` | Postgres Table | User profile contract connected via FK to `auth.users(id)` with cascading deletion. |
+| `public.strategies` | Postgres Table | Quantitative strategy parameter definitions with JSONB config storage. |
+| `public.analyses` | Postgres Table | Core AI signal log storing symbol, signal, confidence, conviction, JSON setups, and PnL. |
+| `public.market_snapshots` | Postgres Table | Point-in-time snapshot of candles, technical facts, and decision zones when signal was generated. |
+| `public.chat_messages` | Postgres Table | Shared interactive AI chat log accessible across team members for collaborative analysis. |
+| `public.paper_accounts` | Postgres Table | Multi-user virtual trading capital account tracking equity history and win rates. |
+| `public.paper_positions` | Postgres Table | Simulated positions with live entry, leverage, PnL percentage, status, and exit prices. |
+| `public.trade_reflections` | Postgres Table | Closed-loop self-tuning AI reflection records evaluating trade outcomes and mistakes. |
+| `public.backtest_runs` | Postgres Table | Stores historical backtest runs, trades array, equity curve JSONB, and Sharpe ratios. |
+| `public.watchlists` | Postgres Table | Per-user symbol watchlists with unique constraints (`user_id`, `symbol`, `exchange`). |
+| `public.alerts` | Postgres Table | Webhook and alert channel configurations triggering on market condition thresholds. |
+| `public.whale_transactions` | Postgres Table | Global log of large-volume whale transfer events across EVM RPCs. |
+| `public.audit_logs` | Postgres Table | Security action tracking log recording administrative actions and updates. |
+| `handle_new_user()` | Pl/pgSQL Trigger | Automated trigger instantiating profile and $10,000 paper trading account upon auth sign-up. |
+| `RLS Team Security Policies` | Row Level Security | **Security Model**: `READ-ALL` for team transparency, `WRITE-OWN` for authenticated user integrity. |
