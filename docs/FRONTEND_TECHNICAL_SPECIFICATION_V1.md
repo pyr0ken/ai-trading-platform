@@ -1,14 +1,14 @@
-# Frontend Technical Core Specification (v1.2)
+# Frontend Technical Core Specification (v1.3)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.2.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Forex Data Service, Toggle State Management, Pip Calculations, and Persistence Subsystems.
+> **Version**: `v1.3.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Forex Data Service, Toggle State Management, Terminal UI Component Engine, Pip Calculations, and Persistence Subsystems.
 
 ---
 
 ## 🧭 Executive Overview
 
-This document provides an exhaustive, structural registry of all technical functions, algorithms, risk gates, machine learning interfaces, paper trading engines, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
+This document provides an exhaustive, structural registry of all technical functions, algorithms, risk gates, machine learning interfaces, paper trading engines, UI component adapters, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
 
 ---
 
@@ -125,18 +125,38 @@ Prompt assembly, streaming payload construction, JSON self-healing, and output c
 
 ---
 
-## 📈 7. TradingView PineScript Code Generator (`frontend/lib/tradingview/`)
+## 🖥️ 7. Trading Terminal UI Widgets & Analytics Components (`frontend/components/terminal/`)
+
+Visual analytics widgets, conviction breakdown meters, and terminal execution components:
+
+| Component / Widget | Source File | UI Architecture Role |
+| :--- | :---: | :--- |
+| `BuySellMeter` | `components/terminal/buy-sell-meter.tsx` | Visual sentiment gauge computing buyer vs seller pressure percentages. |
+| `TechnicalScoreRadar` | `components/terminal/technical-score-radar.tsx` | Radar chart rendering technical scores across Volume, Trend, Volatility, and Momentum. |
+| `MultiTimeframeMatrix` | `components/terminal/multi-timeframe-matrix.tsx` | Grid matrix displaying directional alignment across timeframes (1m to 1w). |
+| `DecisionZonesMapComponent` | `components/terminal/decision-zones-map.tsx` | Visual mapping component displaying Support & Resistance price zones and rejection probabilities. |
+| `ConvictionBreakdownComponent` | `components/terminal/conviction-breakdown.tsx` | Renders conviction score factors (Timeframe alignment, Regime fit, On-chain flow). |
+| `PreflightFactsPanel` | `components/terminal/preflight-facts-panel.tsx` | Displays pre-analysis facts injected into the LLM prompt (ADX, ATR, RSI, Spreads). |
+| `SingleExecutionBox` | `components/terminal/single-execution-box.tsx` | Compact order entry and position sizing box with automatic Risk/Reward calculation. |
+| `AnalysisReplayModal` | `components/terminal/analysis-replay-modal.tsx` | Interactive modal replaying historical trade setups against market price outcomes. |
+| `HistorySignalTable` | `components/terminal/history-signal-table.tsx` | Searchable table listing historical signals with Win/Loss badges and accuracy metrics. |
+| `AIChatWidget` | `components/terminal/ai-chat-widget.tsx` | Embedded interactive chat widget communicating directly with the LLM API stream. |
+
+---
+
+## 📈 8. TradingView PineScript Code Generator (`frontend/lib/tradingview/`)
 
 Automatic generation of institutional TradingView PineScript v4/v5 overlay strategies:
 
 | Function / Component | Source File | PineScript Generator Role |
 | :--- | :---: | :--- |
 | `generateAdvancedPineScriptCode` | `lib/tradingview/pine-generator.ts` | Converts LLM setups into executable PineScript v5 indicator overlays with Entry, SL, TP1–3 boxes, Trailing Stops, and Dashboard tables. |
-| `handleCopyPine` | `components/tradingview/tradingview-chart.tsx` | Helper copying generated PineScript code directly to clipboard. |
+| `PineScriptEditor` | `components/terminal/pine-script-editor.tsx` | Interactive code editor component allowing traders to customize EMA periods and export PineScript. |
+| `PineScriptCard` | `components/terminal/pine-script-card.tsx` | Card widget displaying generated PineScript code with one-click copy to clipboard. |
 
 ---
 
-## 📰 8. News Intelligence & Social Intelligence Pipeline (`frontend/lib/news/` & `frontend/lib/intel/`)
+## 📰 9. News Intelligence & Social Intelligence Pipeline (`frontend/lib/news/` & `frontend/lib/intel/`)
 
 Headline scoring, source credibility profiling, and temporal decay algorithms:
 
@@ -153,7 +173,7 @@ Headline scoring, source credibility profiling, and temporal decay algorithms:
 
 ---
 
-## 💾 9. Hybrid Persistence & Intelligence Settings Toggles (`frontend/lib/storage/` & `frontend/lib/db/`)
+## 💾 10. Hybrid Persistence & Intelligence Settings Toggles (`frontend/lib/storage/` & `frontend/lib/db/`)
 
 Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase sync with feature-flag toggles:
 
@@ -172,7 +192,7 @@ Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase s
 
 ---
 
-## 🐳 10. On-Chain Whale Analytics (`frontend/lib/whale/`)
+## 🐳 11. On-Chain Whale Analytics (`frontend/lib/whale/`)
 
 Multi-chain tracking services monitoring large movements of capital on Ethereum and BSC network RPCs:
 
@@ -188,7 +208,7 @@ Multi-chain tracking services monitoring large movements of capital on Ethereum 
 
 ---
 
-## 🛠️ 11. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
+## 🛠️ 12. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
 
 Helper modules providing formatting logic, color styling, and numeric rounding:
 
