@@ -1,57 +1,31 @@
-# dependencies
+# Node & Next.js
 node_modules/
-.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-coverage/
-
-# next.js
 .next/
 out/
+build/
+dist/
 
-# python virtual environments & cache
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 .venv/
 venv/
-__pycache__/
-*.pyc
+ENV/
+.pytest_cache/
 
-# production
-build/
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# misc
+# IDEs & System
+.vscode/
+.idea/
 .DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files
-.env*
-
-# vercel
-.vercel/
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# local databases
-data/
-*.db
-*.db-wal
-*.db-shm
-
-# hermes agent configs & plans
+*.swp
 .hermes/
+.agents/
 
-# llm prompt logs
-logs/
