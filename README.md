@@ -1,59 +1,40 @@
-# 📈 AI Trading Platform (پلتفرم معاملاتی هوشمند)
+# 📈 AI Trading Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.2.11-black?logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.2.4-blue?logo=react)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)](https://www.python.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4.0-38B2AC?logo=tailwindcss)](https://tailwindcss.com/)
-[![SQLite](https://img.shields.io/badge/SQLite-Better--SQLite3-003B57?logo=sqlite)](https://sqlite.org/)
-
-An institutional-grade **AI-powered Quantitative Trading Platform** built with **Next.js 16 (React 19)** frontend gateway and a high-performance **Python FastAPI Microservice** for vectorized backtesting, machine learning S&R clustering, and financial NLP sentiment analysis.
-
-[English Description](#-system-architecture) • [توضیحات فارسی](#-درباره-پروژه-به-فارسی) • [Quick Start](#-quick-start) • [Documentation](#-documentation)
+An institutional-grade, microservices-driven **AI-powered Quantitative Trading Platform** engineered with a high-performance **Python FastAPI Backend** for quant algorithms, ML models, and sentiment engines, paired with a modern, decoupled **Next.js Frontend** for rendering real-time dashboards and lightweight TradingView charts.
 
 ---
 
-## 🇮🇷 درباره پروژه (به فارسی)
+## 🏛️ Microservices Architecture & Topology
 
-این پلتفرم یک سیستم کامل **معاملات الگوریتمی و هوش مصنوعی** است که با ترکیب قدرت انعطافپذیر فرانتاند **Next.js** و سرعت بالای محاسبات ریاضی و ماشینی **Python (FastAPI)** پیادهسازی شده است:
-
-* ⚡ **تشخیص وضعیت بازار (Market Regime Detection)**: محاسبه دقیق الگوی روند (ADX, ATR, EMA Stack) بدون اتکا به حدس هوش مصنوعی.
-* 🤖 **تحلیل هوشمند و پرامپت موسساتی**: استریمینگ آسنکرون پیشنهادهای معاملاتی، مدیریت ریسک، و نقاط ورود/خروج (SL/TP) بر اساس LLM.
-* 📊 **بکتست سریع برداری (Vectorized Backtesting)**: پردازش و شبیهسازی استراتژیها روی دادههای تاریخی سنگین با استفاده از Pandas/NumPy پایتون.
-* 🎯 **خوشهبندی هوشمند سطوح حمایت/مقاومت**: کشف زونهای واقعی نقدینگی با الگوریتم یادگیری ماشین **DBSCAN**.
-* 📰 **تحلیل سنتیمنت اخبار و توئیتر**: پردازش عمیق متن با مدلهای NLP مالی (VADER).
-
----
-
-## 🏛️ System Architecture
+This project is built from the ground up as a **decoupled microservice architecture**. By separating the heavy mathematical calculations and data pipelines from the presentation layer, the platform guarantees sub-second responsiveness and modular scaling.
 
 ```
                                ┌──────────────────────────────────────────────┐
-                               │               Client Web UI                  │
+                               │             Next.js Frontend                 │
                                │        React 19 + TradingView Charts         │
                                └──────────────────────┬───────────────────────┘
-                                                      │ HTTP / EventStream
+                                                      │ HTTP REST / SSE (Streams)
                                                       ▼
  ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
- │                                Next.js 16 Web Gateway (TypeScript)                                     │
+ │                                 FastAPI Python Backend Microservice                                    │
  │                                                                                                        │
  │   ┌───────────────────────┐    ┌─────────────────────────┐    ┌──────────────────────────────────┐   │
- │   │  Regime Engine (TS)   │    │  No-Trade Gate (TS)     │    │  LLM Streaming Router (TS)       │   │
- │   │  `lib/analysis/`      │    │  `setup-resolver.ts`    │    │  `app/api/analysis/stream/`      │   │
+ │   │ Quant Backtest Service│    │ ML S&R Clustering Zone  │    │  Lexicon Financial NLP Sentiment │   │
+ │   │ (Pandas & NumPy)      │    │ (DBSCAN Algorithm)      │    │  (VADER sentiment engine)        │   │
  │   └───────────────────────┘    └─────────────────────────┘    └──────────────────────────────────┘   │
  └─────────────┬──────────────────────────────┬───────────────────────────────────┬───────────────────────┘
                │                              │                                   │
-               │ REST API                     │ Local Storage / Sync              │ HTTP API / SSE
-               ▼                              ▼                                   ▼
+               ▼ REST API                     ▼ Database Sync                     ▼ Live API / SSE
  ┌───────────────────────────┐  ┌───────────────────────────┐           ┌───────────────────────────┐
- │   FastAPI Python Backend  │  │   SQLite / Supabase DB    │           │  Local LLM / 9router      │
- │                           │  │                           │           │                           │
- │  • DBSCAN S&R Clustering  │  │  • Signal History         │           │  • Institutional Analysis │
- │  • Vectorized Backtest    │  │  • Watchlists & Settings  │           │  • Narrative Generation   │
- │  • VADER NLP Sentiment    │  │  • Paper Portfolio        │           │  • Risk Auditing          │
+ │   External Exchanges      │  │        Supabase DB        │           │     Large Language Models │
+ │   (CCXT REST / WebSockets)│  │    (PostgreSQL Engine)    │           │     (OpenAI & custom API) │
  └───────────────────────────┘  └───────────────────────────┘           └───────────────────────────┘
 ```
+
+### Key Architectural Benefits
+- **Separation of Concerns:** Next.js handles pure client UI routing, rendering, and visual state management, while Python FastAPI is dedicated to execution-heavy trading analytics.
+- **Independent Scalability:** The Python backend can be scaled independently, placed on GPU-equipped instances, or containerized separately from the Node.js frontend layer.
+- **Asymmetric Data Flow:** High-throughput streaming data from the market and AI engines flows via Server-Sent Events (SSE) from the FastAPI microservice directly to the client interface.
 
 ---
 
@@ -61,74 +42,43 @@ An institutional-grade **AI-powered Quantitative Trading Platform** built with *
 
 | Domain | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Frontend Framework** | Next.js 16 (App Router) + React 19 | SSR, Client UI, Routing & Streaming |
-| **UI Components & Styling** | Tailwind CSS v4 + Lucide React | High-density trading dashboard layout |
-| **Charting & Visualization** | TradingView `lightweight-charts` + Recharts | Interactive candlesticks & equity curves |
-| **Backend Microservice** | Python 3.12 + FastAPI + Uvicorn | Heavy Math, ML Clustering & NLP API |
-| **Quant Analytics** | Pandas + NumPy + Scikit-Learn | Vectorized backtesting & DBSCAN clustering |
-| **NLP Sentiment Analysis** | VADER Sentiment Analyzer | Financial & crypto lexicon-weighted scoring |
-| **Database & Persistence** | Better-SQLite3 + Supabase | Sub-50ms local persistence & cloud sync |
-| **Exchange Connectivity** | CCXT (Crypto Currency eXchange Trading) | Unified exchange REST & ticker integration |
+| **Frontend Gateway** | Next.js 15+ (App Router) + React 19 | Server-Side Rendering (SSR), UI streaming, state synchronization |
+| **UI Components & Styles** | Tailwind CSS v4 + Lucide React | High-density trading dashboard, Obsidian & Copper layout |
+| **Data Visualization** | TradingView Lightweight Charts + Recharts | Real-time interactive cryptocurrency and equity curves |
+| **Backend Microservice** | Python 3.12 + FastAPI + Uvicorn | Quantitative execution runtime, analytics endpoints |
+| **Quant Engines** | Pandas + NumPy + Scikit-Learn | Vectorized multi-symbol backtesting & DBSCAN clustering |
+| **Sentiment Analytics** | VADER Sentiment Analyzer (Crypto-Lexicon) | Financial NLP news processing & social media scoring |
+| **Database & Context** | Supabase (PostgreSQL) | Multi-tenant team storage & live state persistence |
+| **Market Connectivity** | CCXT (Crypto Currency eXchange Trading) | Standardized data fetching across global exchanges |
+| **Containerization** | Docker & Docker Compose | Multi-container orchestration & isolated runtimes |
 
 ---
 
-## 📂 Project Layout
+## 🐳 Containerized Development & Setup
 
-```text
-ai-trading-platform/
-├── app/                        # Next.js App Router endpoints & UI pages
-├── components/                 # React components (Dashboard, Terminal, News, Widgets)
-├── lib/                        # Core TypeScript business logic & engines
-│   ├── analysis/               # Market Regime, No-Trade Gate, Decision Zones
-│   ├── llm/                    # LLM Client, Institutional Prompts, Signal Coherence
-│   ├── market/                 # CCXT Service, Technical Indicators
-│   └── python/                 # Python Backend HTTP Client (`python-client.ts`)
-├── backend/                    # Python FastAPI Microservice
-│   ├── pyproject.toml          # Python project dependencies (uv)
-│   ├── app/
-│   │   ├── main.py             # FastAPI entry point & CORS
-│   │   ├── routers/            # API endpoints (/sentiment, /clustering, /backtest)
-│   │   └── services/           # Python Quant & NLP engines
-│   └── README.md
-├── docs/                       # Project Documentation
-│   ├── ARCHITECTURE.md         # Detailed System Topology & Design Patterns
-│   ├── API_SPECIFICATION.md    # REST Endpoints & Data Models
-│   └── DEVELOPMENT_GUIDE.md    # Local Setup, Testing & Tooling Guide
-├── scripts/                    # Helper scripts (X Feed Scraper Engine)
-└── tests/                      # Vitest test suites
-```
+Both the Python backend microservice and Next.js frontend are containerized using Docker, allowing you to run the entire stack with a single command without worrying about local environment drift.
 
----
+### Prerequisites
+- Docker (v24.0.0+)
+- Docker Compose (v2.20.0+)
 
-## 🚀 Quick Start
+### Running the Monorepo
 
-### 1. Launch Next.js Frontend
-```bash
-npm install
-npm run dev
-# Frontend live at http://localhost:3000
-```
+1. **Configure Environment Variables**
+   Make sure you have your API keys and endpoints configured in `.env.local` or `.env` in the root:
+   ```bash
+   LLM_API_KEY=your_api_key
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
+   ```
 
-### 2. Launch FastAPI Python Microservice
-```bash
-cd backend
-uv venv .venv
-source .venv/bin/activate
-uv pip install -e .
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-# Python API live at http://127.0.0.1:8000
-```
+2. **Spin Up the Containers**
+   Launch both microservices concurrently:
+   ```bash
+   docker compose up --build
+   ```
 
-### 3. Run Tests
-```bash
-npm test
-```
-
----
-
-## 📖 Documentation
-
-For detailed architectural breakdown and API specifications, explore the **[`docs/`](./docs)** folder:
-* 📘 **[Architecture Overview](./docs/ARCHITECTURE.md)**
-* 📙 **[API Specification & Schemas](./docs/API_SPECIFICATION.md)**
-* 📗 **[Development & Setup Guide](./docs/DEVELOPMENT_GUIDE.md)**
+3. **In-Browser Access**
+   - **Frontend:** [http://localhost:3000](http://localhost:3000)
+   - **Backend API:** [http://localhost:8000](http://localhost:8000)
+   - **Backend OpenAPI interactive docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
