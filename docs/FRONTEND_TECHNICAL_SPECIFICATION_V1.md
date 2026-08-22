@@ -1,18 +1,39 @@
-# Frontend Technical Core Specification (v1.5)
+# Frontend Technical Core Specification (v1.6)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.5.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Market Heatmap, Forex Data Service, Executive Reporting Dashboard Widgets, Persian Analysis Cards, Toggle State Management, Terminal UI Component Engine, Pip Calculations, and Persistence Subsystems.
+> **Version**: `v1.6.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Data Models & Type Contract Matrix, Mathematical Engines, Risk Management, Paper Trading Engine, LLM Pipelines, News Intelligence, On-Chain Whales Analysis, TradingView PineScript Generator, Market Heatmap, Forex Data Service, Executive Dashboard UI, Persian Analysis Cards, and Persistence Subsystems.
 
 ---
 
 ## 🧭 Executive Overview
 
-This document provides an exhaustive, structural registry of all technical functions, algorithms, risk gates, machine learning interfaces, paper trading engines, UI component adapters, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
+This document provides an exhaustive, structural registry of all technical functions, interfaces, algorithms, risk gates, machine learning interfaces, paper trading engines, UI component adapters, and persistence handlers implemented within the **Frontend (`frontend/`)** of the AI Trading Platform.
 
 ---
 
-## 🌐 1. API Endpoints & Gateway Routes (`frontend/app/api/`)
+## 💎 1. Core Data Models & Type Contract Matrix (`frontend/types/`)
+
+Strict TypeScript interfaces and contracts governing payload schemas across the frontend subsystems:
+
+| Interface / Contract | Source File | Technical Description & Structural Fields |
+| :--- | :---: | :--- |
+| `FullMarketContextPayload` | `types/analysis.ts` | Complete payload injected into LLM streams (symbol, exchange, timeframe, regime, decision zones, technical facts, news, whale flows). |
+| `StructuredLLMOutput` | `types/analysis.ts` | Schema contract enforcing structured JSON output from LLM (signal, confidence, trade_setup, risk_reward_ratio, reasoning). |
+| `TradeSetup` | `types/analysis.ts` | Unified Trade Setup object detailing entry ranges, SL, TP1–3, recommended leverage, and position direction. |
+| `CandleData` | `types/market.ts` | Base OHLCV candlestick interface (`timestamp`, `open`, `high`, `low`, `close`, `volume`). |
+| `CalculatedIndicators` | `types/market.ts` | Computed technical indicator values (`sma_20`, `ema_50`, `rsi_14`, `macd_line`, `macd_hist`, `adx_14`, `atr_14`). |
+| `MarketTechnicalFacts` | `types/market.ts` | Extracted facts summarizing RSI condition, MACD crossover, ADX value, volume surge ratio, and ATR volatility. |
+| `PaperAccount` | `types/paper-trading.ts` | Paper portfolio balance, equity, total trades, win/loss stats, and historical equity curve tracking. |
+| `PaperPosition` | `types/paper-trading.ts` | Simulated trade position tracking entry price, current price, margin, leverage, live PnL, SL, and TP. |
+| `NewsArticle` | `types/news.ts` | Ingested news item metadata (`id`, `title`, `url`, `source`, `publishedAt`, `relevanceScore`, `sentiment`). |
+| `NewsIntelligenceBrief` | `types/news.ts` | Stage-1 LLM/Deterministic news brief summarizing market regime bias, time sensitivity, and macro drivers. |
+| `WhaleTransaction` | `lib/whale/types.ts` | Large-volume on-chain transfer event (`hash`, `from`, `to`, `amount`, `usdValue`, `severity`, `direction`). |
+| `DashboardLayoutConfig` | `types/layout.ts` | Grid layout configuration defining visible widgets, order, and panel dimensions. |
+
+---
+
+## 🌐 2. API Endpoints & Gateway Routes (`frontend/app/api/`)
 
 HTTP API routes embedded inside Next.js acting as edge controllers, server-sent event (SSE) streaming targets, and database sync proxies:
 
@@ -33,7 +54,7 @@ HTTP API routes embedded inside Next.js acting as edge controllers, server-sent 
 
 ---
 
-## 📐 2. Mathematical Engines & Indicator Calculators (`frontend/lib/market/`)
+## 📐 3. Mathematical Engines & Indicator Calculators (`frontend/lib/market/`)
 
 Deterministic technical indicator implementations optimized for in-browser calculation:
 
@@ -56,7 +77,7 @@ Deterministic technical indicator implementations optimized for in-browser calcu
 
 ---
 
-## ⚖️ 3. Risk Management & Execution Economics (`frontend/lib/analysis/`)
+## ⚖️ 4. Risk Management & Execution Economics (`frontend/lib/analysis/`)
 
 Strict mathematical risk gates protecting capital against unviable trade setups and high execution friction:
 
@@ -70,7 +91,7 @@ Strict mathematical risk gates protecting capital against unviable trade setups 
 
 ---
 
-## 🎯 4. Market Regime & Structural Decision Zones (`frontend/lib/analysis/`)
+## 🎯 5. Market Regime & Structural Decision Zones (`frontend/lib/analysis/`)
 
 Deterministic market state classification and machine-assisted support/resistance zone mapping:
 
@@ -86,7 +107,7 @@ Deterministic market state classification and machine-assisted support/resistanc
 
 ---
 
-## 🎮 5. Client-Side Paper Trading Engine (`frontend/lib/storage/` & `frontend/hooks/`)
+## 🎮 6. Client-Side Paper Trading Engine (`frontend/lib/storage/` & `frontend/hooks/`)
 
 Real-time simulated execution, portfolio accounting, and automated SL/TP price monitoring:
 
@@ -103,7 +124,7 @@ Real-time simulated execution, portfolio accounting, and automated SL/TP price m
 
 ---
 
-## 🤖 6. LLM Orchestration, Prompt Engineering & Self-Repair (`frontend/lib/llm/`)
+## 🤖 7. LLM Orchestration, Prompt Engineering & Self-Repair (`frontend/lib/llm/`)
 
 Prompt assembly, streaming payload construction, JSON self-healing, and output coherence verification:
 
@@ -125,7 +146,7 @@ Prompt assembly, streaming payload construction, JSON self-healing, and output c
 
 ---
 
-## 🖥️ 7. Trading Terminal & Dashboard UI Components (`frontend/components/`)
+## 🖥️ 8. Trading Terminal & Dashboard UI Components (`frontend/components/`)
 
 Visual analytics widgets, conviction meters, executive dashboards, and Persian localized card renderers:
 
@@ -154,7 +175,7 @@ Visual analytics widgets, conviction meters, executive dashboards, and Persian l
 
 ---
 
-## 📈 8. TradingView PineScript Code Generator (`frontend/lib/tradingview/`)
+## 📈 9. TradingView PineScript Code Generator (`frontend/lib/tradingview/`)
 
 Automatic generation of institutional TradingView PineScript v4/v5 overlay strategies:
 
@@ -166,7 +187,7 @@ Automatic generation of institutional TradingView PineScript v4/v5 overlay strat
 
 ---
 
-## 📰 9. News Intelligence & Social Intelligence Pipeline (`frontend/lib/news/` & `frontend/lib/intel/`)
+## 📰 10. News Intelligence & Social Intelligence Pipeline (`frontend/lib/news/` & `frontend/lib/intel/`)
 
 Headline scoring, source credibility profiling, and temporal decay algorithms:
 
@@ -183,7 +204,7 @@ Headline scoring, source credibility profiling, and temporal decay algorithms:
 
 ---
 
-## 💾 10. Hybrid Persistence & Intelligence Settings Toggles (`frontend/lib/storage/` & `frontend/lib/db/`)
+## 💾 11. Hybrid Persistence & Intelligence Settings Toggles (`frontend/lib/storage/` & `frontend/lib/db/`)
 
 Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase sync with feature-flag toggles:
 
@@ -202,7 +223,7 @@ Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase s
 
 ---
 
-## 🐳 11. On-Chain Whale Analytics (`frontend/lib/whale/` & `frontend/components/whale/`)
+## 🐳 12. On-Chain Whale Analytics (`frontend/lib/whale/` & `frontend/components/whale/`)
 
 Multi-chain tracking services and UI overlays monitoring large movements of capital on Ethereum and BSC network RPCs:
 
@@ -220,7 +241,7 @@ Multi-chain tracking services and UI overlays monitoring large movements of capi
 
 ---
 
-## 🛠️ 12. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
+## 🛠️ 13. Utility & Pricing Helpers & Formatters (`frontend/lib/utils/`)
 
 Helper modules providing formatting logic, color styling, and numeric rounding:
 
