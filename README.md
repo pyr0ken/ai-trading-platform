@@ -8,28 +8,7 @@ An institutional-grade, microservices-driven **AI-powered Quantitative Trading P
 
 This project is built from the ground up as a **decoupled microservice architecture**. By separating the heavy mathematical calculations and data pipelines from the presentation layer, the platform guarantees sub-second responsiveness and modular scaling.
 
-```
-                               ┌──────────────────────────────────────────────┐
-                               │             Next.js Frontend                 │
-                               │        React 19 + TradingView Charts         │
-                               └──────────────────────┬───────────────────────┘
-                                                      │ HTTP REST / SSE (Streams)
-                                                      ▼
- ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
- │                                 FastAPI Python Backend Microservice                                    │
- │                                                                                                        │
- │   ┌───────────────────────┐    ┌─────────────────────────┐    ┌──────────────────────────────────┐   │
- │   │ Quant Backtest Service│    │ ML S&R Clustering Zone  │    │  Lexicon Financial NLP Sentiment │   │
- │   │ (Pandas & NumPy)      │    │ (DBSCAN Algorithm)      │    │  (VADER sentiment engine)        │   │
- │   └───────────────────────┘    └─────────────────────────┘    └──────────────────────────────────┘   │
- └─────────────┬──────────────────────────────┬───────────────────────────────────┬───────────────────────┘
-               │                              │                                   │
-               ▼ REST API                     ▼ Database Sync                     ▼ Live API / SSE
- ┌───────────────────────────┐  ┌───────────────────────────┐           ┌───────────────────────────┐
- │   External Exchanges      │  │        Supabase DB        │           │     Large Language Models │
- │   (CCXT REST / WebSockets)│  │    (PostgreSQL Engine)    │           │     (OpenAI & custom API) │
- └───────────────────────────┘  └───────────────────────────┘           └───────────────────────────┘
-```
+![AI Trading Platform Microservices Topology](./docs/images/architecture-diagram.png)
 
 ### Key Architectural Benefits
 - **Separation of Concerns:** Next.js handles pure client UI routing, rendering, and visual state management, while Python FastAPI is dedicated to execution-heavy trading analytics.
