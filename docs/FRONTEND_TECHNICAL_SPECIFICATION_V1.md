@@ -1,8 +1,8 @@
-# Frontend Technical Core Specification (v1.3)
+# Frontend Technical Core Specification (v1.4)
 
 > **Document Status**: Production Specification  
-> **Version**: `v1.3.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Forex Data Service, Toggle State Management, Terminal UI Component Engine, Pip Calculations, and Persistence Subsystems.
+> **Version**: `v1.4.0`  
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Market Heatmap, Forex Data Service, Toggle State Management, Terminal UI Component Engine, Pip Calculations, and Persistence Subsystems.
 
 ---
 
@@ -125,9 +125,9 @@ Prompt assembly, streaming payload construction, JSON self-healing, and output c
 
 ---
 
-## 🖥️ 7. Trading Terminal UI Widgets & Analytics Components (`frontend/components/terminal/`)
+## 🖥️ 7. Trading Terminal UI Widgets & Analytics Components (`frontend/components/terminal/` & `frontend/components/market/`)
 
-Visual analytics widgets, conviction breakdown meters, and terminal execution components:
+Visual analytics widgets, conviction breakdown meters, market heatmaps, and terminal execution components:
 
 | Component / Widget | Source File | UI Architecture Role |
 | :--- | :---: | :--- |
@@ -141,6 +141,9 @@ Visual analytics widgets, conviction breakdown meters, and terminal execution co
 | `AnalysisReplayModal` | `components/terminal/analysis-replay-modal.tsx` | Interactive modal replaying historical trade setups against market price outcomes. |
 | `HistorySignalTable` | `components/terminal/history-signal-table.tsx` | Searchable table listing historical signals with Win/Loss badges and accuracy metrics. |
 | `AIChatWidget` | `components/terminal/ai-chat-widget.tsx` | Embedded interactive chat widget communicating directly with the LLM API stream. |
+| `MarketHeatmap` | `components/market/market-heatmap.tsx` | Real-time 24h market heatmap fetching parallel price deltas & volume from Binance/KuCoin APIs with auto-refresh. |
+| `WatchlistManager` | `components/market/watchlist-manager.tsx` | Interactive watchlist management grid with search, pinning, and symbol selection. |
+| `CoinSelector` | `components/market/coin-selector.tsx` | Searchable dropdown component for quick market asset switching across Top 300 coins. |
 
 ---
 
@@ -192,9 +195,9 @@ Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase s
 
 ---
 
-## 🐳 11. On-Chain Whale Analytics (`frontend/lib/whale/`)
+## 🐳 11. On-Chain Whale Analytics (`frontend/lib/whale/` & `frontend/components/whale/`)
 
-Multi-chain tracking services monitoring large movements of capital on Ethereum and BSC network RPCs:
+Multi-chain tracking services and UI overlays monitoring large movements of capital on Ethereum and BSC network RPCs:
 
 | Function / Component | Source File | On-Chain Analytics Role |
 | :--- | :---: | :--- |
@@ -205,6 +208,8 @@ Multi-chain tracking services monitoring large movements of capital on Ethereum 
 | `lookupLabel` | `lib/whale/known-addresses.ts` | Cross-references hex addresses against a curated directory of exchanges and whales. |
 | `addWhaleHistory` | `lib/whale/whale-history-store.ts` | Appends and manages a persistent client-side ring history of recent whale transfer events. |
 | `getSeverity` | `lib/whale/whale-service.ts` | Scores whale threat/impact levels (`INFO` to `LEGENDARY`) based on USD transaction volume. |
+| `WhaleSidebar` | `components/whale/whale-sidebar.tsx` | Interactive sidebar widget rendering live whale transactions with severity filters. |
+| `WhalePopupContainer` | `components/whale/whale-popup.tsx` | Real-time toast alert container popping up when high-severity whale transactions occur. |
 
 ---
 
