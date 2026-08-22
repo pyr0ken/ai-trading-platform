@@ -2,7 +2,7 @@
 
 > **Document Status**: Production Specification  
 > **Version**: `v1.2.0`  
-> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Forex Data Service, and Persistence Subsystems.
+> **Target Scope**: Next.js 16 (React 19) Frontend Architecture, Mathematical Engines, Risk Management, Paper Trading, LLM Pipelines, News Intelligence, On-Chain Whales analysis, Utility systems, TradingView PineScript generation, Forex Data Service, Toggle State Management, Pip Calculations, and Persistence Subsystems.
 
 ---
 
@@ -50,6 +50,7 @@ Deterministic technical indicator implementations optimized for in-browser calcu
 | `describeFormingCandle` | `lib/market/closed-candle.ts` | Analyzes intraday momentum and completion percentage of the active bar. |
 | `timeframeToMs` | `lib/market/closed-candle.ts` | Converts human timeframe strings (`1m`, `1h`, `1d`) to exact millisecond integers. |
 | `ForexMarketService` | `lib/market/forex-service.ts` | Dedicated fallback pricing and Pip value calculator for FX currency pairs (EUR/USD, GBP/USD). |
+| `getPipInfo` | `lib/constants/forex-pairs.ts` | Computes precision, pip size ($0.0001$ vs $0.01$), and pip values across forex symbols. |
 | `MacroSentimentService` | `lib/market/macro-service.ts` | Fetches interest rates, inflation markers, and macro risk bias indicators. |
 | `EconomicCalendar` | `lib/market/economic-calendar.ts` | High-impact macroeconomic calendar events parser (CPI, NFP, FOMC decisions). |
 
@@ -152,9 +153,9 @@ Headline scoring, source credibility profiling, and temporal decay algorithms:
 
 ---
 
-## 💾 9. Hybrid Persistence & Synchronization (`frontend/lib/storage/` & `frontend/lib/db/`)
+## 💾 9. Hybrid Persistence & Intelligence Settings Toggles (`frontend/lib/storage/` & `frontend/lib/db/`)
 
-Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase sync:
+Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase sync with feature-flag toggles:
 
 | Function / Component | Source File | Persistence Architecture Role |
 | :--- | :---: | :--- |
@@ -166,6 +167,8 @@ Multi-tiered storage engine combining LocalStorage, SQLite, and cloud Supabase s
 | `exportFullBackup` / `importFullBackup` | `lib/storage/app-db.ts` | Exports/imports JSON archives containing watchlists, accounts, setups, and settings. |
 | `getDatabase` | `lib/db/sqlite-client.ts` | Server-side SQLite connection initializer (`better-sqlite3`). |
 | `useAutoResolver` | `hooks/use-auto-resolver.ts` | Background task hook auto-evaluating pending setups against market price outcomes. |
+| `readIntelToggles` / `setIntelToggle` | `lib/storage/intel-toggles.ts` | State persistence handlers for news, social, and macro intel feature toggles. |
+| `useActiveLLMModel` / `setLLMModel` | `lib/storage/intel-toggles.ts` | Active LLM model selector persistence handlers (`hermes` vs local models). |
 
 ---
 
