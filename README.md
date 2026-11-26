@@ -1,112 +1,121 @@
-# 🚀 Steep Quant — AI Trading & Quantitative Intelligence Platform (v1)
+<h1 align="center">📈 Steep Quant — AI Trading &amp; Quantitative Intelligence Platform</h1>
 
-A full-stack quantitative trading terminal and AI market intelligence platform built with **Next.js 14+ (App Router)**, **Tailwind CSS**, **Node CCXT**, **SQLite**, and **Local AI Streaming**.
+<p align="center">
+  A full-stack quantitative trading terminal and AI market intelligence platform built with <b>Next.js 16 (App Router)</b>, <b>React 19</b>, <b>Tailwind CSS v4</b>, <b>CCXT</b>, <b>SQLite</b>, and <b>Local AI Streaming</b>.
+</p>
 
-Designed for crypto traders and quant researchers, the platform provides real-time multi-exchange order flow, automated quantitative indicator engines (EMA, SMA, RSI, MACD, Bollinger Bands, ATR, VWAP), deep orderbook and liquidation heatmaps, historical strategy backtesting, paper portfolio simulation, and Senior Trader AI market analysis with RTL Persian synthesis.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19-20232A?style=flat-square&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/SQLite-Local%20Storage-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/CCXT-Multi--Exchange-111827?style=flat-square" alt="CCXT" />
+</p>
 
 ---
 
-## 📸 Platform Interface & Screenshots
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Platform Interface & Screenshots](#platform-interface--screenshots)
+  - [1. Executive Performance Overview & Signal Audit](#1-executive-performance-overview--signal-audit)
+  - [2. Live Quantitative Terminal & Split-Screen Intelligence](#2-live-quantitative-terminal--split-screen-intelligence)
+  - [3. Market Intelligence & Alpha Discovery](#3-market-intelligence--alpha-discovery)
+  - [4. Algorithmic Strategy Backtesting](#4-algorithmic-strategy-backtesting)
+  - [5. Paper Trading Portfolio & Risk Analytics](#5-paper-trading-portfolio--risk-analytics)
+  - [6. Workspace Authentication & Configuration](#6-workspace-authentication--configuration)
+- [Architecture](#architecture)
+- [Environment Configuration](#environment-configuration)
+- [Getting Started](#getting-started)
+
+---
+
+## Introduction
+
+Designed for crypto traders and quant researchers, **Steep Quant** unifies real-time multi-exchange order flow, automated quantitative indicator engines (`EMA`, `SMA`, `RSI`, `MACD`, `Bollinger Bands`, `ATR`, `VWAP`), deep orderbook and liquidation heatmaps, historical strategy backtesting, paper portfolio simulation, and Senior Trader AI market analysis with RTL Persian synthesis.
+
+---
+
+## Platform Interface & Screenshots
 
 ### 1. Executive Performance Overview & Signal Audit
-Comprehensive dashboard tracking win rates, live PnL, AI signal executions across multiple crypto assets, and audit logs with historical replay.
 
-#### Executive Performance Dashboard
-![Executive Overview](docs/screenshots/02_executive_overview.png)
-*High-level performance summary showing signal win rates (79%), paper trading PnL (+662.30 USDT), and per-symbol accuracy matrix.*
+Comprehensive dashboard tracking signal win rates, paper PnL, per-symbol accuracy, and historical signal replay.
 
-#### Historical Signal Audit Log
-![Signal Audit Log](docs/screenshots/03_signal_audit_log.png)
-*Granular audit trail of all generated signals with target take-profit (TP), stop-loss (SL), risk-reward ratios, and execution outcomes.*
-
-#### Deep Signal Analysis Replay
-![Analysis Replay Modal](docs/screenshots/03b_analysis_replay_modal.png)
-*Detailed signal modal replaying exact market conditions, multi-timeframe indicator states, and AI decision rationale.*
+| Executive Performance Dashboard | Historical Signal Audit Log | Deep Signal Analysis Replay |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/02_executive_overview.png" alt="Executive Overview" width="290" /> | <img src="docs/screenshots/03_signal_audit_log.png" alt="Signal Audit Log" width="290" /> | <img src="docs/screenshots/03b_analysis_replay_modal.png" alt="Analysis Replay Modal" width="290" /> |
+| <sub>Signal win rates (79%), paper PnL (+662.30 USDT), and per-symbol accuracy matrix.</sub> | <sub>Granular audit trail with TP/SL targets, risk-reward ratios, and outcomes.</sub> | <sub>Replay modal showing exact market conditions, multi-TF indicators, and AI rationale.</sub> |
 
 ---
 
 ### 2. Live Quantitative Terminal & Split-Screen Intelligence
+
 Real-time trading workspace combining interactive candlestick charts, order flow, depth charts, whale transactions, and an embedded AI copilot.
 
-#### Split-Screen Workspace (Top View)
-![Live Terminal](docs/screenshots/04_live_terminal.png)
-*Live BTC/USDT candlestick charting with synchronized orderbook depth, recent trades, and whale activity stream.*
+| Split-Screen Workspace (Top View) | Quantitative AI Analysis & Pine Script |
+| :---: | :---: |
+| <img src="docs/screenshots/04_live_terminal.png" alt="Live Terminal" width="440" /> | <img src="docs/screenshots/04c_live_terminal_lower.png" alt="Live Terminal Lower" width="440" /> |
+| <sub>Live BTC/USDT candlestick charting with synchronized orderbook depth, recent trades, and whale activity stream.</sub> | <sub>RTL Persian technical synthesis, executable Pine Script v5 strategy code, and interactive quant assistant chat.</sub> |
 
-#### Quantitative AI Analysis & Pine Script Generation (Lower View)
-![Live Terminal Lower](docs/screenshots/04c_live_terminal_lower.png)
-*RTL Persian technical synthesis, executable Pine Script v5 strategy code, and interactive quant assistant chat.*
+| Technical Indicators & Confluence Engine | Order Flow CVD & Market Macro Dynamics |
+| :---: | :---: |
+| <img src="docs/screenshots/04d_live_terminal_tabs1.png" alt="Terminal Tabs - Indicators" width="440" /> | <img src="docs/screenshots/04e_live_terminal_tabs2.png" alt="Terminal Tabs - Order Flow" width="440" /> |
+| <sub>Server-calculated moving averages, oscillators, volatility bands, and key support & resistance price levels.</sub> | <sub>Cumulative Volume Delta (CVD), liquidation clusters, funding rates, and macroeconomic sentiment scores.</sub> |
 
-#### Technical Indicators & Confluence Engine
-![Terminal Tabs - Indicators](docs/screenshots/04d_live_terminal_tabs1.png)
-*Server-calculated moving averages, oscillators, volatility bands, and key support & resistance price levels.*
-
-#### Order Flow CVD & Market Macro Dynamics
-![Terminal Tabs - Order Flow](docs/screenshots/04e_live_terminal_tabs2.png)
-*Cumulative Volume Delta (CVD), liquidation clusters, funding rates, and macroeconomic sentiment scores.*
-
-#### Interactive Quant Chat & Custom Queries
-![AI Report and Chat](docs/screenshots/04f_ai_report_and_chat.png)
-*Direct conversation with the quant LLM engine for ad-hoc scenario testing, risk assessment, and trade parameter tuning.*
+| Live Terminal Signal Replay Overlay | Interactive Quant Chat & Custom Queries |
+| :---: | :---: |
+| <img src="docs/screenshots/04b_analysis_replay_modal.png" alt="Terminal Analysis Replay Modal" width="440" /> | <img src="docs/screenshots/04f_ai_report_and_chat.png" alt="AI Report and Chat" width="440" /> |
+| <sub>In-terminal historical signal replay with entry, stop-loss, target levels, and confluence breakdown.</sub> | <sub>Direct conversation with the quant LLM engine for ad-hoc scenario testing, risk assessment, and trade tuning.</sub> |
 
 ---
 
 ### 3. Market Intelligence & Alpha Discovery
-Aggregated crypto newswires, sentiment analysis, real-time asset watchlist, and rapid navigation.
 
-#### Crypto Newswire & Social Sentiment Stream
-![Market News and Social](docs/screenshots/05_market_news_social.png)
-*Curated real-time crypto news aggregator paired with social sentiment momentum and market-moving headlines.*
+Aggregated crypto newswires, sentiment analysis, real-time asset watchlist, and rapid keyboard navigation.
 
-#### Multi-Asset Watchlist
-![Asset Watchlist](docs/screenshots/06_asset_watchlist.png)
-*Real-time price tracking, 24h change, volatility scoring, and quick-pivot actions across major digital assets.*
-
-#### Quick Symbol Command Palette
-![Quick Symbol Search](docs/screenshots/10_quick_symbol_search.png)
-*Command palette (`Ctrl+K`) for sub-second keyboard-driven symbol navigation and terminal switching.*
+| Crypto Newswire & Social Sentiment | Multi-Asset Watchlist | Quick Symbol Command Palette |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/05_market_news_social.png" alt="Market News and Social" width="290" /> | <img src="docs/screenshots/06_asset_watchlist.png" alt="Asset Watchlist" width="290" /> | <img src="docs/screenshots/10_quick_symbol_search.png" alt="Quick Symbol Search" width="290" /> |
+| <sub>Real-time crypto news aggregator paired with social sentiment momentum and headlines.</sub> | <sub>Live price tracking, 24h change, volatility scoring, and quick-pivot actions across assets.</sub> | <sub>Command palette (<code>Ctrl+K</code>) for sub-second keyboard-driven symbol switching.</sub> |
 
 ---
 
 ### 4. Algorithmic Strategy Backtesting
+
 Historical simulation engine for testing trend-following, mean-reversion, and breakout models before capital deployment.
 
-#### Strategy Engine & Equity Curve
-![Strategy Backtester](docs/screenshots/07_strategy_backtester.png)
-*Historical backtester rendering equity curves, Sharpe ratio, maximum drawdown, and complete simulated execution trade logs.*
+| Strategy Engine & Equity Curve |
+| :---: |
+| <img src="docs/screenshots/07_strategy_backtester.png" alt="Strategy Backtester" width="760" /> |
+| <sub>Historical backtester rendering equity curves, Sharpe ratio, maximum drawdown, and complete simulated execution trade logs.</sub> |
 
 ---
 
 ### 5. Paper Trading Portfolio & Risk Analytics
-Zero-risk simulated execution environment for live-forward testing strategies under real exchange spread and slip conditions.
 
-#### Paper Portfolio Overview
-![Paper Portfolio](docs/screenshots/08_paper_portfolio.png)
-*Simulated wallet balance, available margin, asset allocation distribution, and active open positions.*
+Zero-risk simulated execution environment for live-forward testing strategies under real exchange spread and slippage conditions.
 
-#### Closed Positions & Performance Metrics
-![Paper Performance](docs/screenshots/08b_paper_performance.png)
-*Historical record of closed simulated trades with realized PnL, holding duration, and win/loss statistics.*
+| Paper Portfolio Overview | Closed Positions & Performance Metrics |
+| :---: | :---: |
+| <img src="docs/screenshots/08_paper_portfolio.png" alt="Paper Portfolio" width="440" /> | <img src="docs/screenshots/08b_paper_performance.png" alt="Paper Performance" width="440" /> |
+| <sub>Simulated wallet balance, available margin, asset allocation distribution, and active open positions.</sub> | <sub>Historical record of closed simulated trades with realized PnL, holding duration, and win/loss statistics.</sub> |
 
 ---
 
 ### 6. Workspace Authentication & Configuration
+
 Secure multi-user session management and modular engine settings.
 
-#### Workspace Authentication
-![Login Page](docs/screenshots/01_login.png)
-*Clean authentication interface supporting workspace sign-in and local offline session fallback.*
-
-#### Terminal Settings & API Configurations
-![Terminal Settings](docs/screenshots/09_terminal_settings.png)
-*Model selection, exchange connectivity settings, and custom LLM inference endpoint configuration.*
-
-#### Risk Management Rules & Execution Defaults
-![Terminal Settings Lower](docs/screenshots/09b_terminal_settings_lower.png)
-*Default position sizing, leverage caps, automated stop-loss thresholds, and alert notifications.*
+| Workspace Authentication | Terminal Settings & API Configs | Risk Rules & Execution Defaults |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/01_login.png" alt="Login Page" width="290" /> | <img src="docs/screenshots/09_terminal_settings.png" alt="Terminal Settings" width="290" /> | <img src="docs/screenshots/09b_terminal_settings_lower.png" alt="Terminal Settings Lower" width="290" /> |
+| <sub>Clean authentication interface supporting workspace sign-in and local offline session fallback.</sub> | <sub>Model selection, exchange connectivity settings, and custom LLM inference endpoint setup.</sub> | <sub>Default position sizing, leverage caps, automated stop-loss thresholds, and alerts.</sub> |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ├── app/
@@ -134,7 +143,7 @@ Secure multi-user session management and modular engine settings.
 
 ---
 
-## ⚙️ Environment Configuration
+## Environment Configuration
 
 Create or edit `.env.local`:
 
@@ -154,7 +163,7 @@ DATABASE_PATH=./data/trading.db
 
 ---
 
-## 💻 Getting Started
+## Getting Started
 
 ### 1. Prerequisites
 - **Node.js**: v18.17 or higher
